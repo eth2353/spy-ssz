@@ -35,7 +35,17 @@ def test_nested_containers_use_named_projection_types() -> None:
 
 def test_generated_stubs_expose_concrete_projection_types() -> None:
     signing_stub = (ROOT / "spy_ssz" / "signing.pyi").read_text()
+    projections_stub = (ROOT / "spy_ssz" / "projections.pyi").read_text()
     assert "def slot(self) -> int" in signing_stub
     assert "def beacon_block_root(self) -> bytes" in signing_stub
     assert "def source(self) -> projections.Checkpoint" in signing_stub
     assert "def target(self) -> projections.Checkpoint" in signing_stub
+    assert (
+        """class Checkpoint(Projection):
+    def __init__(
+        self,
+        epoch: int,
+        root: bytes,
+    ) -> None: ..."""
+        in projections_stub
+    )

@@ -266,6 +266,19 @@ def render_projections(
     ]
     for name in sorted(definitions):
         fork, _, shape = definitions[name]
+        projection_fields = [
+            (
+                field_name,
+                _python_annotation(
+                    catalog,
+                    class_names,
+                    fork,
+                    field_type,
+                    qualified=False,
+                ),
+            )
+            for field_name, field_type in shape["fields"]
+        ]
         runtime.extend(
             [
                 "",
@@ -275,14 +288,16 @@ def render_projections(
             ]
         )
         stub.extend(["", f"class {name}(Projection):"])
-        for field_name, field_type in shape["fields"]:
-            annotation = _python_annotation(
-                catalog,
-                class_names,
-                fork,
-                field_type,
-                qualified=False,
+        if projection_fields:
+            stub.extend(["    def __init__(", "        self,"])
+            stub.extend(
+                f"        {field_name}: {annotation},"
+                for field_name, annotation in projection_fields
             )
+            stub.append("    ) -> None: ...")
+        else:
+            stub.append("    def __init__(self) -> None: ...")
+        for field_name, annotation in projection_fields:
             runtime.append(f"    {field_name}: {annotation}")
             stub.extend(
                 [
@@ -290,9 +305,8 @@ def render_projections(
                     f"    def {field_name}(self) -> {annotation}: ...",
                 ]
             )
-        if not shape["fields"]:
+        if not projection_fields:
             runtime.append("    pass")
-            stub.append("    pass")
 
     runtime.extend(["", "", "_PROJECTION_TYPES = {"])
     for (fork, type_id), name in sorted(class_names.items()):
