@@ -67,7 +67,31 @@ def resolve_spy_root(value: str | Path | None = None) -> Path:
             ["git", "clone", "--filter=blob:none", SPY_REPOSITORY, str(checkout)],
             check=True,
         )
-        subprocess.run(["git", "checkout", SPY_REVISION], cwd=checkout, check=True)
+    subprocess.run(
+        ["git", "checkout", "--detach", SPY_REVISION], cwd=checkout, check=True
+    )
+    revision = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=checkout,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    if revision != SPY_REVISION:
+        raise RuntimeError(
+            f"cached SPy checkout is at {revision}, expected {SPY_REVISION}"
+        )
+    modified = subprocess.run(
+        ["git", "status", "--short", "--untracked-files=no"],
+        cwd=checkout,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    if modified:
+        raise RuntimeError(
+            f"cached SPy checkout has tracked modifications:\n{modified}"
+        )
     return checkout.resolve()
 
 
