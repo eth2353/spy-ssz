@@ -57,9 +57,7 @@ def test_electra_json_and_ssz_cover_every_block_operation_family() -> None:
         )
         assert decoded.hash_tree_root() == expected
         assert decoded.to_ssz() == raw_ssz
-        assert decoded.encode_bytes() == raw_ssz
         encoded_json = decoded.to_json()
-        assert decoded.encode_json() == encoded_json
         roundtrip = electra.SignedBeaconBlock.from_obj(
             msgspec.json.decode(encoded_json)["data"]
         )

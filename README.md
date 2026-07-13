@@ -180,9 +180,6 @@ All concrete objects inherit from `SszObject` and expose:
 - `fork`, `object_kind`, `preset`, `schema_id`, and `node_count` metadata
 - `close()` and context-manager ownership
 
-`decode_bytes()` and `encode_bytes()` are compatibility aliases for
-`from_ssz()` and `to_ssz()`.
-
 ## Current scope
 
 | Fork/object | JSON decode | SSZ decode | JSON encode | SSZ encode |

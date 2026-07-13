@@ -177,11 +177,6 @@ class SszObject:
         return cls._decode(data, _SSZ_DECODERS, "SSZ")
 
     @classmethod
-    def decode_bytes(cls, data: bytes | bytearray | memoryview) -> Self:
-        """Compatibility alias for the eth-remerkleable SSZ decoder name."""
-        return cls.from_ssz(data)
-
-    @classmethod
     def _decode(
         cls,
         data: bytes | bytearray | memoryview,
@@ -270,13 +265,6 @@ class SszObject:
         if written != expected:
             raise ValueError(f"SPy {encoding} encoding failed")
         return bytes(output)
-
-    def encode_json(self) -> bytes:
-        return self.to_json()
-
-    def encode_bytes(self) -> bytes:
-        """eth-remerkleable-compatible alias for SPy SSZ output."""
-        return self.to_ssz()
 
     def close(self) -> None:
         try:

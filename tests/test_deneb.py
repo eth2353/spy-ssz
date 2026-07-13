@@ -12,6 +12,12 @@ SSZ_SAMPLE = Path(__file__).parents[1] / "block-sample-3642900.bin"
 SIGNED_ROOT = "036ead785909b45549a62c13f1617a3d84e686a0db3dc29e3b0b9a2a410a0821"
 
 
+def test_ssz_objects_expose_only_from_and_to_io_names() -> None:
+    assert not hasattr(DenebSignedBeaconBlock, "decode_bytes")
+    assert not hasattr(DenebSignedBeaconBlock, "encode_bytes")
+    assert not hasattr(DenebSignedBeaconBlock, "encode_json")
+
+
 def test_spy_decodes_json_into_owned_ssz() -> None:
     raw = SAMPLE.read_bytes()
     block = DenebSignedBeaconBlock.from_json(raw)
@@ -45,9 +51,6 @@ def test_spy_decodes_ssz_into_the_same_ssz_shape() -> None:
             assert from_ssz.object_kind is ObjectKind.SIGNED_BEACON_BLOCK
             assert from_ssz.node_count == from_json.node_count
             assert from_ssz.hash_tree_root() == from_json.hash_tree_root()
-
-    with DenebSignedBeaconBlock.decode_bytes(SSZ_SAMPLE.read_bytes()) as decoded:
-        assert decoded.hash_tree_root().hex() == SIGNED_ROOT
 
 
 @pytest.mark.parametrize("raw", [b"", b"\x00" * 99, b"\xff" * 100])
