@@ -22,7 +22,7 @@ from eth_consensus_specs.fulu import mainnet as fulu
 from eth_consensus_specs.phase0 import mainnet as phase0
 
 
-DEFAULT_CORPUS = Path("/Users/luca/Downloads/eth-blocks/beacon_blocks")
+DEFAULT_CORPUS = Path("/tmp/beacon_blocks")
 SPECS = {
     "phase0": phase0,
     "altair": altair,

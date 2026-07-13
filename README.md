@@ -254,7 +254,7 @@ Benchmark a directory containing raw `.json`, `.ssz`, or `.bin` blocks:
 
 ```bash
 uv run python -m benchmarks.benchmark_corpus \
-  /Users/luca/Downloads/eth-blocks/beacon_blocks
+  /tmp/beacon_blocks
 ```
 
 Use `--csv timings.csv` for per-block results, `--limit` for a quick sample,
