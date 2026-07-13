@@ -175,7 +175,15 @@ def build(spy_root: Path) -> Path:
             spy_BytesObject *source, int32_t kind, int32_t preset);
         int32_t spy_ssz_object_hash_tree_root(
             spy_raw_ssz_ptr object, spy_BytesObject *output);
+        typedef enum {
+            SPY_SSZ_DECODE_UNRECOGNIZED_FIELD = -1,
+            SPY_SSZ_DECODE_INVALID = 0,
+            SPY_SSZ_DECODE_VALID = 1,
+        } spy_ssz_decode_status;
         int32_t spy_ssz_object_is_valid(spy_raw_ssz_ptr object);
+        int32_t spy_ssz_object_decode_status(spy_raw_ssz_ptr object);
+        int32_t spy_ssz_object_error_start(spy_raw_ssz_ptr object);
+        int32_t spy_ssz_object_error_end(spy_raw_ssz_ptr object);
         int32_t spy_ssz_object_fork(spy_raw_ssz_ptr object);
         int32_t spy_ssz_object_preset(spy_raw_ssz_ptr object);
         int32_t spy_ssz_object_kind(spy_raw_ssz_ptr object);

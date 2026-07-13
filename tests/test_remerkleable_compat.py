@@ -362,13 +362,13 @@ def test_json_decoder_rejects_invalid_ignored_primitives(primitive: bytes) -> No
         AttestationData.from_json(malformed)
 
 
-def test_json_decoder_accepts_valid_unicode_and_escaped_ignored_fields() -> None:
+def test_json_decoder_rejects_valid_unrecognized_fields() -> None:
     reference = electra.AttestationData(slot=123)
     raw = msgspec.json.encode(reference.to_obj())
     extended = raw[:-1] + b',"snowman":"\xe2\x98\x83","escaped":"\\n"}'
 
-    with AttestationData.from_json(extended) as decoded:
-        assert decoded.hash_tree_root() == reference.hash_tree_root()
+    with pytest.raises(ValueError, match="^unrecognized JSON object field 'snowman'$"):
+        AttestationData.from_json(extended)
 
 
 def test_json_decoder_rejects_duplicate_object_keys() -> None:

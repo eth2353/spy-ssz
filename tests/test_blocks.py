@@ -1,6 +1,7 @@
 from unittest import mock
 
 import msgspec
+import pytest
 from eth_consensus_specs.electra import mainnet as electra
 from remerkleable.byte_arrays import ByteVector
 from remerkleable.complex import Container, List
@@ -103,6 +104,16 @@ def test_block_contents_json_ssz_signing_and_projections() -> None:
             ).hash_tree_root()
             == reference.hash_tree_root()
         )
+
+
+def test_block_contents_rejects_beacon_block_response_metadata() -> None:
+    reference = BlockContents(block=electra.BeaconBlock())
+    raw_json = msgspec.json.encode({"finalized": True, "data": reference.to_obj()})
+
+    with pytest.raises(
+        ValueError, match="^unrecognized JSON object field 'finalized'$"
+    ):
+        ElectraBeaconBlockContentsMainnet.from_json(raw_json)
 
 
 def test_blinded_block_json_ssz_signing_and_projections() -> None:

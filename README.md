@@ -209,6 +209,10 @@ JSON and SSZ inputs are limited to 2,147,483,647 bytes. The compiled decoder
 uses signed 32-bit positions and arena offsets; larger inputs are rejected at
 the Python boundary before native decoding.
 
+JSON decoding rejects duplicate and unrecognized object fields. Standard
+endpoint-specific Beacon API response metadata is recognized alongside the
+required `data` field; metadata from a different endpoint is rejected.
+
 ## Architecture and sources of truth
 
 - `spy_ssz/schemas.yaml` defines fork IDs, object-kind IDs, schema IDs, codec

@@ -24,6 +24,7 @@ from preset_config import (
     preset_sync_committee_size,
 )
 from ssz_kernels import ZERO_HASHES, hash_pair_into, merkleize_at
+from decode_status import DECODE_STATUS_VALID
 
 
 KIND_UINT: i32 = 1
@@ -85,6 +86,8 @@ class SszObject:
     arena_cursor: i32
     arena_capacity: i32
     valid: i32
+    error_start: i32
+    error_end: i32
     work: gc_ptr[BytesObject]
     work_capacity: i32
     work_cursor: i32
@@ -132,7 +135,9 @@ def new_object(
     obj.arena = raw_alloc[u8](arena_capacity)
     obj.arena_cursor = 0
     obj.arena_capacity = arena_capacity
-    obj.valid = 1
+    obj.valid = DECODE_STATUS_VALID
+    obj.error_start = -1
+    obj.error_end = -1
     # Public hashing uses the bounded-stack C merkleizer. The SPy writer only
     # needs scratch space for the decimal representation of a 256-bit integer
     # (32 working bytes plus at most 78 digits).

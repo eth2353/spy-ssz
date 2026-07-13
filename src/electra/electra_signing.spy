@@ -2,7 +2,13 @@
 
 from _bytes import BytesObject
 from unsafe import gc_ptr, raw_ptr
-from json_parser import JsonDocument, decode_json, object_get
+from decode_status import DECODE_STATUS_VALID
+from json_parser import (
+    JsonDocument,
+    decode_json,
+    object_get,
+    require_recognized_object_fields,
+)
 from metadata import (
     FORK_ELECTRA,
     OBJECT_AGGREGATE_AND_PROOF,
@@ -234,8 +240,11 @@ def decode_signing_json(source: bytes, kind: i32, schema: i32, preset: i32) -> J
         obj.root_node = signed_block_header(document, 0, obj)
     else:
         obj.root_node = proposer_slashing(document, 0, obj)
-    if document.valid == 0:
-        obj.valid = 0
+    require_recognized_object_fields(document)
+    if document.valid != DECODE_STATUS_VALID:
+        obj.valid = document.valid
+        obj.error_start = document.error_start
+        obj.error_end = document.error_end
     return JsonDecodeResult(obj, document)
 
 

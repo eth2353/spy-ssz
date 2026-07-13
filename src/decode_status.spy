@@ -1,0 +1,6 @@
+"""Status codes returned by native JSON and SSZ decoders."""
+
+
+DECODE_STATUS_UNRECOGNIZED_FIELD: i32 = -1
+DECODE_STATUS_INVALID: i32 = 0
+DECODE_STATUS_VALID: i32 = 1

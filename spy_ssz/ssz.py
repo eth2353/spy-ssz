@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from enum import IntEnum
 from importlib import import_module
 from typing import Any, Callable, ClassVar, Self, TypeVar
 
@@ -27,6 +28,14 @@ Sizer = Callable[[Any], int]
 Encoder = Callable[[Any, Any], int]
 CodecKey = tuple[Fork, ObjectKind, Preset]
 Codec = TypeVar("Codec")
+
+
+class _DecodeStatus(IntEnum):
+    UNRECOGNIZED_FIELD = _spy.lib.SPY_SSZ_DECODE_UNRECOGNIZED_FIELD
+    INVALID = _spy.lib.SPY_SSZ_DECODE_INVALID
+    VALID = _spy.lib.SPY_SSZ_DECODE_VALID
+
+
 _MAX_NATIVE_INPUT_LENGTH = (1 << 31) - 1
 _JSON_DECODERS: dict[CodecKey, Decoder] = {}
 _SSZ_DECODERS: dict[CodecKey, Decoder] = {}
@@ -211,9 +220,25 @@ class SszObject:
         decoder = _lookup_codec(decoders, key, f"{encoding} decoder")
         handle = decoder(source_obj)
         assert source_view
-        if not handle.p or not _spy.lib.spy_ssz_object_is_valid(handle):
+        status = (
+            _DecodeStatus(_spy.lib.spy_ssz_object_decode_status(handle))
+            if handle.p
+            else _DecodeStatus.INVALID
+        )
+        if status is not _DecodeStatus.VALID:
+            error_start = (
+                _spy.lib.spy_ssz_object_error_start(handle) if handle.p else -1
+            )
+            error_end = _spy.lib.spy_ssz_object_error_end(handle) if handle.p else -1
             if handle.p:
                 _spy.lib.spy_ssz_object_destroy(handle)
+            if (
+                encoding == "JSON"
+                and status is _DecodeStatus.UNRECOGNIZED_FIELD
+                and 1 <= error_start <= error_end < len(source)
+            ):
+                field = msgspec.json.decode(source[error_start - 1 : error_end + 1])
+                raise ValueError(f"unrecognized JSON object field {field!r}")
             raise ValueError(f"invalid {encoding} object")
         return cls(handle)
 

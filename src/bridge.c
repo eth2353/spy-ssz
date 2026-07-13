@@ -22,6 +22,12 @@ typedef spy_unsafe$raw_ptr__json_parser$JsonDocument spy_raw_json_ptr;
 typedef spy_unsafe$raw_ptr__ssz_reader$SszDocument spy_raw_ssz_document_ptr;
 typedef spy_unsafe$raw_ptr__ssz_object$SszObject spy_raw_ssz_ptr;
 
+typedef enum {
+    SPY_SSZ_DECODE_UNRECOGNIZED_FIELD = -1,
+    SPY_SSZ_DECODE_INVALID = 0,
+    SPY_SSZ_DECODE_VALID = 1,
+} spy_ssz_decode_status;
+
 static void spy_json_document_destroy(spy_raw_json_ptr opaque) {
     spy_json_parser$JsonDocument *document = opaque.p;
     if (document == NULL) return;
@@ -223,7 +229,19 @@ int32_t spy_schema_block_containers_encode_ssz(spy_raw_ssz_ptr opaque,
 }
 
 int32_t spy_ssz_object_is_valid(spy_raw_ssz_ptr opaque) {
-    return opaque.p != NULL && opaque.p->valid;
+    return opaque.p != NULL && opaque.p->valid == SPY_SSZ_DECODE_VALID;
+}
+
+int32_t spy_ssz_object_decode_status(spy_raw_ssz_ptr opaque) {
+    return opaque.p == NULL ? SPY_SSZ_DECODE_INVALID : opaque.p->valid;
+}
+
+int32_t spy_ssz_object_error_start(spy_raw_ssz_ptr opaque) {
+    return opaque.p == NULL ? -1 : opaque.p->error_start;
+}
+
+int32_t spy_ssz_object_error_end(spy_raw_ssz_ptr opaque) {
+    return opaque.p == NULL ? -1 : opaque.p->error_end;
 }
 
 int32_t spy_ssz_object_fork(spy_raw_ssz_ptr opaque) {
