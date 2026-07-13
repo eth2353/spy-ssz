@@ -17,6 +17,10 @@ Implemented schemas in this proof:
 - Deneb `Attestation`: JSON and SSZ input
 - Electra `SignedBeaconBlock`: JSON and SSZ input
 - Fulu `SignedBeaconBlock`: reuses the Electra codec with Fulu metadata
+- Electra `AttestationData`, `Attestation`, `AggregateAndProof`,
+  `SyncCommitteeContribution`, and `ContributionAndProof`: JSON and SSZ I/O
+- Electra block contents and blinded blocks, including signing, header
+  projection, and block-root projection
 - Gloas progressive `Attestation`: JSON and SSZ input
 
 The generated catalog defines every named mainnet SSZ type in
@@ -34,7 +38,7 @@ version.
 - `native/native_writer.spy`: allocation-free JSON and SSZ output primitives
 - `native/schema_*.spy`: fork/object-specific codecs
 - `native/bridge.c`: narrow ownership and CFFI bridge
-- `spy_ssz/native_object.py`: opaque ownership and `(fork, kind)` registry
+- `spy_ssz/native_object.py`: opaque ownership and `(fork, kind, preset)` registry
 - `spy_ssz/consensus_types.json`: generated Electra-through-Heze definitions
 - `spy_ssz/native_*.py`: concrete public types and decoder registration
 
@@ -68,20 +72,36 @@ The generic entry points are `decode_native_json(data, fork, kind)` and
 available for Electra and Fulu signed blocks; Fulu reuses the unchanged Electra
 block schema.
 
-## Build
+Validator-client types expose `from_obj`, `from_json`, `from_ssz`, `to_obj`,
+`to_json`, `to_ssz`, field projection, and `hash_tree_root`. Block types also
+provide `header_dict`, `block_hash_tree_root`, and `sign` helpers:
 
-SPy's wheel does not include the `libspy` C sources, so the build needs a pinned
-source checkout:
+```python
+from spy_ssz import ElectraBeaconBlockContentsMainnet
 
-```bash
-git clone https://github.com/spylang/spy.git .deps/spy
-git -C .deps/spy checkout 012ae501eb6a0adc3baff261c97ec9b56c80c2d1
-uv sync
-uv run python tools/build_native.py --spy-root .deps/spy
+contents = ElectraBeaconBlockContentsMainnet.from_ssz(response_body)
+header = contents.header_dict()
+signed = contents.sign(signature)
+wire_bytes = signed.to_ssz()
 ```
 
-The build compiles the optimized SPy runtime and emits a narrow CFFI extension
-in `spy_ssz/`.
+Mainnet, minimal, and Gnosis variants are available. Checked-in preset YAML is
+loaded through `load_preset`; the selected limits are also attached to every
+native object, so fixed SSZ layouts (including committee and sync vectors) are
+preset-aware.
+
+## Build
+
+The project can be installed directly from Git with uv. Its PEP 517 build
+creates a platform wheel and obtains the pinned SPy source needed for `libspy`:
+
+```bash
+uv add 'spy-ssz @ git+https://github.com/OWNER/spy-ssz.git@REVISION'
+```
+
+For local development, `SPY_ROOT=/path/to/spy uv sync` reuses an existing SPy
+checkout. Without `SPY_ROOT`, the build helper uses `.deps/spy` when present or
+clones the pinned revision into the system temporary directory.
 
 ## Verify and benchmark
 

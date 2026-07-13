@@ -142,6 +142,13 @@ def json_fixed_bytes(
     return add_fixed_bytes_node(obj, offset, length)
 
 
+def decode_json_uint(
+    document: raw_ptr[JsonDocument], token_index: i32,
+    obj: raw_ptr[NativeSszObject]
+) -> i32:
+    return json_uint(document, token_index, obj)
+
+
 def json_byte_list(
     document: raw_ptr[JsonDocument],
     token_index: i32,
@@ -255,12 +262,14 @@ def withdrawal_list(
     document: raw_ptr[JsonDocument], values: i32, obj: raw_ptr[NativeSszObject]
 ) -> i32:
     count = array_length(document, values)
+    if count > obj.max_withdrawals_per_payload:
+        obj.valid = 0
     first = reserve_edges(obj, count)
     i: i32 = 0
     while i < count:
         set_edge(obj, first, i, withdrawal(document, array_get(document, values, i), obj))
         i = i + 1
-    return add_composite_node(obj, KIND_LIST, first, count, 16, 0, 0)
+    return add_composite_node(obj, KIND_LIST, first, count, obj.max_withdrawals_per_payload, 0, 0)
 
 
 def transaction_list(
@@ -329,7 +338,7 @@ def sync_aggregate(
     document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[NativeSszObject]
 ) -> i32:
     first = reserve_edges(obj, 2)
-    set_edge(obj, first, 0, json_fixed_bytes(document, object_get(document, value, b"sync_committee_bits"), obj, 64))
+    set_edge(obj, first, 0, json_fixed_bytes(document, object_get(document, value, b"sync_committee_bits"), obj, obj.sync_committee_size // 8))
     set_edge(obj, first, 1, json_fixed_bytes(document, object_get(document, value, b"sync_committee_signature"), obj, 96))
     return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
 

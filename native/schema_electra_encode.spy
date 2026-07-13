@@ -94,7 +94,7 @@ def ssz_variable_attester_slashings(obj: raw_ptr[NativeSszObject], node: i32, da
 
 
 def ssz_attestation(obj: raw_ptr[NativeSszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    pos = put_u32(data, cap, pos, 236)
+    pos = put_u32(data, cap, pos, 228 + (obj.max_committees_per_slot + 7) // 8)
     pos = ssz_attestation_data(obj, child(obj, node, 1), data, cap, pos)
     pos = ssz_fixed_bytes(obj, child(obj, node, 2), data, cap, pos)
     pos = ssz_fixed_bytes(obj, child(obj, node, 3), data, cap, pos)
@@ -305,7 +305,7 @@ def ssz_block_body(obj: raw_ptr[NativeSszObject], node: i32, data: gc_ptr[u8], c
     payload_size = ssz_execution_payload(obj, payload, data, 0, 0)
     change_size = ssz_bls_changes(obj, changes, data, 0, 0)
     commitment_size = ssz_commitments(obj, commitments, data, 0, 0)
-    running: i32 = 396
+    running: i32 = 332 + obj.sync_committee_size // 8
     pos = ssz_fixed_bytes(obj, child(obj, node, 0), data, cap, pos)
     pos = ssz_eth1_data(obj, child(obj, node, 1), data, cap, pos)
     pos = ssz_fixed_bytes(obj, child(obj, node, 2), data, cap, pos)

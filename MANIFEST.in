@@ -1,0 +1,2 @@
+include tools/build_native.py
+recursive-include native *.c *.spy

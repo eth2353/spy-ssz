@@ -1,0 +1,342 @@
+"""Native output encoding for block contents and blinded blocks."""
+
+from _bytes import BytesObject
+from unsafe import gc_ptr, raw_ptr
+from metadata import OBJECT_BEACON_BLOCK_CONTENTS, OBJECT_BLINDED_BEACON_BLOCK, OBJECT_SIGNED_BEACON_BLOCK_CONTENTS
+from native_writer import child, json_hex_node, json_key, json_uint, put, put_literal, put_u32, ssz_byte_list, ssz_fixed_bytes, ssz_uint
+from schema_electra_encode import (
+    json_attestations,
+    json_attester_slashings,
+    json_beacon_block,
+    json_bls_changes,
+    json_commitments,
+    json_deposits,
+    json_eth1_data,
+    json_execution_requests,
+    json_exits,
+    json_proposer_slashings,
+    json_signed_block,
+    json_sync_aggregate,
+    ssz_attestations,
+    ssz_beacon_block,
+    ssz_bls_changes,
+    ssz_commitments,
+    ssz_deposits,
+    ssz_eth1_data,
+    ssz_execution_requests,
+    ssz_exits,
+    ssz_proposer_slashings,
+    ssz_signed_block,
+    ssz_sync_aggregate,
+    ssz_variable_attester_slashings,
+)
+from ssz_object import NativeSszObject
+
+
+def ssz_fixed_list(obj: raw_ptr[NativeSszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    i: i32 = 0
+    while i < obj.nodes[node].child_count:
+        pos = ssz_fixed_bytes(obj, child(obj, node, i), data, cap, pos)
+        i = i + 1
+    return pos
+
+
+def json_fixed_list(obj: raw_ptr[NativeSszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put(data, cap, pos, u8(91))
+    i: i32 = 0
+    while i < obj.nodes[node].child_count:
+        if i > 0:
+            pos = put(data, cap, pos, u8(44))
+        pos = json_hex_node(obj, child(obj, node, i), data, cap, pos)
+        i = i + 1
+    return put(data, cap, pos, u8(93))
+
+
+def ssz_execution_payload_header(obj: raw_ptr[NativeSszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    i: i32 = 0
+    while i < 17:
+        if i == 6 or i == 7 or i == 8 or i == 9 or i == 15 or i == 16:
+            pos = ssz_uint(obj, child(obj, node, i), 8, data, cap, pos)
+        elif i == 11:
+            pos = ssz_uint(obj, child(obj, node, i), 32, data, cap, pos)
+        elif i == 10:
+            pos = put_u32(data, cap, pos, 584)
+        else:
+            pos = ssz_fixed_bytes(obj, child(obj, node, i), data, cap, pos)
+        i = i + 1
+    return ssz_byte_list(obj, child(obj, node, 10), data, cap, pos)
+
+
+def json_execution_payload_header(obj: raw_ptr[NativeSszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put(data, cap, pos, u8(123))
+    i: i32 = 0
+    while i < 17:
+        if i > 0:
+            pos = put(data, cap, pos, u8(44))
+        if i == 0:
+            pos = json_key(data, cap, pos, b"parent_hash")
+        elif i == 1:
+            pos = json_key(data, cap, pos, b"fee_recipient")
+        elif i == 2:
+            pos = json_key(data, cap, pos, b"state_root")
+        elif i == 3:
+            pos = json_key(data, cap, pos, b"receipts_root")
+        elif i == 4:
+            pos = json_key(data, cap, pos, b"logs_bloom")
+        elif i == 5:
+            pos = json_key(data, cap, pos, b"prev_randao")
+        elif i == 6:
+            pos = json_key(data, cap, pos, b"block_number")
+        elif i == 7:
+            pos = json_key(data, cap, pos, b"gas_limit")
+        elif i == 8:
+            pos = json_key(data, cap, pos, b"gas_used")
+        elif i == 9:
+            pos = json_key(data, cap, pos, b"timestamp")
+        elif i == 10:
+            pos = json_key(data, cap, pos, b"extra_data")
+        elif i == 11:
+            pos = json_key(data, cap, pos, b"base_fee_per_gas")
+        elif i == 12:
+            pos = json_key(data, cap, pos, b"block_hash")
+        elif i == 13:
+            pos = json_key(data, cap, pos, b"transactions_root")
+        elif i == 14:
+            pos = json_key(data, cap, pos, b"withdrawals_root")
+        elif i == 15:
+            pos = json_key(data, cap, pos, b"blob_gas_used")
+        else:
+            pos = json_key(data, cap, pos, b"excess_blob_gas")
+        if i == 6 or i == 7 or i == 8 or i == 9 or i == 11 or i == 15 or i == 16:
+            pos = json_uint(obj, child(obj, node, i), data, cap, pos)
+        elif i == 10:
+            pos = json_hex_node(obj, child(obj, node, i), data, cap, pos)
+        else:
+            pos = json_hex_node(obj, child(obj, node, i), data, cap, pos)
+        i = i + 1
+    return put(data, cap, pos, u8(125))
+
+
+def ssz_blinded_body(obj: raw_ptr[NativeSszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    proposer = child(obj, node, 3)
+    attester = child(obj, node, 4)
+    attestations = child(obj, node, 5)
+    deposits = child(obj, node, 6)
+    exits = child(obj, node, 7)
+    changes = child(obj, node, 10)
+    commitments = child(obj, node, 11)
+    requests = child(obj, node, 12)
+    proposer_size = ssz_proposer_slashings(obj, proposer, data, 0, 0)
+    attester_size = ssz_variable_attester_slashings(obj, attester, data, 0, 0)
+    attestation_size = ssz_attestations(obj, attestations, data, 0, 0)
+    deposit_size = ssz_deposits(obj, deposits, data, 0, 0)
+    exit_size = ssz_exits(obj, exits, data, 0, 0)
+    change_size = ssz_bls_changes(obj, changes, data, 0, 0)
+    commitment_size = ssz_commitments(obj, commitments, data, 0, 0)
+    header_size = ssz_execution_payload_header(obj, child(obj, node, 9), data, 0, 0)
+    running: i32 = 332 + obj.sync_committee_size // 8
+    pos = ssz_fixed_bytes(obj, child(obj, node, 0), data, cap, pos)
+    pos = ssz_eth1_data(obj, child(obj, node, 1), data, cap, pos)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 2), data, cap, pos)
+    pos = put_u32(data, cap, pos, running)
+    running = running + proposer_size
+    pos = put_u32(data, cap, pos, running)
+    running = running + attester_size
+    pos = put_u32(data, cap, pos, running)
+    running = running + attestation_size
+    pos = put_u32(data, cap, pos, running)
+    running = running + deposit_size
+    pos = put_u32(data, cap, pos, running)
+    running = running + exit_size
+    pos = ssz_sync_aggregate(obj, child(obj, node, 8), data, cap, pos)
+    pos = put_u32(data, cap, pos, running)
+    running = running + header_size
+    pos = put_u32(data, cap, pos, running)
+    running = running + change_size
+    pos = put_u32(data, cap, pos, running)
+    running = running + commitment_size
+    pos = put_u32(data, cap, pos, running)
+    pos = ssz_proposer_slashings(obj, proposer, data, cap, pos)
+    pos = ssz_variable_attester_slashings(obj, attester, data, cap, pos)
+    pos = ssz_attestations(obj, attestations, data, cap, pos)
+    pos = ssz_deposits(obj, deposits, data, cap, pos)
+    pos = ssz_exits(obj, exits, data, cap, pos)
+    pos = ssz_execution_payload_header(obj, child(obj, node, 9), data, cap, pos)
+    pos = ssz_bls_changes(obj, changes, data, cap, pos)
+    pos = ssz_commitments(obj, commitments, data, cap, pos)
+    return ssz_execution_requests(obj, requests, data, cap, pos)
+
+
+def ssz_blinded_block(obj: raw_ptr[NativeSszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = ssz_uint(obj, child(obj, node, 0), 8, data, cap, pos)
+    pos = ssz_uint(obj, child(obj, node, 1), 8, data, cap, pos)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 2), data, cap, pos)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 3), data, cap, pos)
+    pos = put_u32(data, cap, pos, 84)
+    return ssz_blinded_body(obj, child(obj, node, 4), data, cap, pos)
+
+
+def ssz_signed_blinded_block(obj: raw_ptr[NativeSszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put_u32(data, cap, pos, 100)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 1), data, cap, pos)
+    return ssz_blinded_block(obj, child(obj, node, 0), data, cap, pos)
+
+
+def json_blinded_body(obj: raw_ptr[NativeSszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put(data, cap, pos, u8(123))
+    i: i32 = 0
+    while i < 13:
+        if i > 0:
+            pos = put(data, cap, pos, u8(44))
+        if i == 0:
+            pos = json_key(data, cap, pos, b"randao_reveal")
+        elif i == 1:
+            pos = json_key(data, cap, pos, b"eth1_data")
+        elif i == 2:
+            pos = json_key(data, cap, pos, b"graffiti")
+        elif i == 3:
+            pos = json_key(data, cap, pos, b"proposer_slashings")
+        elif i == 4:
+            pos = json_key(data, cap, pos, b"attester_slashings")
+        elif i == 5:
+            pos = json_key(data, cap, pos, b"attestations")
+        elif i == 6:
+            pos = json_key(data, cap, pos, b"deposits")
+        elif i == 7:
+            pos = json_key(data, cap, pos, b"voluntary_exits")
+        elif i == 8:
+            pos = json_key(data, cap, pos, b"sync_aggregate")
+        elif i == 9:
+            pos = json_key(data, cap, pos, b"execution_payload_header")
+        elif i == 10:
+            pos = json_key(data, cap, pos, b"bls_to_execution_changes")
+        elif i == 11:
+            pos = json_key(data, cap, pos, b"blob_kzg_commitments")
+        else:
+            pos = json_key(data, cap, pos, b"execution_requests")
+        item = child(obj, node, i)
+        if i == 0 or i == 2:
+            pos = json_hex_node(obj, item, data, cap, pos)
+        elif i == 1:
+            pos = json_eth1_data(obj, item, data, cap, pos)
+        elif i == 3:
+            pos = json_proposer_slashings(obj, item, data, cap, pos)
+        elif i == 4:
+            pos = json_attester_slashings(obj, item, data, cap, pos)
+        elif i == 5:
+            pos = json_attestations(obj, item, data, cap, pos)
+        elif i == 6:
+            pos = json_deposits(obj, item, data, cap, pos)
+        elif i == 7:
+            pos = json_exits(obj, item, data, cap, pos)
+        elif i == 8:
+            pos = json_sync_aggregate(obj, item, data, cap, pos)
+        elif i == 9:
+            pos = json_execution_payload_header(obj, item, data, cap, pos)
+        elif i == 10:
+            pos = json_bls_changes(obj, item, data, cap, pos)
+        elif i == 11:
+            pos = json_commitments(obj, item, data, cap, pos)
+        else:
+            pos = json_execution_requests(obj, item, data, cap, pos)
+        i = i + 1
+    return put(data, cap, pos, u8(125))
+
+
+def json_blinded_block(obj: raw_ptr[NativeSszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put(data, cap, pos, u8(123))
+    i: i32 = 0
+    while i < 5:
+        if i > 0:
+            pos = put(data, cap, pos, u8(44))
+        if i == 0:
+            pos = json_key(data, cap, pos, b"slot")
+        elif i == 1:
+            pos = json_key(data, cap, pos, b"proposer_index")
+        elif i == 2:
+            pos = json_key(data, cap, pos, b"parent_root")
+        elif i == 3:
+            pos = json_key(data, cap, pos, b"state_root")
+        else:
+            pos = json_key(data, cap, pos, b"body")
+        if i < 2:
+            pos = json_uint(obj, child(obj, node, i), data, cap, pos)
+        elif i < 4:
+            pos = json_hex_node(obj, child(obj, node, i), data, cap, pos)
+        else:
+            pos = json_blinded_body(obj, child(obj, node, i), data, cap, pos)
+        i = i + 1
+    return put(data, cap, pos, u8(125))
+
+
+def json_signed_blinded_block(obj: raw_ptr[NativeSszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put_literal(data, cap, pos, b"{\"message\":")
+    pos = json_blinded_block(obj, child(obj, node, 0), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"signature")
+    pos = json_hex_node(obj, child(obj, node, 1), data, cap, pos)
+    return put(data, cap, pos, u8(125))
+
+
+def encode_block_container_ssz_value(obj: raw_ptr[NativeSszObject], data: gc_ptr[u8], cap: i32) -> i32:
+    node = obj.root_node
+    if obj.object_kind == OBJECT_BLINDED_BEACON_BLOCK:
+        return ssz_blinded_block(obj, node, data, cap, 0)
+    if obj.object_kind != OBJECT_BEACON_BLOCK_CONTENTS and obj.object_kind != OBJECT_SIGNED_BEACON_BLOCK_CONTENTS:
+        return ssz_signed_blinded_block(obj, node, data, cap, 0)
+    block = child(obj, node, 0)
+    proofs = child(obj, node, 1)
+    blobs = child(obj, node, 2)
+    block_size: i32 = ssz_beacon_block(obj, block, data, 0, 0)
+    if obj.object_kind == OBJECT_SIGNED_BEACON_BLOCK_CONTENTS:
+        block_size = ssz_signed_block(obj, block, data, 0, 0)
+    proof_size = ssz_fixed_list(obj, proofs, data, 0, 0)
+    pos: i32 = put_u32(data, cap, 0, 12)
+    pos = put_u32(data, cap, pos, 12 + block_size)
+    pos = put_u32(data, cap, pos, 12 + block_size + proof_size)
+    if obj.object_kind == OBJECT_SIGNED_BEACON_BLOCK_CONTENTS:
+        pos = ssz_signed_block(obj, block, data, cap, pos)
+    else:
+        pos = ssz_beacon_block(obj, block, data, cap, pos)
+    pos = ssz_fixed_list(obj, proofs, data, cap, pos)
+    return ssz_fixed_list(obj, blobs, data, cap, pos)
+
+
+def block_container_ssz_size(obj: raw_ptr[NativeSszObject]) -> i32:
+    return encode_block_container_ssz_value(obj, obj.root.data, 0)
+
+
+def block_container_encode_ssz(obj: raw_ptr[NativeSszObject], output: bytes) -> i32:
+    out = BytesObject.from_bytes(output)
+    return encode_block_container_ssz_value(obj, out.data, out.length)
+
+
+def encode_block_container_json_value(obj: raw_ptr[NativeSszObject], data: gc_ptr[u8], cap: i32) -> i32:
+    node = obj.root_node
+    if obj.object_kind == OBJECT_BLINDED_BEACON_BLOCK:
+        return json_blinded_block(obj, node, data, cap, 0)
+    if obj.object_kind != OBJECT_BEACON_BLOCK_CONTENTS and obj.object_kind != OBJECT_SIGNED_BEACON_BLOCK_CONTENTS:
+        return json_signed_blinded_block(obj, node, data, cap, 0)
+    pos: i32 = put(data, cap, 0, u8(123))
+    if obj.object_kind == OBJECT_SIGNED_BEACON_BLOCK_CONTENTS:
+        pos = json_key(data, cap, pos, b"signed_block")
+        pos = json_signed_block(obj, child(obj, node, 0), data, cap, pos)
+    else:
+        pos = json_key(data, cap, pos, b"block")
+        pos = json_beacon_block(obj, child(obj, node, 0), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"kzg_proofs")
+    pos = json_fixed_list(obj, child(obj, node, 1), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"blobs")
+    pos = json_fixed_list(obj, child(obj, node, 2), data, cap, pos)
+    return put(data, cap, pos, u8(125))
+
+
+def block_container_json_size(obj: raw_ptr[NativeSszObject]) -> i32:
+    return encode_block_container_json_value(obj, obj.root.data, 0)
+
+
+def block_container_encode_json(obj: raw_ptr[NativeSszObject], output: bytes) -> i32:
+    out = BytesObject.from_bytes(output)
+    return encode_block_container_json_value(obj, out.data, out.length)

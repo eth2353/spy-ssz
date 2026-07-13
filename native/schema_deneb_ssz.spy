@@ -74,6 +74,27 @@ def ssz_fixed_bytes(
     return add_fixed_bytes_node(obj, copy_data(document, start, size, obj), size)
 
 
+def decode_ssz_uint(
+    document: raw_ptr[SszDocument], start: i32, size: i32,
+    obj: raw_ptr[NativeSszObject]
+) -> i32:
+    return ssz_uint(document, start, size, obj)
+
+
+def decode_ssz_fixed_bytes(
+    document: raw_ptr[SszDocument], start: i32, size: i32,
+    obj: raw_ptr[NativeSszObject]
+) -> i32:
+    return ssz_fixed_bytes(document, start, size, obj)
+
+
+def decode_ssz_attestation_data(
+    document: raw_ptr[SszDocument], start: i32,
+    obj: raw_ptr[NativeSszObject]
+) -> i32:
+    return attestation_data(document, start, obj)
+
+
 def ssz_byte_list(
     document: raw_ptr[SszDocument],
     start: i32,
@@ -217,16 +238,16 @@ def withdrawal_list(
     length = end - start
     if length < 0 or length % 44 != 0:
         obj.valid = 0
-        return empty_list(obj, 16)
+        return empty_list(obj, obj.max_withdrawals_per_payload)
     count = length // 44
-    if count > 16:
+    if count > obj.max_withdrawals_per_payload:
         obj.valid = 0
     first = reserve_edges(obj, count)
     i: i32 = 0
     while i < count:
         set_edge(obj, first, i, withdrawal(document, start + i * 44, obj))
         i = i + 1
-    return add_composite_node(obj, KIND_LIST, first, count, 16, 0, 0)
+    return add_composite_node(obj, KIND_LIST, first, count, obj.max_withdrawals_per_payload, 0, 0)
 
 
 def transaction_list(
@@ -330,8 +351,9 @@ def sync_aggregate(
     document: raw_ptr[SszDocument], start: i32, obj: raw_ptr[NativeSszObject]
 ) -> i32:
     first = reserve_edges(obj, 2)
-    set_edge(obj, first, 0, ssz_fixed_bytes(document, start, 64, obj))
-    set_edge(obj, first, 1, ssz_fixed_bytes(document, start + 64, 96, obj))
+    bits_size = obj.sync_committee_size // 8
+    set_edge(obj, first, 0, ssz_fixed_bytes(document, start, bits_size, obj))
+    set_edge(obj, first, 1, ssz_fixed_bytes(document, start + bits_size, 96, obj))
     return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
 
 

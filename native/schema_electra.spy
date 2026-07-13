@@ -27,6 +27,7 @@ from ssz_object import (
     add_basic_list_node,
     add_composite_node,
     alloc_data,
+    configure_preset,
     new_object,
     reserve_edges,
     set_edge,
@@ -133,7 +134,8 @@ def attesting_indices(
     document: raw_ptr[JsonDocument], values: i32, obj: raw_ptr[NativeSszObject]
 ) -> i32:
     count = array_length(document, values)
-    if count > 131072:
+    limit = obj.max_validators_per_committee * obj.max_committees_per_slot
+    if count > limit:
         obj.valid = 0
     offset = alloc_data(obj, count * 8)
     i: i32 = 0
@@ -144,7 +146,7 @@ def attesting_indices(
             obj.arena[offset + i * 8 + j] = obj.arena[source + j]
             j = j + 1
         i = i + 1
-    return add_basic_list_node(obj, offset, count, 8, 131072)
+    return add_basic_list_node(obj, offset, count, 8, limit)
 
 
 def indexed_attestation(
@@ -184,10 +186,11 @@ def attestation(
     document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[NativeSszObject]
 ) -> i32:
     first = reserve_edges(obj, 4)
-    set_edge(obj, first, 0, json_bitlist(document, object_get(document, value, b"aggregation_bits"), obj, 131072))
+    limit = obj.max_validators_per_committee * obj.max_committees_per_slot
+    set_edge(obj, first, 0, json_bitlist(document, object_get(document, value, b"aggregation_bits"), obj, limit))
     set_edge(obj, first, 1, attestation_data(document, object_get(document, value, b"data"), obj))
     set_edge(obj, first, 2, json_fixed_bytes(document, object_get(document, value, b"signature"), obj, 96))
-    set_edge(obj, first, 3, json_fixed_bytes(document, object_get(document, value, b"committee_bits"), obj, 8))
+    set_edge(obj, first, 3, json_fixed_bytes(document, object_get(document, value, b"committee_bits"), obj, (obj.max_committees_per_slot + 7) // 8))
     return add_composite_node(obj, KIND_CONTAINER, first, 4, 4, 0, 0)
 
 
@@ -418,7 +421,7 @@ def signed_beacon_block(
     return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
 
 
-def decode_signed_block(source: bytes, fork: i32, schema_id: i32) -> DenebDecodeResult:
+def decode_signed_block(source: bytes, fork: i32, schema_id: i32, preset: i32) -> DenebDecodeResult:
     document = decode_json(source)
     capacity = document.token_count + 1024
     obj = new_object(
@@ -429,6 +432,7 @@ def decode_signed_block(source: bytes, fork: i32, schema_id: i32) -> DenebDecode
         capacity,
         document.json_length * 2 + 8192,
     )
+    configure_preset(obj, preset)
     value = object_get(document, 0, b"data")
     obj.root_node = signed_beacon_block(document, value, obj)
     if document.valid == 0:
@@ -438,9 +442,19 @@ def decode_signed_block(source: bytes, fork: i32, schema_id: i32) -> DenebDecode
 
 def decode_electra_signed_block(source: bytes) -> DenebDecodeResult:
     return decode_signed_block(
-        source, FORK_ELECTRA, SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK
+        source, FORK_ELECTRA, SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK, 0
+    )
+
+
+def decode_electra_signed_block_preset(source: bytes, preset: i32) -> DenebDecodeResult:
+    return decode_signed_block(
+        source, FORK_ELECTRA, SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK, preset
     )
 
 
 def decode_fulu_signed_block(source: bytes) -> DenebDecodeResult:
-    return decode_signed_block(source, FORK_FULU, SCHEMA_FULU_SIGNED_BEACON_BLOCK)
+    return decode_signed_block(source, FORK_FULU, SCHEMA_FULU_SIGNED_BEACON_BLOCK, 0)
+
+
+def decode_fulu_signed_block_preset(source: bytes, preset: i32) -> DenebDecodeResult:
+    return decode_signed_block(source, FORK_FULU, SCHEMA_FULU_SIGNED_BEACON_BLOCK, preset)

@@ -3,6 +3,9 @@ __pycache__/
 .pytest_cache/
 .deps/
 native/build/
+build/
+dist/
+*.egg-info/
 spy_ssz/_native.c
 spy_ssz/_native.*.so
 *.pyc

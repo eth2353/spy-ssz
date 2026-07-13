@@ -2,9 +2,10 @@ import msgspec
 from eth_consensus_specs.electra import mainnet as electra
 from eth_consensus_specs.fulu import mainnet as fulu
 
-from spy_ssz.native_electra import NativeElectraBlock
+from spy_ssz.native_electra import NativeElectraBlock, NativeElectraBlockMinimal
 from spy_ssz.native_fulu import NativeFuluBlock
 from spy_ssz.native_object import Fork
+from spy_ssz.preset import Preset
 
 
 def populated_electra_block() -> electra.SignedBeaconBlock:
@@ -97,3 +98,24 @@ def test_fulu_reuses_the_electra_block_codec_with_fulu_metadata() -> None:
             msgspec.json.decode(decoded.to_json())["data"]
         )
         assert roundtrip.hash_tree_root() == expected
+
+
+def test_minimal_preset_changes_fixed_vector_sizes_and_roundtrips() -> None:
+    value = populated_electra_block().to_obj()
+    value["message"]["body"]["sync_aggregate"]["sync_committee_bits"] = "0x00000000"
+    for attestation in value["message"]["body"]["attestations"]:
+        attestation["committee_bits"] = "0x01"
+    raw_json = msgspec.json.encode({"data": value})
+
+    with NativeElectraBlockMinimal.from_json(raw_json) as from_json:
+        assert from_json.preset is Preset.MINIMAL
+        raw_ssz = from_json.to_ssz()
+        expected_root = from_json.hash_tree_root()
+    with NativeElectraBlockMinimal.from_ssz(raw_ssz) as from_ssz:
+        assert from_ssz.preset is Preset.MINIMAL
+        assert from_ssz.hash_tree_root() == expected_root
+        assert from_ssz.to_ssz() == raw_ssz
+        encoded = msgspec.json.decode(from_ssz.to_json())["data"]
+        body = encoded["message"]["body"]
+        assert body["sync_aggregate"]["sync_committee_bits"] == "0x00000000"
+        assert body["attestations"][0]["committee_bits"] == "0x01"

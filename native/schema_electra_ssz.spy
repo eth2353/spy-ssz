@@ -29,6 +29,7 @@ from ssz_object import (
     add_basic_list_node,
     add_composite_node,
     alloc_data,
+    configure_preset,
     new_object,
     reserve_edges,
     set_edge,
@@ -97,10 +98,11 @@ def attesting_indices(
         obj.valid = 0
         length = 0
     count = length // 8
-    if count > 131072:
+    limit = obj.max_validators_per_committee * obj.max_committees_per_slot
+    if count > limit:
         obj.valid = 0
     offset = copy_data(document, start, length, obj)
-    return add_basic_list_node(obj, offset, count, 8, 131072)
+    return add_basic_list_node(obj, offset, count, 8, limit)
 
 
 def indexed_attestation(
@@ -160,14 +162,16 @@ def attestation(
     end: i32,
     obj: raw_ptr[NativeSszObject],
 ) -> i32:
-    if end - start < 236:
+    committee_size = (obj.max_committees_per_slot + 7) // 8
+    fixed_size = 228 + committee_size
+    if end - start < fixed_size:
         obj.valid = 0
-    bits = variable_offset(document, start, end, 0, 236)
+    bits = variable_offset(document, start, end, 0, fixed_size)
     first = reserve_edges(obj, 4)
-    set_edge(obj, first, 0, ssz_bitlist(document, bits, end, 131072, obj))
+    set_edge(obj, first, 0, ssz_bitlist(document, bits, end, obj.max_validators_per_committee * obj.max_committees_per_slot, obj))
     set_edge(obj, first, 1, attestation_data(document, start + 4, obj))
     set_edge(obj, first, 2, ssz_fixed_bytes(document, start + 132, 96, obj))
-    set_edge(obj, first, 3, ssz_fixed_bytes(document, start + 228, 8, obj))
+    set_edge(obj, first, 3, ssz_fixed_bytes(document, start + 228, committee_size, obj))
     return add_composite_node(obj, KIND_CONTAINER, first, 4, 4, 0, 0)
 
 
@@ -199,6 +203,13 @@ def attestation_list(
         set_edge(obj, first, i, attestation(document, item_start, item_end, obj))
         i = i + 1
     return add_composite_node(obj, KIND_LIST, first, count, 8, 0, 0)
+
+
+def decode_electra_attestation(
+    document: raw_ptr[SszDocument], start: i32, end: i32,
+    obj: raw_ptr[NativeSszObject]
+) -> i32:
+    return attestation(document, start, end, obj)
 
 
 def deposit_data(
@@ -418,17 +429,20 @@ def block_body(
     end: i32,
     obj: raw_ptr[NativeSszObject],
 ) -> i32:
-    if end - start < 396:
+    sync_size = obj.sync_committee_size // 8
+    payload_position = 316 + sync_size
+    fixed_size = payload_position + 16
+    if end - start < fixed_size:
         obj.valid = 0
-    proposer = variable_offset(document, start, end, 200, 396)
-    attester = variable_offset(document, start, end, 204, 396)
-    attestations = variable_offset(document, start, end, 208, 396)
-    deposits = variable_offset(document, start, end, 212, 396)
-    exits = variable_offset(document, start, end, 216, 396)
-    payload = variable_offset(document, start, end, 380, 396)
-    changes = variable_offset(document, start, end, 384, 396)
-    commitments = variable_offset(document, start, end, 388, 396)
-    requests = variable_offset(document, start, end, 392, 396)
+    proposer = variable_offset(document, start, end, 200, fixed_size)
+    attester = variable_offset(document, start, end, 204, fixed_size)
+    attestations = variable_offset(document, start, end, 208, fixed_size)
+    deposits = variable_offset(document, start, end, 212, fixed_size)
+    exits = variable_offset(document, start, end, 216, fixed_size)
+    payload = variable_offset(document, start, end, payload_position, fixed_size)
+    changes = variable_offset(document, start, end, payload_position + 4, fixed_size)
+    commitments = variable_offset(document, start, end, payload_position + 8, fixed_size)
+    requests = variable_offset(document, start, end, payload_position + 12, fixed_size)
     if attester < proposer or attestations < attester or deposits < attestations:
         obj.valid = 0
     if exits < deposits or payload < exits or changes < payload:
@@ -484,7 +498,7 @@ def signed_beacon_block(
 
 
 def decode_signed_block_ssz(
-    source: bytes, fork: i32, schema_id: i32
+    source: bytes, fork: i32, schema_id: i32, preset: i32
 ) -> DenebSszDecodeResult:
     document = decode_ssz(source)
     capacity = document.length // 4 + 4096
@@ -496,6 +510,7 @@ def decode_signed_block_ssz(
         capacity,
         document.length * 3 + 16384,
     )
+    configure_preset(obj, preset)
     obj.root_node = signed_beacon_block(document, obj)
     if document.valid == 0:
         obj.valid = 0
@@ -504,11 +519,23 @@ def decode_signed_block_ssz(
 
 def decode_electra_signed_block_ssz(source: bytes) -> DenebSszDecodeResult:
     return decode_signed_block_ssz(
-        source, FORK_ELECTRA, SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK
+        source, FORK_ELECTRA, SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK, 0
+    )
+
+
+def decode_electra_signed_block_ssz_preset(source: bytes, preset: i32) -> DenebSszDecodeResult:
+    return decode_signed_block_ssz(
+        source, FORK_ELECTRA, SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK, preset
     )
 
 
 def decode_fulu_signed_block_ssz(source: bytes) -> DenebSszDecodeResult:
     return decode_signed_block_ssz(
-        source, FORK_FULU, SCHEMA_FULU_SIGNED_BEACON_BLOCK
+        source, FORK_FULU, SCHEMA_FULU_SIGNED_BEACON_BLOCK, 0
+    )
+
+
+def decode_fulu_signed_block_ssz_preset(source: bytes, preset: i32) -> DenebSszDecodeResult:
+    return decode_signed_block_ssz(
+        source, FORK_FULU, SCHEMA_FULU_SIGNED_BEACON_BLOCK, preset
     )

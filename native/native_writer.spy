@@ -52,6 +52,20 @@ def child(
     return obj.edges[node.first_edge + child_index]
 
 
+def write_json_uint(
+    obj: raw_ptr[NativeSszObject], node_index: i32, data: gc_ptr[u8],
+    capacity: i32, position: i32
+) -> i32:
+    return json_uint(obj, node_index, data, capacity, position)
+
+
+def write_ssz_uint(
+    obj: raw_ptr[NativeSszObject], node_index: i32, size: i32,
+    data: gc_ptr[u8], capacity: i32, position: i32
+) -> i32:
+    return ssz_uint(obj, node_index, size, data, capacity, position)
+
+
 def ssz_uint(
     obj: raw_ptr[NativeSszObject],
     node_index: i32,

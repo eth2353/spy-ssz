@@ -2,10 +2,17 @@
 
 from schema_deneb import decode_deneb_attestation, decode_deneb_signed_block
 from schema_deneb_ssz import decode_deneb_attestation_ssz, decode_deneb_signed_block_ssz
-from schema_electra import decode_electra_signed_block, decode_fulu_signed_block
+from schema_electra import (
+    decode_electra_signed_block,
+    decode_electra_signed_block_preset,
+    decode_fulu_signed_block,
+    decode_fulu_signed_block_preset,
+)
 from schema_electra_ssz import (
     decode_electra_signed_block_ssz,
+    decode_electra_signed_block_ssz_preset,
     decode_fulu_signed_block_ssz,
+    decode_fulu_signed_block_ssz_preset,
 )
 from schema_electra_encode import (
     electra_encode_json,
@@ -15,4 +22,20 @@ from schema_electra_encode import (
 )
 from schema_gloas import decode_gloas_attestation
 from schema_gloas_ssz import decode_gloas_attestation_ssz
-from ssz_object import object_hash_tree_root
+from schema_signing import (
+    decode_signing_json,
+    decode_signing_ssz,
+    signing_encode_json,
+    signing_encode_ssz,
+    signing_json_size,
+    signing_ssz_size,
+)
+from schema_block_containers import decode_block_container_json
+from schema_block_containers_encode import (
+    block_container_encode_json,
+    block_container_encode_ssz,
+    block_container_json_size,
+    block_container_ssz_size,
+)
+from schema_block_containers_ssz import decode_block_container_ssz
+from ssz_object import object_hash_tree_root, object_node_hash_tree_root

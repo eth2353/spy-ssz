@@ -7,15 +7,23 @@ requires-python = "~=3.12.0"
 dependencies = [
     "cffi>=2.1.0",
     "msgspec>=0.21.1",
-    "setuptools>=83.0.0",
-    "spylang",
+    "pyyaml>=6.0.2",
 ]
 
-[tool.uv.sources]
-spylang = { git = "https://github.com/spylang/spy.git", rev = "012ae501eb6a0adc3baff261c97ec9b56c80c2d1" }
+[build-system]
+requires = [
+    "cffi>=2.1.0",
+    "setuptools>=83.0.0",
+    "spylang @ git+https://github.com/spylang/spy.git@012ae501eb6a0adc3baff261c97ec9b56c80c2d1",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
 
 [tool.setuptools.package-data]
-spy_ssz = ["consensus_types.json"]
+spy_ssz = ["consensus_types.json", "presets/*.yaml"]
+
+[tool.setuptools]
+packages = ["spy_ssz", "spy_ssz.presets"]
 
 [dependency-groups]
 dev = [

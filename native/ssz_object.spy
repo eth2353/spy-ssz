@@ -31,6 +31,11 @@ class SszNode:
 @struct
 class NativeSszObject:
     fork: i32
+    preset: i32
+    max_committees_per_slot: i32
+    max_validators_per_committee: i32
+    sync_committee_size: i32
+    max_withdrawals_per_payload: i32
     object_kind: i32
     schema_id: i32
     root_node: i32
@@ -75,6 +80,7 @@ def new_object(
 ) -> raw_ptr[NativeSszObject]:
     obj = raw_alloc[NativeSszObject](1)
     obj.fork = fork
+    configure_preset(obj, 0)
     obj.object_kind = object_kind
     obj.schema_id = schema_id
     obj.root_node = -1
@@ -114,6 +120,24 @@ def new_object(
             i = i + 1
         level = level + 1
     return obj
+
+
+def configure_preset(obj: raw_ptr[NativeSszObject], preset: i32) -> None:
+    """Attach the compile-time consensus limits selected by Python."""
+    obj.preset = preset
+    obj.max_validators_per_committee = 2048
+    if preset == 1:
+        obj.max_committees_per_slot = 4
+        obj.sync_committee_size = 32
+        obj.max_withdrawals_per_payload = 4
+    elif preset == 2:
+        obj.max_committees_per_slot = 64
+        obj.sync_committee_size = 512
+        obj.max_withdrawals_per_payload = 8
+    else:
+        obj.max_committees_per_slot = 64
+        obj.sync_committee_size = 512
+        obj.max_withdrawals_per_payload = 16
 
 
 def add_node(
@@ -487,4 +511,17 @@ def object_hash_tree_root(
     while j < 32:
         out.data[j] = obj.root.data[j]
         j = j + 1
+    return obj.valid
+
+
+def object_node_hash_tree_root(
+    obj: raw_ptr[NativeSszObject], node_index: i32, output: bytes
+) -> i32:
+    obj.work_cursor = 0
+    root_offset = hash_node(obj, node_index)
+    out = BytesObject.from_bytes(output)
+    i: i32 = 0
+    while i < 32:
+        out.data[i] = obj.work.data[root_offset + i]
+        i = i + 1
     return obj.valid
