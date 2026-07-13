@@ -1,7 +1,7 @@
 """Temporary SPy JSON tokenization used by fork schema lowerers."""
 
 from _bytes import BytesObject
-from unsafe import raw_alloc, raw_ptr
+from unsafe import gc_ptr, raw_alloc, raw_ptr
 
 
 TOKEN_OBJECT: i32 = 1
@@ -22,7 +22,7 @@ class JsonToken:
 
 @struct
 class JsonDocument:
-    json: raw_ptr[u8]
+    json: gc_ptr[u8]
     json_length: i32
     tokens: raw_ptr[JsonToken]
     token_count: i32
@@ -194,7 +194,8 @@ def valid_json_primitive(
 def object_has_duplicate_key(
     document: raw_ptr[JsonDocument], obj: i32, start: i32, end: i32
 ) -> bool:
-    i: i32 = 0
+    # Object tokens precede all of their keys in the pre-order token stream.
+    i: i32 = obj + 1
     while i < document.token_count:
         token = document.tokens[i]
         if (
@@ -262,7 +263,9 @@ def decode_json(source: bytes) -> raw_ptr[JsonDocument]:
     src = BytesObject.from_bytes(source)
     length: i32 = src.length
     document = raw_alloc[JsonDocument](1)
-    document.json = raw_alloc[u8](length)
+    # Parsing and lowering are synchronous. The Python/CFFI owner keeps the
+    # input alive until both finish, so the temporary document can borrow it.
+    document.json = src.data
     document.json_length = length
     document.token_capacity = length // 2 + 16
     document.tokens = raw_alloc[JsonToken](document.token_capacity)
@@ -270,13 +273,8 @@ def decode_json(source: bytes) -> raw_ptr[JsonDocument]:
     document.valid = 1
     document.root_count = 0
 
-    i: i32 = 0
-    while i < length:
-        document.json[i] = src.data[i]
-        i = i + 1
-
     parent: i32 = -1
-    i = 0
+    i: i32 = 0
     while i < length and document.valid == 1:
         ch = document.json[i]
         if is_space(ch):
@@ -416,6 +414,16 @@ def array_get(document: raw_ptr[JsonDocument], array: i32, wanted: i32) -> i32:
     if array < 0 or array >= document.token_count or document.tokens[array].kind != TOKEN_ARRAY:
         document.valid = 0
         return -1
+    # Primitive children are contiguous in the pre-order token stream, which
+    # covers large transaction and index lists without a linear scan.
+    candidate = array + 1 + wanted
+    if (
+        wanted >= 0
+        and wanted < document.tokens[array].children
+        and candidate < document.token_count
+        and document.tokens[candidate].parent == array
+    ):
+        return candidate
     i = array + 1
     seen: i32 = 0
     end = document.tokens[array].end

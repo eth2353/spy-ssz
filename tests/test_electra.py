@@ -132,6 +132,16 @@ def test_block_json_rejects_uint64_overflow() -> None:
         ElectraSignedBeaconBlock.from_obj(value)
 
 
+def test_block_json_rejects_duplicate_keys() -> None:
+    raw_json = msgspec.json.encode({"data": populated_electra_block().to_obj()})
+    field = b'"slot":0'
+    assert field in raw_json
+    raw_json = raw_json.replace(field, field + b',"slot":0', 1)
+
+    with pytest.raises(ValueError, match="invalid JSON object"):
+        ElectraSignedBeaconBlock.from_json(raw_json)
+
+
 def test_block_json_accepts_remerkleable_little_endian_uint256_hex() -> None:
     reference = populated_electra_block()
     reference.message.body.execution_payload.base_fee_per_gas = 0x010203

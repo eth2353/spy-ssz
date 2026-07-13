@@ -25,7 +25,7 @@ typedef spy_unsafe$raw_ptr__ssz_object$SszObject spy_raw_ssz_ptr;
 static void spy_json_document_destroy(spy_raw_json_ptr opaque) {
     spy_json_parser$JsonDocument *document = opaque.p;
     if (document == NULL) return;
-    free(document->json.p);
+    /* JSON documents borrow the caller-owned input for synchronous lowering. */
     free(document->tokens.p);
     free(document);
 }
