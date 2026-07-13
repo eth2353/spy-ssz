@@ -228,6 +228,12 @@ class ProposerSlashing(Projection):
 
 
 @dataclass(frozen=True, slots=True)
+class SignedAggregateAndProof(Projection):
+    message: AggregateAndProof
+    signature: bytes
+
+
+@dataclass(frozen=True, slots=True)
 class SignedBLSToExecutionChange(Projection):
     message: BLSToExecutionChange
     signature: bytes
@@ -246,8 +252,22 @@ class SignedBeaconBlockHeader(Projection):
 
 
 @dataclass(frozen=True, slots=True)
+class SignedContributionAndProof(Projection):
+    message: ContributionAndProof
+    signature: bytes
+
+
+@dataclass(frozen=True, slots=True)
 class SignedVoluntaryExit(Projection):
     message: VoluntaryExit
+    signature: bytes
+
+
+@dataclass(frozen=True, slots=True)
+class SingleAttestation(Projection):
+    committee_index: int
+    attester_index: int
+    data: AttestationData
     signature: bytes
 
 
@@ -263,6 +283,14 @@ class SyncCommitteeContribution(Projection):
     beacon_block_root: bytes
     subcommittee_index: int
     aggregation_bits: bytes
+    signature: bytes
+
+
+@dataclass(frozen=True, slots=True)
+class SyncCommitteeMessage(Projection):
+    slot: int
+    beacon_block_root: bytes
+    validator_index: int
     signature: bytes
 
 
@@ -293,12 +321,15 @@ _PROJECTION_TYPES = {
     (Fork.ELECTRA, 23): SignedVoluntaryExit,
     (Fork.ELECTRA, 26): SyncCommitteeContribution,
     (Fork.ELECTRA, 28): ContributionAndProof,
+    (Fork.ELECTRA, 29): SignedContributionAndProof,
+    (Fork.ELECTRA, 30): SyncCommitteeMessage,
     (Fork.ELECTRA, 33): BeaconBlockHeader,
     (Fork.ELECTRA, 34): SignedBeaconBlockHeader,
     (Fork.ELECTRA, 35): ProposerSlashing,
     (Fork.ELECTRA, 36): Eth1Data,
     (Fork.ELECTRA, 37): Checkpoint,
     (Fork.ELECTRA, 38): AttestationData,
+    (Fork.ELECTRA, 39): SingleAttestation,
     (Fork.ELECTRA, 43): DepositRequest,
     (Fork.ELECTRA, 48): DepositData,
     (Fork.ELECTRA, 49): Deposit,
@@ -310,6 +341,7 @@ _PROJECTION_TYPES = {
     (Fork.ELECTRA, 73): ExecutionPayload,
     (Fork.ELECTRA, 110): ElectraAttestation,
     (Fork.ELECTRA, 112): AggregateAndProof,
+    (Fork.ELECTRA, 113): SignedAggregateAndProof,
     (Fork.ELECTRA, 115): IndexedAttestation,
     (Fork.ELECTRA, 116): AttesterSlashing,
     (Fork.ELECTRA, 120): ExecutionRequests,

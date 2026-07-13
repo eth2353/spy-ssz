@@ -400,6 +400,17 @@ class ProposerSlashing(Projection):
     @property
     def signed_header_2(self) -> SignedBeaconBlockHeader: ...
 
+class SignedAggregateAndProof(Projection):
+    def __init__(
+        self,
+        message: AggregateAndProof,
+        signature: bytes,
+    ) -> None: ...
+    @property
+    def message(self) -> AggregateAndProof: ...
+    @property
+    def signature(self) -> bytes: ...
+
 class SignedBLSToExecutionChange(Projection):
     def __init__(
         self,
@@ -433,6 +444,17 @@ class SignedBeaconBlockHeader(Projection):
     @property
     def signature(self) -> bytes: ...
 
+class SignedContributionAndProof(Projection):
+    def __init__(
+        self,
+        message: ContributionAndProof,
+        signature: bytes,
+    ) -> None: ...
+    @property
+    def message(self) -> ContributionAndProof: ...
+    @property
+    def signature(self) -> bytes: ...
+
 class SignedVoluntaryExit(Projection):
     def __init__(
         self,
@@ -441,6 +463,23 @@ class SignedVoluntaryExit(Projection):
     ) -> None: ...
     @property
     def message(self) -> VoluntaryExit: ...
+    @property
+    def signature(self) -> bytes: ...
+
+class SingleAttestation(Projection):
+    def __init__(
+        self,
+        committee_index: int,
+        attester_index: int,
+        data: AttestationData,
+        signature: bytes,
+    ) -> None: ...
+    @property
+    def committee_index(self) -> int: ...
+    @property
+    def attester_index(self) -> int: ...
+    @property
+    def data(self) -> AttestationData: ...
     @property
     def signature(self) -> bytes: ...
 
@@ -472,6 +511,23 @@ class SyncCommitteeContribution(Projection):
     def subcommittee_index(self) -> int: ...
     @property
     def aggregation_bits(self) -> bytes: ...
+    @property
+    def signature(self) -> bytes: ...
+
+class SyncCommitteeMessage(Projection):
+    def __init__(
+        self,
+        slot: int,
+        beacon_block_root: bytes,
+        validator_index: int,
+        signature: bytes,
+    ) -> None: ...
+    @property
+    def slot(self) -> int: ...
+    @property
+    def beacon_block_root(self) -> bytes: ...
+    @property
+    def validator_index(self) -> int: ...
     @property
     def signature(self) -> bytes: ...
 

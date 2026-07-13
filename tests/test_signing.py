@@ -6,8 +6,17 @@ from spy_ssz.signing import (
     AggregateAndProof,
     Attestation,
     AttestationData,
+    AttesterSlashing,
+    BeaconBlockHeader,
     ContributionAndProof,
+    IndexedAttestation,
+    ProposerSlashing,
+    SignedAggregateAndProof,
+    SignedBeaconBlockHeader,
+    SignedContributionAndProof,
+    SingleAttestation,
     SyncCommitteeContribution,
+    SyncCommitteeMessage,
 )
 from spy_ssz.ssz import Fork, ObjectKind, decode_json
 
@@ -20,6 +29,15 @@ from spy_ssz.ssz import Fork, ObjectKind, decode_json
         (electra.AggregateAndProof, AggregateAndProof),
         (electra.SyncCommitteeContribution, SyncCommitteeContribution),
         (electra.ContributionAndProof, ContributionAndProof),
+        (electra.SingleAttestation, SingleAttestation),
+        (electra.SyncCommitteeMessage, SyncCommitteeMessage),
+        (electra.SignedAggregateAndProof, SignedAggregateAndProof),
+        (electra.SignedContributionAndProof, SignedContributionAndProof),
+        (electra.IndexedAttestation, IndexedAttestation),
+        (electra.AttesterSlashing, AttesterSlashing),
+        (electra.BeaconBlockHeader, BeaconBlockHeader),
+        (electra.SignedBeaconBlockHeader, SignedBeaconBlockHeader),
+        (electra.ProposerSlashing, ProposerSlashing),
     ],
 )
 def test_signing_types_match_consensus_ssz(reference_type, spy_type) -> None:
@@ -50,6 +68,23 @@ def test_constructor_and_bitfield_projection() -> None:
         assert value.data.slot == 0
 
 
+def test_populated_variable_slashing_types_match_consensus_ssz() -> None:
+    first = electra.IndexedAttestation(attesting_indices=[1, 2, 3])
+    second = electra.IndexedAttestation(attesting_indices=[4, 5])
+    reference = electra.AttesterSlashing(
+        attestation_1=first,
+        attestation_2=second,
+    )
+
+    with AttesterSlashing.from_obj(reference.to_obj()) as from_json:
+        assert from_json.hash_tree_root() == reference.hash_tree_root()
+        assert from_json.to_ssz() == reference.encode_bytes()
+        assert from_json.attestation_1.attesting_indices == (1, 2, 3)
+    with AttesterSlashing.from_ssz(reference.encode_bytes()) as from_ssz:
+        assert from_ssz.hash_tree_root() == reference.hash_tree_root()
+        assert from_ssz.attestation_2.attesting_indices == (4, 5)
+
+
 def test_json_decoder_rejects_missing_fields_without_unsafe_token_access() -> None:
     with pytest.raises(ValueError, match="invalid JSON object"):
         AttestationData.from_json(b"{}")
@@ -61,6 +96,12 @@ def test_json_decoder_rejects_missing_fields_without_unsafe_token_access() -> No
         (electra.AttestationData, AttestationData),
         (electra.SyncCommitteeContribution, SyncCommitteeContribution),
         (electra.ContributionAndProof, ContributionAndProof),
+        (electra.SingleAttestation, SingleAttestation),
+        (electra.SyncCommitteeMessage, SyncCommitteeMessage),
+        (electra.SignedContributionAndProof, SignedContributionAndProof),
+        (electra.BeaconBlockHeader, BeaconBlockHeader),
+        (electra.SignedBeaconBlockHeader, SignedBeaconBlockHeader),
+        (electra.ProposerSlashing, ProposerSlashing),
     ],
 )
 def test_fixed_size_ssz_decoder_rejects_trailing_data(reference_type, spy_type) -> None:

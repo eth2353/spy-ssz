@@ -644,10 +644,16 @@ def render_type_stubs() -> dict[Path, str]:
 
 
 def generate(*, check: bool = False) -> None:
+    python_enums = render_python_enums()
+    if not PYTHON_ENUMS.exists() or PYTHON_ENUMS.read_text() != python_enums:
+        if check:
+            raise SystemExit(f"generated files are stale: {PYTHON_ENUMS}")
+        PYTHON_ENUMS.write_text(python_enums)
+
     outputs = {
         METADATA: render_metadata(),
         METADATA_HEADER: render_metadata_header(),
-        PYTHON_ENUMS: render_python_enums(),
+        PYTHON_ENUMS: python_enums,
         PRESET_CONFIG: render_preset_config(),
         **render_type_stubs(),
     }

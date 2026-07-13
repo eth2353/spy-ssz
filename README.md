@@ -138,8 +138,17 @@ Available signing classes are:
 - `AttestationData`
 - `Attestation`
 - `AggregateAndProof`
+- `SignedAggregateAndProof`
+- `SingleAttestation`
 - `SyncCommitteeContribution`
+- `SyncCommitteeMessage`
 - `ContributionAndProof`
+- `SignedContributionAndProof`
+- `IndexedAttestation`
+- `AttesterSlashing`
+- `BeaconBlockHeader`
+- `SignedBeaconBlockHeader`
+- `ProposerSlashing`
 
 Each also has `Minimal` and `Gnosis` variants, such as
 `AttestationMinimal` and `AttestationGnosis`.

@@ -31,7 +31,7 @@ def test_fork_ids_follow_consensus_chronology() -> None:
 
 def test_single_schema_codec_lookup_rejects_multiplexed_codecs() -> None:
     assert schema_for("electra_block").fork is Fork.ELECTRA
-    with pytest.raises(ValueError, match="found 5"):
+    with pytest.raises(ValueError, match="expected one schema for 'signing'"):
         schema_for("signing")
 
 

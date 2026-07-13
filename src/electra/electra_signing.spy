@@ -8,8 +8,17 @@ from metadata import (
     OBJECT_AGGREGATE_AND_PROOF,
     OBJECT_ATTESTATION,
     OBJECT_ATTESTATION_DATA,
+    OBJECT_ATTESTER_SLASHING,
+    OBJECT_BEACON_BLOCK_HEADER,
     OBJECT_CONTRIBUTION_AND_PROOF,
+    OBJECT_INDEXED_ATTESTATION,
+    OBJECT_PROPOSER_SLASHING,
+    OBJECT_SIGNED_AGGREGATE_AND_PROOF,
+    OBJECT_SIGNED_BEACON_BLOCK_HEADER,
+    OBJECT_SIGNED_CONTRIBUTION_AND_PROOF,
+    OBJECT_SINGLE_ATTESTATION,
     OBJECT_SYNC_COMMITTEE_CONTRIBUTION,
+    OBJECT_SYNC_COMMITTEE_MESSAGE,
     SCHEMA_ELECTRA_AGGREGATE_AND_PROOF,
     SCHEMA_ELECTRA_ATTESTATION,
     SCHEMA_ELECTRA_ATTESTATION_DATA,
@@ -19,9 +28,38 @@ from metadata import (
 from writer import child, json_hex_node, json_key, put, put_u32, ssz_fixed_bytes, write_json_uint, write_ssz_uint
 from deneb_block import DenebDecodeResult, attestation_data, decode_json_uint, json_fixed_bytes
 from deneb_block_ssz import DenebSszDecodeResult, decode_ssz_attestation_data, decode_ssz_fixed_bytes, decode_ssz_uint
-from electra_block import attestation
-from electra_block_encode import json_attestation, json_attestation_data, ssz_attestation, ssz_attestation_data
-from electra_block_ssz import decode_electra_attestation
+from electra_block import (
+    attestation,
+    attester_slashing,
+    block_header,
+    indexed_attestation,
+    proposer_slashing,
+    signed_block_header,
+)
+from electra_block_encode import (
+    json_attestation,
+    json_attestation_data,
+    json_attester_slashing,
+    json_block_header,
+    json_indexed_attestation,
+    json_proposer_slashing,
+    json_signed_header,
+    ssz_attestation,
+    ssz_attestation_data,
+    ssz_attester_slashing,
+    ssz_block_header,
+    ssz_indexed_attestation,
+    ssz_proposer_slashing,
+    ssz_signed_header,
+)
+from electra_block_ssz import (
+    attester_slashing as decode_ssz_attester_slashing,
+    block_header as decode_ssz_block_header,
+    decode_electra_attestation,
+    indexed_attestation as decode_ssz_indexed_attestation,
+    proposer_slashing as decode_ssz_proposer_slashing,
+    signed_block_header as decode_ssz_signed_block_header,
+)
 from ssz_reader import SszDocument, decode_ssz, first_variable_offset
 from ssz_object import KIND_CONTAINER, SszObject, add_composite_node, configure_preset, new_object, reserve_edges, set_edge
 
@@ -61,12 +99,14 @@ def aggregate_and_proof_json(document: raw_ptr[JsonDocument], value: i32, obj: r
     return add_composite_node(obj, KIND_CONTAINER, first, 3, 3, 0, 0)
 
 
-def aggregate_and_proof_ssz(document: raw_ptr[SszDocument], obj: raw_ptr[SszObject]) -> i32:
-    aggregate_start = first_variable_offset(document, 0, document.length, 8, 108)
+def aggregate_and_proof_ssz(
+    document: raw_ptr[SszDocument], start: i32, end: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    aggregate_start = first_variable_offset(document, start, end, 8, 108)
     first = reserve_edges(obj, 3)
-    set_edge(obj, first, 0, decode_ssz_uint(document, 0, 8, obj))
-    set_edge(obj, first, 1, decode_electra_attestation(document, aggregate_start, document.length, obj))
-    set_edge(obj, first, 2, decode_ssz_fixed_bytes(document, 12, 96, obj))
+    set_edge(obj, first, 0, decode_ssz_uint(document, start, 8, obj))
+    set_edge(obj, first, 1, decode_electra_attestation(document, aggregate_start, end, obj))
+    set_edge(obj, first, 2, decode_ssz_fixed_bytes(document, start + 12, 96, obj))
     return add_composite_node(obj, KIND_CONTAINER, first, 3, 3, 0, 0)
 
 
@@ -78,12 +118,91 @@ def contribution_and_proof_json(document: raw_ptr[JsonDocument], value: i32, obj
     return add_composite_node(obj, KIND_CONTAINER, first, 3, 3, 0, 0)
 
 
-def contribution_and_proof_ssz(document: raw_ptr[SszDocument], obj: raw_ptr[SszObject]) -> i32:
+def contribution_and_proof_ssz(
+    document: raw_ptr[SszDocument], start: i32, obj: raw_ptr[SszObject]
+) -> i32:
     first = reserve_edges(obj, 3)
-    set_edge(obj, first, 0, decode_ssz_uint(document, 0, 8, obj))
-    set_edge(obj, first, 1, sync_contribution_ssz(document, 8, obj))
-    set_edge(obj, first, 2, decode_ssz_fixed_bytes(document, 152 + obj.sync_committee_size // 32, 96, obj))
+    set_edge(obj, first, 0, decode_ssz_uint(document, start, 8, obj))
+    set_edge(obj, first, 1, sync_contribution_ssz(document, start + 8, obj))
+    set_edge(obj, first, 2, decode_ssz_fixed_bytes(document, start + 152 + obj.sync_committee_size // 32, 96, obj))
     return add_composite_node(obj, KIND_CONTAINER, first, 3, 3, 0, 0)
+
+
+def single_attestation_json(
+    document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    first = reserve_edges(obj, 4)
+    set_edge(obj, first, 0, decode_json_uint(document, object_get(document, value, b"committee_index"), obj))
+    set_edge(obj, first, 1, decode_json_uint(document, object_get(document, value, b"attester_index"), obj))
+    set_edge(obj, first, 2, attestation_data(document, object_get(document, value, b"data"), obj))
+    set_edge(obj, first, 3, json_fixed_bytes(document, object_get(document, value, b"signature"), obj, 96))
+    return add_composite_node(obj, KIND_CONTAINER, first, 4, 4, 0, 0)
+
+
+def single_attestation_ssz(
+    document: raw_ptr[SszDocument], start: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    first = reserve_edges(obj, 4)
+    set_edge(obj, first, 0, decode_ssz_uint(document, start, 8, obj))
+    set_edge(obj, first, 1, decode_ssz_uint(document, start + 8, 8, obj))
+    set_edge(obj, first, 2, decode_ssz_attestation_data(document, start + 16, obj))
+    set_edge(obj, first, 3, decode_ssz_fixed_bytes(document, start + 144, 96, obj))
+    return add_composite_node(obj, KIND_CONTAINER, first, 4, 4, 0, 0)
+
+
+def sync_message_json(
+    document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    first = reserve_edges(obj, 4)
+    set_edge(obj, first, 0, decode_json_uint(document, object_get(document, value, b"slot"), obj))
+    set_edge(obj, first, 1, json_fixed_bytes(document, object_get(document, value, b"beacon_block_root"), obj, 32))
+    set_edge(obj, first, 2, decode_json_uint(document, object_get(document, value, b"validator_index"), obj))
+    set_edge(obj, first, 3, json_fixed_bytes(document, object_get(document, value, b"signature"), obj, 96))
+    return add_composite_node(obj, KIND_CONTAINER, first, 4, 4, 0, 0)
+
+
+def sync_message_ssz(
+    document: raw_ptr[SszDocument], start: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    first = reserve_edges(obj, 4)
+    set_edge(obj, first, 0, decode_ssz_uint(document, start, 8, obj))
+    set_edge(obj, first, 1, decode_ssz_fixed_bytes(document, start + 8, 32, obj))
+    set_edge(obj, first, 2, decode_ssz_uint(document, start + 40, 8, obj))
+    set_edge(obj, first, 3, decode_ssz_fixed_bytes(document, start + 48, 96, obj))
+    return add_composite_node(obj, KIND_CONTAINER, first, 4, 4, 0, 0)
+
+
+def signed_container_json(
+    document: raw_ptr[JsonDocument], value: i32, kind: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    message = object_get(document, value, b"message")
+    first = reserve_edges(obj, 2)
+    if kind == OBJECT_SIGNED_AGGREGATE_AND_PROOF:
+        set_edge(obj, first, 0, aggregate_and_proof_json(document, message, obj))
+    else:
+        set_edge(obj, first, 0, contribution_and_proof_json(document, message, obj))
+    set_edge(obj, first, 1, json_fixed_bytes(document, object_get(document, value, b"signature"), obj, 96))
+    return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
+
+
+def signed_aggregate_ssz(
+    document: raw_ptr[SszDocument], obj: raw_ptr[SszObject]
+) -> i32:
+    message = first_variable_offset(document, 0, document.length, 0, 100)
+    first = reserve_edges(obj, 2)
+    set_edge(obj, first, 0, aggregate_and_proof_ssz(document, message, document.length, obj))
+    set_edge(obj, first, 1, decode_ssz_fixed_bytes(document, 4, 96, obj))
+    return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
+
+
+def signed_contribution_ssz(
+    document: raw_ptr[SszDocument], obj: raw_ptr[SszObject]
+) -> i32:
+    message_size = 248 + obj.sync_committee_size // 32
+    first = reserve_edges(obj, 2)
+    set_edge(obj, first, 0, contribution_and_proof_ssz(document, 0, obj))
+    set_edge(obj, first, 1, decode_ssz_fixed_bytes(document, message_size, 96, obj))
+    return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
 
 
 def decode_signing_json(source: bytes, kind: i32, schema: i32, preset: i32) -> DenebDecodeResult:
@@ -97,8 +216,24 @@ def decode_signing_json(source: bytes, kind: i32, schema: i32, preset: i32) -> D
         obj.root_node = aggregate_and_proof_json(document, 0, obj)
     elif kind == OBJECT_SYNC_COMMITTEE_CONTRIBUTION:
         obj.root_node = sync_contribution_json(document, 0, obj)
-    else:
+    elif kind == OBJECT_CONTRIBUTION_AND_PROOF:
         obj.root_node = contribution_and_proof_json(document, 0, obj)
+    elif kind == OBJECT_SINGLE_ATTESTATION:
+        obj.root_node = single_attestation_json(document, 0, obj)
+    elif kind == OBJECT_SYNC_COMMITTEE_MESSAGE:
+        obj.root_node = sync_message_json(document, 0, obj)
+    elif kind == OBJECT_SIGNED_AGGREGATE_AND_PROOF or kind == OBJECT_SIGNED_CONTRIBUTION_AND_PROOF:
+        obj.root_node = signed_container_json(document, 0, kind, obj)
+    elif kind == OBJECT_INDEXED_ATTESTATION:
+        obj.root_node = indexed_attestation(document, 0, obj)
+    elif kind == OBJECT_ATTESTER_SLASHING:
+        obj.root_node = attester_slashing(document, 0, obj)
+    elif kind == OBJECT_BEACON_BLOCK_HEADER:
+        obj.root_node = block_header(document, 0, obj)
+    elif kind == OBJECT_SIGNED_BEACON_BLOCK_HEADER:
+        obj.root_node = signed_block_header(document, 0, obj)
+    else:
+        obj.root_node = proposer_slashing(document, 0, obj)
     if document.valid == 0:
         obj.valid = 0
     return DenebDecodeResult(obj, document)
@@ -114,15 +249,47 @@ def decode_signing_ssz(source: bytes, kind: i32, schema: i32, preset: i32) -> De
     elif kind == OBJECT_ATTESTATION:
         obj.root_node = decode_electra_attestation(document, 0, document.length, obj)
     elif kind == OBJECT_AGGREGATE_AND_PROOF:
-        obj.root_node = aggregate_and_proof_ssz(document, obj)
+        obj.root_node = aggregate_and_proof_ssz(document, 0, document.length, obj)
     elif kind == OBJECT_SYNC_COMMITTEE_CONTRIBUTION:
         if document.length != 144 + obj.sync_committee_size // 32:
             document.valid = 0
         obj.root_node = sync_contribution_ssz(document, 0, obj)
-    else:
+    elif kind == OBJECT_CONTRIBUTION_AND_PROOF:
         if document.length != 248 + obj.sync_committee_size // 32:
             document.valid = 0
-        obj.root_node = contribution_and_proof_ssz(document, obj)
+        obj.root_node = contribution_and_proof_ssz(document, 0, obj)
+    elif kind == OBJECT_SINGLE_ATTESTATION:
+        if document.length != 240:
+            document.valid = 0
+        obj.root_node = single_attestation_ssz(document, 0, obj)
+    elif kind == OBJECT_SYNC_COMMITTEE_MESSAGE:
+        if document.length != 144:
+            document.valid = 0
+        obj.root_node = sync_message_ssz(document, 0, obj)
+    elif kind == OBJECT_SIGNED_AGGREGATE_AND_PROOF:
+        if document.length < 100:
+            document.valid = 0
+        obj.root_node = signed_aggregate_ssz(document, obj)
+    elif kind == OBJECT_SIGNED_CONTRIBUTION_AND_PROOF:
+        if document.length != 344 + obj.sync_committee_size // 32:
+            document.valid = 0
+        obj.root_node = signed_contribution_ssz(document, obj)
+    elif kind == OBJECT_INDEXED_ATTESTATION:
+        obj.root_node = decode_ssz_indexed_attestation(document, 0, document.length, obj)
+    elif kind == OBJECT_ATTESTER_SLASHING:
+        obj.root_node = decode_ssz_attester_slashing(document, 0, document.length, obj)
+    elif kind == OBJECT_BEACON_BLOCK_HEADER:
+        if document.length != 112:
+            document.valid = 0
+        obj.root_node = decode_ssz_block_header(document, 0, obj)
+    elif kind == OBJECT_SIGNED_BEACON_BLOCK_HEADER:
+        if document.length != 208:
+            document.valid = 0
+        obj.root_node = decode_ssz_signed_block_header(document, 0, obj)
+    else:
+        if document.length != 416:
+            document.valid = 0
+        obj.root_node = decode_ssz_proposer_slashing(document, 0, obj)
     if document.valid == 0:
         obj.valid = 0
     return DenebSszDecodeResult(obj, document)
@@ -155,6 +322,115 @@ def ssz_sync_contribution(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], 
     return ssz_fixed_bytes(obj, child(obj, node, 4), data, cap, pos)
 
 
+def json_single_attestation(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put(data, cap, pos, u8(123))
+    pos = json_key(data, cap, pos, b"committee_index")
+    pos = write_json_uint(obj, child(obj, node, 0), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"attester_index")
+    pos = write_json_uint(obj, child(obj, node, 1), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"data")
+    pos = json_attestation_data(obj, child(obj, node, 2), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"signature")
+    pos = json_hex_node(obj, child(obj, node, 3), data, cap, pos)
+    return put(data, cap, pos, u8(125))
+
+
+def ssz_single_attestation(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = write_ssz_uint(obj, child(obj, node, 0), 8, data, cap, pos)
+    pos = write_ssz_uint(obj, child(obj, node, 1), 8, data, cap, pos)
+    pos = ssz_attestation_data(obj, child(obj, node, 2), data, cap, pos)
+    return ssz_fixed_bytes(obj, child(obj, node, 3), data, cap, pos)
+
+
+def json_sync_message(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put(data, cap, pos, u8(123))
+    pos = json_key(data, cap, pos, b"slot")
+    pos = write_json_uint(obj, child(obj, node, 0), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"beacon_block_root")
+    pos = json_hex_node(obj, child(obj, node, 1), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"validator_index")
+    pos = write_json_uint(obj, child(obj, node, 2), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"signature")
+    pos = json_hex_node(obj, child(obj, node, 3), data, cap, pos)
+    return put(data, cap, pos, u8(125))
+
+
+def ssz_sync_message(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = write_ssz_uint(obj, child(obj, node, 0), 8, data, cap, pos)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 1), data, cap, pos)
+    pos = write_ssz_uint(obj, child(obj, node, 2), 8, data, cap, pos)
+    return ssz_fixed_bytes(obj, child(obj, node, 3), data, cap, pos)
+
+
+def json_aggregate_and_proof(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put(data, cap, pos, u8(123))
+    pos = json_key(data, cap, pos, b"aggregator_index")
+    pos = write_json_uint(obj, child(obj, node, 0), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"aggregate")
+    pos = json_attestation(obj, child(obj, node, 1), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"selection_proof")
+    pos = json_hex_node(obj, child(obj, node, 2), data, cap, pos)
+    return put(data, cap, pos, u8(125))
+
+
+def json_contribution_and_proof(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put(data, cap, pos, u8(123))
+    pos = json_key(data, cap, pos, b"aggregator_index")
+    pos = write_json_uint(obj, child(obj, node, 0), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"contribution")
+    pos = json_sync_contribution(obj, child(obj, node, 1), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"selection_proof")
+    pos = json_hex_node(obj, child(obj, node, 2), data, cap, pos)
+    return put(data, cap, pos, u8(125))
+
+
+def ssz_aggregate_and_proof(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = write_ssz_uint(obj, child(obj, node, 0), 8, data, cap, pos)
+    pos = put_u32(data, cap, pos, 108)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 2), data, cap, pos)
+    return ssz_attestation(obj, child(obj, node, 1), data, cap, pos)
+
+
+def ssz_contribution_and_proof(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = write_ssz_uint(obj, child(obj, node, 0), 8, data, cap, pos)
+    pos = ssz_sync_contribution(obj, child(obj, node, 1), data, cap, pos)
+    return ssz_fixed_bytes(obj, child(obj, node, 2), data, cap, pos)
+
+
+def json_signed_container(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put(data, cap, pos, u8(123))
+    pos = json_key(data, cap, pos, b"message")
+    if obj.object_kind == OBJECT_SIGNED_AGGREGATE_AND_PROOF:
+        pos = json_aggregate_and_proof(obj, child(obj, node, 0), data, cap, pos)
+    else:
+        pos = json_contribution_and_proof(obj, child(obj, node, 0), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"signature")
+    pos = json_hex_node(obj, child(obj, node, 1), data, cap, pos)
+    return put(data, cap, pos, u8(125))
+
+
+def ssz_signed_aggregate(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put_u32(data, cap, pos, 100)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 1), data, cap, pos)
+    return ssz_aggregate_and_proof(obj, child(obj, node, 0), data, cap, pos)
+
+
+def ssz_signed_contribution(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = ssz_contribution_and_proof(obj, child(obj, node, 0), data, cap, pos)
+    return ssz_fixed_bytes(obj, child(obj, node, 1), data, cap, pos)
+
+
 def encode_signing_json_value(obj: raw_ptr[SszObject], data: gc_ptr[u8], cap: i32) -> i32:
     node = obj.root_node
     if obj.object_kind == OBJECT_ATTESTATION_DATA:
@@ -163,20 +439,25 @@ def encode_signing_json_value(obj: raw_ptr[SszObject], data: gc_ptr[u8], cap: i3
         return json_attestation(obj, node, data, cap, 0)
     if obj.object_kind == OBJECT_SYNC_COMMITTEE_CONTRIBUTION:
         return json_sync_contribution(obj, node, data, cap, 0)
-    pos: i32 = put(data, cap, 0, u8(123))
-    pos = json_key(data, cap, pos, b"aggregator_index")
-    pos = write_json_uint(obj, child(obj, node, 0), data, cap, pos)
-    pos = put(data, cap, pos, u8(44))
     if obj.object_kind == OBJECT_AGGREGATE_AND_PROOF:
-        pos = json_key(data, cap, pos, b"aggregate")
-        pos = json_attestation(obj, child(obj, node, 1), data, cap, pos)
-    else:
-        pos = json_key(data, cap, pos, b"contribution")
-        pos = json_sync_contribution(obj, child(obj, node, 1), data, cap, pos)
-    pos = put(data, cap, pos, u8(44))
-    pos = json_key(data, cap, pos, b"selection_proof")
-    pos = json_hex_node(obj, child(obj, node, 2), data, cap, pos)
-    return put(data, cap, pos, u8(125))
+        return json_aggregate_and_proof(obj, node, data, cap, 0)
+    if obj.object_kind == OBJECT_CONTRIBUTION_AND_PROOF:
+        return json_contribution_and_proof(obj, node, data, cap, 0)
+    if obj.object_kind == OBJECT_SINGLE_ATTESTATION:
+        return json_single_attestation(obj, node, data, cap, 0)
+    if obj.object_kind == OBJECT_SYNC_COMMITTEE_MESSAGE:
+        return json_sync_message(obj, node, data, cap, 0)
+    if obj.object_kind == OBJECT_SIGNED_AGGREGATE_AND_PROOF or obj.object_kind == OBJECT_SIGNED_CONTRIBUTION_AND_PROOF:
+        return json_signed_container(obj, node, data, cap, 0)
+    if obj.object_kind == OBJECT_INDEXED_ATTESTATION:
+        return json_indexed_attestation(obj, node, data, cap, 0)
+    if obj.object_kind == OBJECT_ATTESTER_SLASHING:
+        return json_attester_slashing(obj, node, data, cap, 0)
+    if obj.object_kind == OBJECT_BEACON_BLOCK_HEADER:
+        return json_block_header(obj, node, data, cap, 0)
+    if obj.object_kind == OBJECT_SIGNED_BEACON_BLOCK_HEADER:
+        return json_signed_header(obj, node, data, cap, 0)
+    return json_proposer_slashing(obj, node, data, cap, 0)
 
 
 def signing_json_size(obj: raw_ptr[SszObject]) -> i32:
@@ -196,13 +477,27 @@ def encode_signing_ssz_value(obj: raw_ptr[SszObject], data: gc_ptr[u8], cap: i32
         return ssz_attestation(obj, node, data, cap, 0)
     if obj.object_kind == OBJECT_SYNC_COMMITTEE_CONTRIBUTION:
         return ssz_sync_contribution(obj, node, data, cap, 0)
-    pos: i32 = write_ssz_uint(obj, child(obj, node, 0), 8, data, cap, 0)
     if obj.object_kind == OBJECT_AGGREGATE_AND_PROOF:
-        pos = put_u32(data, cap, pos, 108)
-        pos = ssz_fixed_bytes(obj, child(obj, node, 2), data, cap, pos)
-        return ssz_attestation(obj, child(obj, node, 1), data, cap, pos)
-    pos = ssz_sync_contribution(obj, child(obj, node, 1), data, cap, pos)
-    return ssz_fixed_bytes(obj, child(obj, node, 2), data, cap, pos)
+        return ssz_aggregate_and_proof(obj, node, data, cap, 0)
+    if obj.object_kind == OBJECT_CONTRIBUTION_AND_PROOF:
+        return ssz_contribution_and_proof(obj, node, data, cap, 0)
+    if obj.object_kind == OBJECT_SINGLE_ATTESTATION:
+        return ssz_single_attestation(obj, node, data, cap, 0)
+    if obj.object_kind == OBJECT_SYNC_COMMITTEE_MESSAGE:
+        return ssz_sync_message(obj, node, data, cap, 0)
+    if obj.object_kind == OBJECT_SIGNED_AGGREGATE_AND_PROOF:
+        return ssz_signed_aggregate(obj, node, data, cap, 0)
+    if obj.object_kind == OBJECT_SIGNED_CONTRIBUTION_AND_PROOF:
+        return ssz_signed_contribution(obj, node, data, cap, 0)
+    if obj.object_kind == OBJECT_INDEXED_ATTESTATION:
+        return ssz_indexed_attestation(obj, node, data, cap, 0)
+    if obj.object_kind == OBJECT_ATTESTER_SLASHING:
+        return ssz_attester_slashing(obj, node, data, cap, 0)
+    if obj.object_kind == OBJECT_BEACON_BLOCK_HEADER:
+        return ssz_block_header(obj, node, data, cap, 0)
+    if obj.object_kind == OBJECT_SIGNED_BEACON_BLOCK_HEADER:
+        return ssz_signed_header(obj, node, data, cap, 0)
+    return ssz_proposer_slashing(obj, node, data, cap, 0)
 
 
 def signing_ssz_size(obj: raw_ptr[SszObject]) -> i32:

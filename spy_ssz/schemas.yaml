@@ -23,6 +23,15 @@ object_kinds:
   SIGNED_BEACON_BLOCK_CONTENTS: 9
   BLINDED_BEACON_BLOCK: 10
   SIGNED_BLINDED_BEACON_BLOCK: 11
+  SINGLE_ATTESTATION: 12
+  SYNC_COMMITTEE_MESSAGE: 13
+  SIGNED_AGGREGATE_AND_PROOF: 14
+  SIGNED_CONTRIBUTION_AND_PROOF: 15
+  INDEXED_ATTESTATION: 16
+  ATTESTER_SLASHING: 17
+  BEACON_BLOCK_HEADER: 18
+  SIGNED_BEACON_BLOCK_HEADER: 19
+  PROPOSER_SLASHING: 20
 
 codecs:
   deneb_block: deneb
@@ -97,6 +106,78 @@ schemas:
     consensus_type: ContributionAndProof
     codec: signing
     python_type: ContributionAndProof
+    presets: [mainnet, minimal, gnosis]
+  - name: ELECTRA_SINGLE_ATTESTATION
+    id: 512
+    fork: ELECTRA
+    kind: SINGLE_ATTESTATION
+    consensus_type: SingleAttestation
+    codec: signing
+    python_type: SingleAttestation
+    presets: [mainnet, minimal, gnosis]
+  - name: ELECTRA_SYNC_COMMITTEE_MESSAGE
+    id: 513
+    fork: ELECTRA
+    kind: SYNC_COMMITTEE_MESSAGE
+    consensus_type: SyncCommitteeMessage
+    codec: signing
+    python_type: SyncCommitteeMessage
+    presets: [mainnet, minimal, gnosis]
+  - name: ELECTRA_SIGNED_AGGREGATE_AND_PROOF
+    id: 514
+    fork: ELECTRA
+    kind: SIGNED_AGGREGATE_AND_PROOF
+    consensus_type: SignedAggregateAndProof
+    codec: signing
+    python_type: SignedAggregateAndProof
+    presets: [mainnet, minimal, gnosis]
+  - name: ELECTRA_SIGNED_CONTRIBUTION_AND_PROOF
+    id: 515
+    fork: ELECTRA
+    kind: SIGNED_CONTRIBUTION_AND_PROOF
+    consensus_type: SignedContributionAndProof
+    codec: signing
+    python_type: SignedContributionAndProof
+    presets: [mainnet, minimal, gnosis]
+  - name: ELECTRA_INDEXED_ATTESTATION
+    id: 516
+    fork: ELECTRA
+    kind: INDEXED_ATTESTATION
+    consensus_type: IndexedAttestation
+    codec: signing
+    python_type: IndexedAttestation
+    presets: [mainnet, minimal, gnosis]
+  - name: ELECTRA_ATTESTER_SLASHING
+    id: 517
+    fork: ELECTRA
+    kind: ATTESTER_SLASHING
+    consensus_type: AttesterSlashing
+    codec: signing
+    python_type: AttesterSlashing
+    presets: [mainnet, minimal, gnosis]
+  - name: ELECTRA_BEACON_BLOCK_HEADER
+    id: 518
+    fork: ELECTRA
+    kind: BEACON_BLOCK_HEADER
+    consensus_type: BeaconBlockHeader
+    codec: signing
+    python_type: BeaconBlockHeader
+    presets: [mainnet, minimal, gnosis]
+  - name: ELECTRA_SIGNED_BEACON_BLOCK_HEADER
+    id: 519
+    fork: ELECTRA
+    kind: SIGNED_BEACON_BLOCK_HEADER
+    consensus_type: SignedBeaconBlockHeader
+    codec: signing
+    python_type: SignedBeaconBlockHeader
+    presets: [mainnet, minimal, gnosis]
+  - name: ELECTRA_PROPOSER_SLASHING
+    id: 520
+    fork: ELECTRA
+    kind: PROPOSER_SLASHING
+    consensus_type: ProposerSlashing
+    codec: signing
+    python_type: ProposerSlashing
     presets: [mainnet, minimal, gnosis]
   - name: ELECTRA_BEACON_BLOCK_CONTENTS
     id: 508
