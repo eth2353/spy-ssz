@@ -24,7 +24,7 @@ typedef spy_unsafe$raw_ptr__ssz_object$SszObject spy_raw_ssz_ptr;
 
 typedef enum {
     SPY_SSZ_DECODE_UNRECOGNIZED_FIELD = -1,
-    SPY_SSZ_DECODE_INVALID = 0,
+    SPY_SSZ_DECODE_MALFORMED_INPUT = 0,
     SPY_SSZ_DECODE_VALID = 1,
 } spy_ssz_decode_status;
 
@@ -232,8 +232,10 @@ int32_t spy_ssz_object_is_valid(spy_raw_ssz_ptr opaque) {
     return opaque.p != NULL && opaque.p->valid == SPY_SSZ_DECODE_VALID;
 }
 
-int32_t spy_ssz_object_decode_status(spy_raw_ssz_ptr opaque) {
-    return opaque.p == NULL ? SPY_SSZ_DECODE_INVALID : opaque.p->valid;
+spy_ssz_decode_status spy_ssz_object_decode_status(spy_raw_ssz_ptr opaque) {
+    return opaque.p == NULL
+        ? SPY_SSZ_DECODE_MALFORMED_INPUT
+        : (spy_ssz_decode_status)opaque.p->valid;
 }
 
 int32_t spy_ssz_object_error_start(spy_raw_ssz_ptr opaque) {

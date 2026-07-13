@@ -4,7 +4,7 @@ from _bytes import BytesObject
 from _str import StrObject
 from unsafe import gc_ptr, raw_alloc, raw_ptr
 from decode_status import (
-    DECODE_STATUS_INVALID,
+    DECODE_STATUS_MALFORMED_INPUT,
     DECODE_STATUS_UNRECOGNIZED_FIELD,
     DECODE_STATUS_VALID,
 )
@@ -520,7 +520,7 @@ def require_recognized_object_fields(document: raw_ptr[JsonDocument]) -> None:
 
 def array_get(document: raw_ptr[JsonDocument], array: i32, wanted: i32) -> i32:
     if array < 0 or array >= document.token_count or document.tokens[array].kind != TOKEN_ARRAY:
-        document.valid = DECODE_STATUS_INVALID
+        document.valid = DECODE_STATUS_MALFORMED_INPUT
         return -1
     # Primitive children are contiguous in the pre-order token stream, which
     # covers large transaction and index lists without a linear scan.

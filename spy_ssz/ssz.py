@@ -32,7 +32,7 @@ Codec = TypeVar("Codec")
 
 class _DecodeStatus(IntEnum):
     UNRECOGNIZED_FIELD = _spy.lib.SPY_SSZ_DECODE_UNRECOGNIZED_FIELD
-    INVALID = _spy.lib.SPY_SSZ_DECODE_INVALID
+    MALFORMED_INPUT = _spy.lib.SPY_SSZ_DECODE_MALFORMED_INPUT
     VALID = _spy.lib.SPY_SSZ_DECODE_VALID
 
 
@@ -223,7 +223,7 @@ class SszObject:
         status = (
             _DecodeStatus(_spy.lib.spy_ssz_object_decode_status(handle))
             if handle.p
-            else _DecodeStatus.INVALID
+            else _DecodeStatus.MALFORMED_INPUT
         )
         if status is not _DecodeStatus.VALID:
             error_start = (
