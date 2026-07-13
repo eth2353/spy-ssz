@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import sys
 from typing import Any
@@ -23,6 +24,21 @@ TYPE_STUBS = {
     module: ROOT / "spy_ssz" / f"{module}.pyi"
     for module in ("blocks", "deneb", "electra", "fulu", "gloas", "signing")
 }
+CONSENSUS_TYPES = ROOT / "spy_ssz" / "consensus_types.json"
+PROJECTIONS = ROOT / "spy_ssz" / "projections.py"
+PROJECTIONS_STUB = ROOT / "spy_ssz" / "projections.pyi"
+
+
+_CONTAINER_KINDS = {"container", "progressive_container"}
+_SEQUENCE_KINDS = {"list", "vector", "progressive_list"}
+_BYTE_KINDS = {
+    "byte_list",
+    "byte_vector",
+    "bitlist",
+    "bitvector",
+    "progressive_byte_list",
+    "progressive_bitlist",
+}
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -30,6 +46,291 @@ def _load(path: Path) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"{path} must contain a mapping")
     return value
+
+
+def _consensus_catalog() -> dict[str, Any]:
+    value = json.loads(CONSENSUS_TYPES.read_text())
+    if not isinstance(value, dict):
+        raise ValueError(f"{CONSENSUS_TYPES} must contain a mapping")
+    return value
+
+
+def _type_references(shape: dict[str, Any]) -> list[int]:
+    kind = shape["kind"]
+    if kind in _CONTAINER_KINDS:
+        return [type_id for _, type_id in shape["fields"]]
+    if kind in _SEQUENCE_KINDS:
+        return [shape["element"]]
+    if kind in {"union", "compatible_union"}:
+        return [type_id for type_id in shape["options"] if type_id >= 0]
+    return []
+
+
+def _type_fingerprint(
+    fork_data: dict[str, Any], type_id: int, cache: dict[int, Any]
+) -> Any:
+    cached = cache.get(type_id)
+    if cached is not None:
+        return cached
+    shape = fork_data["types"][type_id]
+    kind = shape["kind"]
+    value: Any
+    if kind in _CONTAINER_KINDS:
+        value = (
+            kind,
+            tuple(
+                (name, _type_fingerprint(fork_data, child, cache))
+                for name, child in shape["fields"]
+            ),
+        )
+    elif kind in _SEQUENCE_KINDS:
+        value = (
+            kind,
+            shape.get("length"),
+            shape.get("limit"),
+            _type_fingerprint(fork_data, shape["element"], cache),
+        )
+    elif kind in {"union", "compatible_union"}:
+        value = (
+            kind,
+            tuple(
+                None if child < 0 else _type_fingerprint(fork_data, child, cache)
+                for child in shape["options"]
+            ),
+        )
+    else:
+        value = (
+            kind,
+            shape.get("byte_length"),
+            shape.get("length"),
+            shape.get("limit"),
+        )
+    cache[type_id] = value
+    return value
+
+
+def _projection_model(
+    schemas: list[dict[str, Any]], catalog: dict[str, Any]
+) -> tuple[
+    dict[tuple[str, int], str],
+    dict[tuple[str, int], dict[str, Any]],
+]:
+    reachable: dict[tuple[str, int], dict[str, Any]] = {}
+    names: dict[tuple[str, int], str] = {}
+    for schema in schemas:
+        consensus_type = schema.get("consensus_type")
+        fork = schema["fork"].lower()
+        fork_data = catalog["forks"].get(fork)
+        if consensus_type is None or fork_data is None:
+            continue
+        reverse_names = {type_id: name for name, type_id in fork_data["names"].items()}
+        pending = [fork_data["names"][consensus_type]]
+        visited: set[int] = set()
+        while pending:
+            type_id = pending.pop()
+            if type_id in visited:
+                continue
+            visited.add(type_id)
+            shape = fork_data["types"][type_id]
+            pending.extend(_type_references(shape))
+            if shape["kind"] in _CONTAINER_KINDS:
+                key = (fork, type_id)
+                reachable[key] = shape
+                names[key] = reverse_names.get(
+                    type_id, f"{fork.title()}Type{type_id}Projection"
+                )
+
+    grouped: dict[str, list[tuple[str, int]]] = {}
+    for key, name in names.items():
+        grouped.setdefault(name, []).append(key)
+    class_names: dict[tuple[str, int], str] = {}
+    for name, keys in grouped.items():
+        fingerprints = {
+            _type_fingerprint(catalog["forks"][fork], type_id, {})
+            for fork, type_id in keys
+        }
+        if len(fingerprints) == 1:
+            class_names.update((key, name) for key in keys)
+        else:
+            class_names.update((key, f"{key[0].title()}{name}") for key in keys)
+    return class_names, reachable
+
+
+def _python_annotation(
+    catalog: dict[str, Any],
+    class_names: dict[tuple[str, int], str],
+    fork: str,
+    type_id: int,
+    *,
+    qualified: bool,
+) -> str:
+    shape = catalog["forks"][fork]["types"][type_id]
+    kind = shape["kind"]
+    if kind == "boolean":
+        return "bool"
+    if kind == "uint":
+        return "int"
+    if kind in _BYTE_KINDS:
+        return "bytes"
+    if kind in _CONTAINER_KINDS:
+        name = class_names[(fork, type_id)]
+        return f"projections.{name}" if qualified else name
+    if kind in _SEQUENCE_KINDS:
+        element = _python_annotation(
+            catalog,
+            class_names,
+            fork,
+            shape["element"],
+            qualified=qualified,
+        )
+        return f"tuple[{element}, ...]"
+    return "Any"
+
+
+def _render_projection_base() -> list[str]:
+    return [
+        "class Projection:",
+        "    def to_obj(self) -> dict[str, Any]:",
+        "        return {",
+        "            field.name: _json_value(getattr(self, field.name)) for field in fields(self)",
+        "        }",
+        "",
+        "",
+        "def _json_value(value: Any) -> Any:",
+        "    if isinstance(value, Projection):",
+        "        return value.to_obj()",
+        "    if isinstance(value, bool):",
+        "        return value",
+        "    if isinstance(value, int):",
+        "        return value",
+        "    if isinstance(value, bytes):",
+        '        return f"0x{value.hex()}"',
+        "    if isinstance(value, tuple):",
+        "        return [_json_value(item) for item in value]",
+        "    return value",
+        "",
+        "",
+        "def _hex_bytes(value: Any) -> bytes:",
+        '    if not isinstance(value, str) or not value.startswith("0x"):',
+        '        raise TypeError("expected 0x-prefixed hex string")',
+        "    return bytes.fromhex(value[2:])",
+    ]
+
+
+def render_projections(
+    schemas: list[dict[str, Any]], catalog: dict[str, Any]
+) -> tuple[str, str]:
+    class_names, reachable = _projection_model(schemas, catalog)
+    definitions: dict[str, tuple[str, int, dict[str, Any]]] = {}
+    for key, shape in reachable.items():
+        definitions.setdefault(class_names[key], (*key, shape))
+
+    runtime = [
+        '"""Generated immutable projections from consensus_types.json; do not edit."""',
+        "",
+        "from __future__ import annotations",
+        "",
+        "from dataclasses import dataclass, fields",
+        "from typing import Any",
+        "",
+        "from .consensus_types import get_type_definition, get_type_shape",
+        "from .schema import Fork",
+        "",
+        "",
+        "_BYTE_KINDS = {",
+        '    "bitlist",',
+        '    "bitvector",',
+        '    "byte_list",',
+        '    "byte_vector",',
+        '    "progressive_bitlist",',
+        '    "progressive_byte_list",',
+        "}",
+        '_CONTAINER_KINDS = {"container", "progressive_container"}',
+        '_SEQUENCE_KINDS = {"list", "progressive_list", "vector"}',
+        "",
+        "",
+        *_render_projection_base(),
+    ]
+    stub = [
+        '"""Generated immutable projections from consensus_types.json; do not edit."""',
+        "",
+        "from typing import Any",
+        "",
+        "from .schema import Fork",
+        "",
+        "class Projection:",
+        "    def to_obj(self) -> dict[str, Any]: ...",
+        "",
+        "def project_value(fork: Fork, type_id: int, value: Any) -> Any: ...",
+        "def project_field(fork: Fork, consensus_type: str, name: str, value: Any) -> Any: ...",
+    ]
+    for name in sorted(definitions):
+        fork, _, shape = definitions[name]
+        runtime.extend(
+            [
+                "",
+                "",
+                "@dataclass(frozen=True, slots=True)",
+                f"class {name}(Projection):",
+            ]
+        )
+        stub.extend(["", f"class {name}(Projection):"])
+        for field_name, field_type in shape["fields"]:
+            annotation = _python_annotation(
+                catalog,
+                class_names,
+                fork,
+                field_type,
+                qualified=False,
+            )
+            runtime.append(f"    {field_name}: {annotation}")
+            stub.extend(
+                [
+                    "    @property",
+                    f"    def {field_name}(self) -> {annotation}: ...",
+                ]
+            )
+        if not shape["fields"]:
+            runtime.append("    pass")
+            stub.append("    pass")
+
+    runtime.extend(["", "", "_PROJECTION_TYPES = {"])
+    for (fork, type_id), name in sorted(class_names.items()):
+        runtime.append(f"    (Fork.{fork.upper()}, {type_id}): {name},")
+    runtime.extend(
+        [
+            "}",
+            "",
+            "",
+            "def project_value(fork: Fork, type_id: int, value: Any) -> Any:",
+            "    shape = get_type_shape(fork, type_id)",
+            '    kind = shape["kind"]',
+            '    if kind == "boolean":',
+            "        return bool(value)",
+            '    if kind == "uint":',
+            "        return int(value)",
+            "    if kind in _BYTE_KINDS:",
+            "        return _hex_bytes(value)",
+            "    if kind in _CONTAINER_KINDS:",
+            "        projection = _PROJECTION_TYPES[(fork, type_id)]",
+            "        return projection(",
+            "            **{",
+            "                name: project_value(fork, child, value[name])",
+            '                for name, child in shape["fields"]',
+            "            }",
+            "        )",
+            "    if kind in _SEQUENCE_KINDS:",
+            '        return tuple(project_value(fork, shape["element"], item) for item in value)',
+            "    return value",
+            "",
+            "",
+            "def project_field(fork: Fork, consensus_type: str, name: str, value: Any) -> Any:",
+            "    definition = get_type_definition(fork, consensus_type)",
+            '    fields_by_name = dict(definition.descriptor["fields"])',
+            "    return project_value(fork, fields_by_name[name], value)",
+        ]
+    )
+    return "\n".join(runtime).rstrip() + "\n", "\n".join(stub).rstrip() + "\n"
 
 
 def render_metadata() -> str:
@@ -113,18 +414,80 @@ def _type_exports(schema: dict[str, Any]) -> list[str]:
     ]
 
 
+def _schema_properties(
+    schema: dict[str, Any],
+    catalog: dict[str, Any],
+    class_names: dict[tuple[str, int], str],
+) -> list[tuple[str, str]]:
+    consensus_type = schema.get("consensus_type")
+    fork = schema["fork"].lower()
+    fork_data = catalog["forks"].get(fork)
+    if consensus_type is None or fork_data is None:
+        return []
+    root = fork_data["names"][consensus_type]
+    shape = fork_data["types"][root]
+    return [
+        (
+            name,
+            "Bitfield"
+            if name in {"aggregation_bits", "committee_bits"}
+            else _python_annotation(
+                catalog,
+                class_names,
+                fork,
+                type_id,
+                qualified=True,
+            ),
+        )
+        for name, type_id in shape["fields"]
+    ]
+
+
+def _stub_class(name: str, base: str, properties: list[tuple[str, str]]) -> list[str]:
+    if not properties:
+        return [f"class {name}({base}): ..."]
+    lines = [f"class {name}({base}):"]
+    for property_name, annotation in properties:
+        lines.extend(
+            [
+                "    @property",
+                f"    def {property_name}(self) -> {annotation}: ...",
+            ]
+        )
+    return lines
+
+
 def _render_dynamic_stub(
-    schemas: list[dict[str, Any]], *, alias_all: bool = False
+    schemas: list[dict[str, Any]],
+    catalog: dict[str, Any],
+    class_names: dict[tuple[str, int], str],
+    *,
+    alias_all: bool = False,
 ) -> str:
+    properties_by_type = {
+        schema["python_type"]: _schema_properties(schema, catalog, class_names)
+        for schema in schemas
+    }
+    annotations = {
+        annotation
+        for properties in properties_by_type.values()
+        for _, annotation in properties
+    }
     lines = [
         '"""Generated from spy_ssz/schemas.yaml; do not edit."""',
         "",
-        "from .ssz import SszObject",
-        "",
     ]
+    if any(annotation.startswith("projections.") for annotation in annotations):
+        lines.extend(["from . import projections"])
+    if "Bitfield" in annotations:
+        lines.extend(["from .ssz import Bitfield, SszObject"])
+    else:
+        lines.extend(["from .ssz import SszObject"])
+    lines.append("")
     for schema_index, schema in enumerate(schemas):
         base = schema["python_type"]
-        lines.extend([f"class {base}(SszObject): ...", ""])
+        properties = properties_by_type[base]
+        lines.extend([*_stub_class(base, "SszObject", properties), ""])
         for index, preset in enumerate(schema["presets"]):
             variant = f"{base}{preset.title()}"
             if alias_all or preset == "mainnet":
@@ -133,8 +496,7 @@ def _render_dynamic_stub(
                     lines.append("")
             else:
                 lines.append(f"class {variant}({base}): ...")
-        last_preset_is_alias = alias_all or schema["presets"][-1] == "mainnet"
-        if schema_index + 1 < len(schemas) and last_preset_is_alias:
+        if schema_index + 1 < len(schemas):
             lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
@@ -202,6 +564,9 @@ def _render_blocks_stub(schemas: list[dict[str, Any]]) -> str:
 def render_type_stubs() -> dict[Path, str]:
     source = _load(SCHEMAS)
     schemas = source["schemas"]
+    catalog = _consensus_catalog()
+    class_names, _ = _projection_model(schemas, catalog)
+    projections, projections_stub = render_projections(schemas, catalog)
     by_module: dict[str, list[dict[str, Any]]] = {}
     for schema in schemas:
         module = source["codecs"][schema["codec"]]
@@ -209,11 +574,23 @@ def render_type_stubs() -> dict[Path, str]:
 
     stubs = {
         TYPE_STUBS["blocks"]: _render_blocks_stub(by_module["blocks"]),
-        TYPE_STUBS["deneb"]: _render_dynamic_stub(by_module["deneb"], alias_all=True),
-        TYPE_STUBS["electra"]: _render_dynamic_stub(by_module["electra"]),
-        TYPE_STUBS["fulu"]: _render_dynamic_stub(by_module["fulu"]),
-        TYPE_STUBS["gloas"]: _render_dynamic_stub(by_module["gloas"], alias_all=True),
-        TYPE_STUBS["signing"]: _render_dynamic_stub(by_module["signing"]),
+        TYPE_STUBS["deneb"]: _render_dynamic_stub(
+            by_module["deneb"], catalog, class_names, alias_all=True
+        ),
+        TYPE_STUBS["electra"]: _render_dynamic_stub(
+            by_module["electra"], catalog, class_names
+        ),
+        TYPE_STUBS["fulu"]: _render_dynamic_stub(
+            by_module["fulu"], catalog, class_names
+        ),
+        TYPE_STUBS["gloas"]: _render_dynamic_stub(
+            by_module["gloas"], catalog, class_names, alias_all=True
+        ),
+        TYPE_STUBS["signing"]: _render_dynamic_stub(
+            by_module["signing"], catalog, class_names
+        ),
+        PROJECTIONS: projections,
+        PROJECTIONS_STUB: projections_stub,
     }
 
     lines = [
@@ -234,6 +611,7 @@ def render_type_stubs() -> dict[Path, str]:
         "    PresetConfig as PresetConfig,",
         "    load_preset as load_preset,",
         ")",
+        "from .projections import Checkpoint as Checkpoint",
         "from .ssz import (",
         "    SszObject as SszObject,",
         "    decode_json as decode_json,",

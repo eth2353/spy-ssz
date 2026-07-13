@@ -15,6 +15,7 @@ from .preset import (
     PresetConfig as PresetConfig,
     load_preset as load_preset,
 )
+from .projections import Checkpoint as Checkpoint
 from .ssz import (
     SszObject as SszObject,
     decode_json as decode_json,

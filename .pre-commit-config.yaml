@@ -27,7 +27,7 @@ repos:
     rev: v1.20.1
     hooks:
       - id: mypy
-        exclude: "^(benchmarks|tests)/.*\\.py$|^spy_ssz/(__init__|blocks|deneb|electra|fulu|gloas|signing)\\.pyi?$"
+        exclude: "^(benchmarks|tests)/.*\\.py$|^spy_ssz/(__init__|blocks|deneb|electra|fulu|gloas|projections|signing)\\.pyi?$"
         additional_dependencies:
           [
           aiohttp==3.13.5,

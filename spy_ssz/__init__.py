@@ -15,6 +15,7 @@ for _definition in schema_definitions():
 
 __all__ = [
     "Fork",
+    "Checkpoint",
     "SszObject",
     "ObjectKind",
     "Preset",
@@ -30,6 +31,10 @@ __all__ = [
 
 
 def __getattr__(name: str) -> Any:
+    if name == "Checkpoint":
+        from .projections import Checkpoint
+
+        return Checkpoint
     if name in {
         "TypeDefinition",
         "get_type_definition",

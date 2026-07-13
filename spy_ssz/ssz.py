@@ -167,6 +167,17 @@ class SszObject:
                     and self.object_kind is ObjectKind.ATTESTATION
                 )
                 return Bitfield.from_hex(raw, bitlist=is_bitlist)
+            from .projections import project_field
+            from .schema import get_schema
+
+            definition = get_schema(self.fork, self.object_kind)
+            if definition.consensus_type is not None:
+                return project_field(
+                    self.fork,
+                    definition.consensus_type,
+                    name,
+                    raw,
+                )
             return _project_value(raw)
         raise AttributeError(name)
 
