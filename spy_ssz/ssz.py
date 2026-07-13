@@ -36,7 +36,9 @@ class _DecodeStatus(IntEnum):
     VALID = _spy.lib.SPY_SSZ_DECODE_VALID
 
 
-_MAX_NATIVE_INPUT_LENGTH = (1 << 31) - 1
+# The largest decoder arena is ``input_length * 3 + 16 KiB`` and all native
+# lengths and offsets are signed 32-bit integers.
+_MAX_NATIVE_INPUT_LENGTH = ((1 << 31) - 1 - 16 * 1024) // 3
 _JSON_DECODERS: dict[CodecKey, Decoder] = {}
 _SSZ_DECODERS: dict[CodecKey, Decoder] = {}
 _SSZ_ENCODERS: dict[CodecKey, tuple[Sizer, Encoder]] = {}

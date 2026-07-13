@@ -205,9 +205,10 @@ do not yet have executable codecs.
 
 Generalized-index views and mutation APIs are also not implemented yet.
 
-JSON and SSZ inputs are limited to 2,147,483,647 bytes. The compiled decoder
-uses signed 32-bit positions and arena offsets; larger inputs are rejected at
-the Python boundary before native decoding.
+JSON and SSZ inputs are limited to 715,822,421 bytes. This keeps the largest
+native arena-capacity calculation within the signed 32-bit positions and
+offsets used by the compiled decoder. Larger inputs are rejected at the Python
+boundary before native decoding.
 
 JSON decoding rejects duplicate and unrecognized object fields. Standard
 endpoint-specific Beacon API response metadata is recognized alongside the
