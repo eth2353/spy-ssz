@@ -1,0 +1,10 @@
+"""Compilation root for all registered native SSZ schemas."""
+
+from schema_deneb import decode_deneb_attestation, decode_deneb_signed_block
+from schema_deneb_ssz import decode_deneb_attestation_ssz, decode_deneb_signed_block_ssz
+from schema_electra import decode_signed_block
+from schema_electra_ssz import decode_signed_block_ssz
+from schema_electra_encode import electra_encode_ssz, electra_ssz_size
+from schema_gloas import decode_gloas_attestation
+from schema_gloas_ssz import decode_gloas_attestation_ssz
+from ssz_object import object_hash_tree_root

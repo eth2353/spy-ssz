@@ -1,0 +1,25 @@
+[project]
+name = "postpy-ssz"
+version = "0.1.0"
+description = "SPy proof of concept for native Ethereum SSZ kernels"
+readme = "README.md"
+requires-python = "~=3.12.0"
+dependencies = [
+    "cffi>=2.1.0",
+    "msgspec>=0.21.1",
+    "setuptools>=83.0.0",
+    "spylang",
+]
+
+[tool.uv.sources]
+spylang = { git = "https://github.com/spylang/spy.git", rev = "012ae501eb6a0adc3baff261c97ec9b56c80c2d1" }
+
+[tool.setuptools.package-data]
+postpy_ssz = ["consensus_types.json"]
+
+[dependency-groups]
+dev = [
+    "eth-consensus-specs>=1.7.0a12",
+    "eth-remerkleable==0.1.31",
+    "pytest>=9.1.1",
+]

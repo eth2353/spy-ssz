@@ -1,0 +1,219 @@
+from _bytes import BytesObject
+
+
+SHA256_K = (
+    b"\x42\x8a\x2f\x98\x71\x37\x44\x91\xb5\xc0\xfb\xcf\xe9\xb5\xdb\xa5"
+    b"\x39\x56\xc2\x5b\x59\xf1\x11\xf1\x92\x3f\x82\xa4\xab\x1c\x5e\xd5"
+    b"\xd8\x07\xaa\x98\x12\x83\x5b\x01\x24\x31\x85\xbe\x55\x0c\x7d\xc3"
+    b"\x72\xbe\x5d\x74\x80\xde\xb1\xfe\x9b\xdc\x06\xa7\xc1\x9b\xf1\x74"
+    b"\xe4\x9b\x69\xc1\xef\xbe\x47\x86\x0f\xc1\x9d\xc6\x24\x0c\xa1\xcc"
+    b"\x2d\xe9\x2c\x6f\x4a\x74\x84\xaa\x5c\xb0\xa9\xdc\x76\xf9\x88\xda"
+    b"\x98\x3e\x51\x52\xa8\x31\xc6\x6d\xb0\x03\x27\xc8\xbf\x59\x7f\xc7"
+    b"\xc6\xe0\x0b\xf3\xd5\xa7\x91\x47\x06\xca\x63\x51\x14\x29\x29\x67"
+    b"\x27\xb7\x0a\x85\x2e\x1b\x21\x38\x4d\x2c\x6d\xfc\x53\x38\x0d\x13"
+    b"\x65\x0a\x73\x54\x76\x6a\x0a\xbb\x81\xc2\xc9\x2e\x92\x72\x2c\x85"
+    b"\xa2\xbf\xe8\xa1\xa8\x1a\x66\x4b\xc2\x4b\x8b\x70\xc7\x6c\x51\xa3"
+    b"\xd1\x92\xe8\x19\xd6\x99\x06\x24\xf4\x0e\x35\x85\x10\x6a\xa0\x70"
+    b"\x19\xa4\xc1\x16\x1e\x37\x6c\x08\x27\x48\x77\x4c\x34\xb0\xbc\xb5"
+    b"\x39\x1c\x0c\xb3\x4e\xd8\xaa\x4a\x5b\x9c\xca\x4f\x68\x2e\x6f\xf3"
+    b"\x74\x8f\x82\xee\x78\xa5\x63\x6f\x84\xc8\x78\x14\x8c\xc7\x02\x08"
+    b"\x90\xbe\xff\xfa\xa4\x50\x6c\xeb\xbe\xf9\xa3\xf7\xc6\x71\x78\xf2"
+)
+
+PAIR_PADDING = (
+    b"\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00"
+)
+
+
+def as_u32(value: i32) -> u32:
+    return value
+
+
+def byte_as_u32(value: u8) -> u32:
+    widened: i32 = i32(value)
+    return widened
+
+
+def low_u8(value: u32) -> u8:
+    narrowed: i32 = value
+    return u8(narrowed)
+
+
+def load_u32_be(data: bytes, offset: i32) -> u32:
+    ll = BytesObject.from_bytes(data)
+    return (
+        (byte_as_u32(ll.data[offset]) << as_u32(24))
+        | (byte_as_u32(ll.data[offset + 1]) << as_u32(16))
+        | (byte_as_u32(ll.data[offset + 2]) << as_u32(8))
+        | byte_as_u32(ll.data[offset + 3])
+    )
+
+
+def store_u32_be(data: bytes, offset: i32, value: u32) -> None:
+    ll = BytesObject.from_bytes(data)
+    ll.data[offset] = low_u8(value >> as_u32(24))
+    ll.data[offset + 1] = low_u8(value >> as_u32(16))
+    ll.data[offset + 2] = low_u8(value >> as_u32(8))
+    ll.data[offset + 3] = low_u8(value)
+
+
+def rotr(value: u32, amount: u32) -> u32:
+    return (value >> amount) | (value << (as_u32(32) - amount))
+
+
+def small_sigma0(value: u32) -> u32:
+    return rotr(value, as_u32(7)) ^ rotr(value, as_u32(18)) ^ (value >> as_u32(3))
+
+
+def small_sigma1(value: u32) -> u32:
+    return rotr(value, as_u32(17)) ^ rotr(value, as_u32(19)) ^ (value >> as_u32(10))
+
+
+def big_sigma0(value: u32) -> u32:
+    return rotr(value, as_u32(2)) ^ rotr(value, as_u32(13)) ^ rotr(value, as_u32(22))
+
+
+def big_sigma1(value: u32) -> u32:
+    return rotr(value, as_u32(6)) ^ rotr(value, as_u32(11)) ^ rotr(value, as_u32(25))
+
+
+def choose(x: u32, y: u32, z: u32) -> u32:
+    return (x & y) ^ ((x ^ as_u32(-1)) & z)
+
+
+def majority(x: u32, y: u32, z: u32) -> u32:
+    return (x & y) ^ (x & z) ^ (y & z)
+
+
+def initialize_state(state: bytes) -> None:
+    store_u32_be(state, 0, 0x6a09e667)
+    store_u32_be(state, 4, as_u32(-1150833019))
+    store_u32_be(state, 8, 0x3c6ef372)
+    store_u32_be(state, 12, as_u32(-1521486534))
+    store_u32_be(state, 16, 0x510e527f)
+    store_u32_be(state, 20, as_u32(-1694144372))
+    store_u32_be(state, 24, 0x1f83d9ab)
+    store_u32_be(state, 28, 0x5be0cd19)
+
+
+def compress(block: bytes, block_offset: i32, state: bytes, schedule: bytes) -> None:
+    i: i32 = 0
+    while i < 16:
+        store_u32_be(schedule, i * 4, load_u32_be(block, block_offset + i * 4))
+        i = i + 1
+
+    while i < 64:
+        w15 = load_u32_be(schedule, (i - 15) * 4)
+        w2 = load_u32_be(schedule, (i - 2) * 4)
+        word = (
+            load_u32_be(schedule, (i - 16) * 4)
+            + small_sigma0(w15)
+            + load_u32_be(schedule, (i - 7) * 4)
+            + small_sigma1(w2)
+        )
+        store_u32_be(schedule, i * 4, word)
+        i = i + 1
+
+    initial_a = load_u32_be(state, 0)
+    initial_b = load_u32_be(state, 4)
+    initial_c = load_u32_be(state, 8)
+    initial_d = load_u32_be(state, 12)
+    initial_e = load_u32_be(state, 16)
+    initial_f = load_u32_be(state, 20)
+    initial_g = load_u32_be(state, 24)
+    initial_h = load_u32_be(state, 28)
+
+    a = initial_a
+    b = initial_b
+    c = initial_c
+    d = initial_d
+    e = initial_e
+    f = initial_f
+    g = initial_g
+    h = initial_h
+    i = 0
+    while i < 64:
+        t1 = (
+            h
+            + big_sigma1(e)
+            + choose(e, f, g)
+            + load_u32_be(SHA256_K, i * 4)
+            + load_u32_be(schedule, i * 4)
+        )
+        t2 = big_sigma0(a) + majority(a, b, c)
+        h = g
+        g = f
+        f = e
+        e = d + t1
+        d = c
+        c = b
+        b = a
+        a = t1 + t2
+        i = i + 1
+
+    store_u32_be(state, 0, initial_a + a)
+    store_u32_be(state, 4, initial_b + b)
+    store_u32_be(state, 8, initial_c + c)
+    store_u32_be(state, 12, initial_d + d)
+    store_u32_be(state, 16, initial_e + e)
+    store_u32_be(state, 20, initial_f + f)
+    store_u32_be(state, 24, initial_g + g)
+    store_u32_be(state, 28, initial_h + h)
+
+
+def hash_pair_into(
+    source: bytes,
+    source_offset: i32,
+    output: bytes,
+    output_offset: i32,
+    state: bytes,
+    schedule: bytes,
+) -> None:
+    initialize_state(state)
+    compress(source, source_offset, state, schedule)
+    compress(PAIR_PADDING, 0, state, schedule)
+
+    i: i32 = 0
+    src = BytesObject.from_bytes(state)
+    dst = BytesObject.from_bytes(output)
+    while i < 32:
+        dst.data[output_offset + i] = src.data[i]
+        i = i + 1
+
+
+def merkleize_in_place(work: bytes, leaf_count: i32, state: bytes, schedule: bytes) -> None:
+    count = leaf_count
+    while count > 1:
+        parent_count = count // 2
+        i: i32 = 0
+        while i < parent_count:
+            hash_pair_into(work, i * 64, work, i * 32, state, schedule)
+            i = i + 1
+        count = parent_count
+
+
+def merkleize_at(
+    work: bytes,
+    base_offset: i32,
+    leaf_count: i32,
+    state: bytes,
+    schedule: bytes,
+) -> None:
+    count = leaf_count
+    while count > 1:
+        parent_count = count // 2
+        i: i32 = 0
+        while i < parent_count:
+            hash_pair_into(
+                work,
+                base_offset + i * 64,
+                work,
+                base_offset + i * 32,
+                state,
+                schedule,
+            )
+            i = i + 1
+        count = parent_count

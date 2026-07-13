@@ -1,0 +1,57 @@
+"""Bounds-checked temporary SSZ byte input."""
+
+from _bytes import BytesObject
+from unsafe import raw_alloc, raw_ptr
+
+
+@struct
+class SszDocument:
+    data: raw_ptr[u8]
+    length: i32
+    valid: i32
+
+
+def decode_ssz(source: bytes) -> raw_ptr[SszDocument]:
+    src = BytesObject.from_bytes(source)
+    document = raw_alloc[SszDocument](1)
+    document.data = raw_alloc[u8](src.length)
+    document.length = src.length
+    document.valid = 1
+    i: i32 = 0
+    while i < src.length:
+        document.data[i] = src.data[i]
+        i = i + 1
+    return document
+
+
+def require_range(document: raw_ptr[SszDocument], start: i32, end: i32) -> bool:
+    if start < 0 or end < start or end > document.length:
+        document.valid = 0
+        return False
+    return True
+
+
+def read_u32(document: raw_ptr[SszDocument], position: i32) -> i32:
+    if not require_range(document, position, position + 4):
+        return 0
+    return (
+        i32(document.data[position])
+        | (i32(document.data[position + 1]) << 8)
+        | (i32(document.data[position + 2]) << 16)
+        | (i32(document.data[position + 3]) << 24)
+    )
+
+
+def variable_offset(
+    document: raw_ptr[SszDocument],
+    start: i32,
+    end: i32,
+    position: i32,
+    fixed_size: i32,
+) -> i32:
+    offset = read_u32(document, start + position)
+    absolute = start + offset
+    if offset < fixed_size or absolute > end:
+        document.valid = 0
+        return end
+    return absolute

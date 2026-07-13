@@ -1,0 +1,88 @@
+"""SSZ-byte lowering for implemented Gloas progressive types."""
+
+from unsafe import raw_ptr
+from schema_deneb_ssz import (
+    DenebSszDecodeResult,
+    attestation_data,
+    copy_data,
+    ssz_fixed_bytes,
+)
+from ssz_reader import SszDocument, decode_ssz, variable_offset
+from ssz_object import (
+    FORK_GLOAS,
+    KIND_PROGRESSIVE_CONTAINER,
+    OBJECT_ATTESTATION,
+    NativeSszObject,
+    add_composite_node,
+    add_progressive_bitlist_node,
+    alloc_data,
+    new_object,
+    reserve_edges,
+    set_edge,
+)
+
+
+SCHEMA_GLOAS_ATTESTATION: i32 = 401
+
+
+def progressive_bitlist(
+    document: raw_ptr[SszDocument],
+    start: i32,
+    end: i32,
+    obj: raw_ptr[NativeSszObject],
+) -> i32:
+    encoded_length = end - start
+    offset = copy_data(document, start, encoded_length, obj)
+    if encoded_length <= 0:
+        obj.valid = 0
+        return add_progressive_bitlist_node(obj, offset, 0)
+    last = i32(obj.arena[offset + encoded_length - 1])
+    delimiter: i32 = 7
+    while delimiter > 0 and (last & (1 << delimiter)) == 0:
+        delimiter = delimiter - 1
+    if last == 0:
+        obj.valid = 0
+    bit_length = (encoded_length - 1) * 8 + delimiter
+    obj.arena[offset + encoded_length - 1] = u8(last ^ (1 << delimiter))
+    return add_progressive_bitlist_node(obj, offset, bit_length)
+
+
+def gloas_attestation(
+    document: raw_ptr[SszDocument], obj: raw_ptr[NativeSszObject]
+) -> i32:
+    if document.length < 236:
+        obj.valid = 0
+    bits = variable_offset(document, 0, document.length, 0, 236)
+    first = reserve_edges(obj, 4)
+    set_edge(obj, first, 0, progressive_bitlist(document, bits, document.length, obj))
+    set_edge(obj, first, 1, attestation_data(document, 4, obj))
+    set_edge(obj, first, 2, ssz_fixed_bytes(document, 132, 96, obj))
+    set_edge(obj, first, 3, ssz_fixed_bytes(document, 228, 8, obj))
+    active_offset = alloc_data(obj, 1)
+    obj.arena[active_offset] = u8(15)
+    return add_composite_node(
+        obj,
+        KIND_PROGRESSIVE_CONTAINER,
+        first,
+        4,
+        0,
+        active_offset,
+        4,
+    )
+
+
+def decode_gloas_attestation_ssz(source: bytes) -> DenebSszDecodeResult:
+    document = decode_ssz(source)
+    capacity = document.length // 4 + 64
+    obj = new_object(
+        FORK_GLOAS,
+        OBJECT_ATTESTATION,
+        SCHEMA_GLOAS_ATTESTATION,
+        capacity,
+        capacity,
+        document.length * 2 + 1024,
+    )
+    obj.root_node = gloas_attestation(document, obj)
+    if document.valid == 0:
+        obj.valid = 0
+    return DenebSszDecodeResult(obj, document)

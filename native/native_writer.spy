@@ -1,0 +1,250 @@
+"""Allocation-free output primitives for native SSZ objects."""
+
+from _bytes import BytesObject
+from unsafe import gc_ptr, raw_ptr
+from ssz_object import NativeSszObject
+
+
+def put(data: gc_ptr[u8], capacity: i32, position: i32, value: u8) -> i32:
+    if position < capacity:
+        data[position] = value
+    return position + 1
+
+
+def put_bytes(
+    data: gc_ptr[u8],
+    capacity: i32,
+    position: i32,
+    source: raw_ptr[u8],
+    start: i32,
+    length: i32,
+) -> i32:
+    i: i32 = 0
+    while i < length:
+        position = put(data, capacity, position, source[start + i])
+        i = i + 1
+    return position
+
+
+def put_literal(
+    data: gc_ptr[u8], capacity: i32, position: i32, value: bytes
+) -> i32:
+    literal = BytesObject.from_bytes(value)
+    i: i32 = 0
+    while i < literal.length:
+        position = put(data, capacity, position, literal.data[i])
+        i = i + 1
+    return position
+
+
+def put_u32(data: gc_ptr[u8], capacity: i32, position: i32, value: i32) -> i32:
+    position = put(data, capacity, position, u8(value & 255))
+    position = put(data, capacity, position, u8((value >> 8) & 255))
+    position = put(data, capacity, position, u8((value >> 16) & 255))
+    position = put(data, capacity, position, u8((value >> 24) & 255))
+    return position
+
+
+def child(
+    obj: raw_ptr[NativeSszObject], node_index: i32, child_index: i32
+) -> i32:
+    node = obj.nodes[node_index]
+    return obj.edges[node.first_edge + child_index]
+
+
+def ssz_uint(
+    obj: raw_ptr[NativeSszObject],
+    node_index: i32,
+    size: i32,
+    data: gc_ptr[u8],
+    capacity: i32,
+    position: i32,
+) -> i32:
+    node = obj.nodes[node_index]
+    return put_bytes(data, capacity, position, obj.arena, node.data_offset, size)
+
+
+def ssz_fixed_bytes(
+    obj: raw_ptr[NativeSszObject],
+    node_index: i32,
+    data: gc_ptr[u8],
+    capacity: i32,
+    position: i32,
+) -> i32:
+    node = obj.nodes[node_index]
+    return put_bytes(
+        data, capacity, position, obj.arena, node.data_offset, node.data_length
+    )
+
+
+def ssz_byte_list(
+    obj: raw_ptr[NativeSszObject],
+    node_index: i32,
+    data: gc_ptr[u8],
+    capacity: i32,
+    position: i32,
+) -> i32:
+    return ssz_fixed_bytes(obj, node_index, data, capacity, position)
+
+
+def ssz_basic_list(
+    obj: raw_ptr[NativeSszObject],
+    node_index: i32,
+    data: gc_ptr[u8],
+    capacity: i32,
+    position: i32,
+) -> i32:
+    return ssz_fixed_bytes(obj, node_index, data, capacity, position)
+
+
+def ssz_bitlist(
+    obj: raw_ptr[NativeSszObject],
+    node_index: i32,
+    data: gc_ptr[u8],
+    capacity: i32,
+    position: i32,
+) -> i32:
+    node = obj.nodes[node_index]
+    byte_length = (node.data_length + 7) // 8
+    i: i32 = 0
+    while i < byte_length:
+        value = obj.arena[node.data_offset + i]
+        if i == byte_length - 1 and node.data_length % 8 != 0:
+            value = u8(i32(value) | (1 << (node.data_length % 8)))
+        position = put(data, capacity, position, value)
+        i = i + 1
+    if node.data_length % 8 == 0:
+        position = put(data, capacity, position, u8(1))
+    return position
+
+
+def hex_digit(value: i32) -> u8:
+    if value < 10:
+        return u8(48 + value)
+    return u8(87 + value)
+
+
+def json_key(
+    data: gc_ptr[u8], capacity: i32, position: i32, key: bytes
+) -> i32:
+    position = put(data, capacity, position, u8(34))
+    position = put_literal(data, capacity, position, key)
+    position = put(data, capacity, position, u8(34))
+    position = put(data, capacity, position, u8(58))
+    return position
+
+
+def json_hex_range(
+    source: raw_ptr[u8],
+    start: i32,
+    length: i32,
+    data: gc_ptr[u8],
+    capacity: i32,
+    position: i32,
+) -> i32:
+    position = put_literal(data, capacity, position, b"\"0x")
+    i: i32 = 0
+    while i < length:
+        value = i32(source[start + i])
+        position = put(data, capacity, position, hex_digit(value >> 4))
+        position = put(data, capacity, position, hex_digit(value & 15))
+        i = i + 1
+    return put(data, capacity, position, u8(34))
+
+
+def json_hex_node(
+    obj: raw_ptr[NativeSszObject],
+    node_index: i32,
+    data: gc_ptr[u8],
+    capacity: i32,
+    position: i32,
+) -> i32:
+    node = obj.nodes[node_index]
+    return json_hex_range(
+        obj.arena,
+        node.data_offset,
+        node.data_length,
+        data,
+        capacity,
+        position,
+    )
+
+
+def json_bitlist(
+    obj: raw_ptr[NativeSszObject],
+    node_index: i32,
+    data: gc_ptr[u8],
+    capacity: i32,
+    position: i32,
+) -> i32:
+    node = obj.nodes[node_index]
+    byte_length = (node.data_length + 7) // 8
+    position = put_literal(data, capacity, position, b"\"0x")
+    i: i32 = 0
+    while i < byte_length:
+        value = i32(obj.arena[node.data_offset + i])
+        if i == byte_length - 1 and node.data_length % 8 != 0:
+            value = value | (1 << (node.data_length % 8))
+        position = put(data, capacity, position, hex_digit(value >> 4))
+        position = put(data, capacity, position, hex_digit(value & 15))
+        i = i + 1
+    if node.data_length % 8 == 0:
+        position = put_literal(data, capacity, position, b"01")
+    return put(data, capacity, position, u8(34))
+
+
+def json_uint_range(
+    obj: raw_ptr[NativeSszObject],
+    source_offset: i32,
+    source_length: i32,
+    data: gc_ptr[u8],
+    capacity: i32,
+    position: i32,
+) -> i32:
+    i: i32 = 0
+    nonzero = False
+    while i < 32:
+        value = u8(0)
+        if i < source_length:
+            value = obj.arena[source_offset + i]
+        obj.work.data[i] = value
+        if value != u8(0):
+            nonzero = True
+        i = i + 1
+    position = put(data, capacity, position, u8(34))
+    if not nonzero:
+        position = put(data, capacity, position, u8(48))
+    else:
+        digit_count: i32 = 0
+        while nonzero:
+            remainder: i32 = 0
+            nonzero = False
+            i = 31
+            while i >= 0:
+                current = remainder * 256 + i32(obj.work.data[i])
+                quotient = current // 10
+                remainder = current - quotient * 10
+                obj.work.data[i] = u8(quotient)
+                if quotient != 0:
+                    nonzero = True
+                i = i - 1
+            obj.work.data[32 + digit_count] = u8(48 + remainder)
+            digit_count = digit_count + 1
+        i = digit_count - 1
+        while i >= 0:
+            position = put(data, capacity, position, obj.work.data[32 + i])
+            i = i - 1
+    return put(data, capacity, position, u8(34))
+
+
+def json_uint(
+    obj: raw_ptr[NativeSszObject],
+    node_index: i32,
+    data: gc_ptr[u8],
+    capacity: i32,
+    position: i32,
+) -> i32:
+    node = obj.nodes[node_index]
+    return json_uint_range(
+        obj, node.data_offset, 32, data, capacity, position
+    )
