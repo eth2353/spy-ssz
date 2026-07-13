@@ -1,6 +1,6 @@
 # spy-ssz
 
-`spy-ssz` is a compiled Ethereum SSZ library for Python 3.12. It decodes
+`spy-ssz` is a compiled Ethereum SSZ library for Python 3.12 and newer. It decodes
 Beacon API JSON and canonical SSZ directly into SPy-owned C object graphs, so
 hashing and encoding do not traverse ordinary Python objects.
 
