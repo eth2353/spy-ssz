@@ -120,6 +120,39 @@ def valid_json_string(
     return True
 
 
+def validated_json_string_end(
+    document: raw_ptr[JsonDocument], start: i32, length: i32
+) -> i32:
+    i = start
+    escaped = False
+    while i < length and (document.json[i] != u8(34) or escaped):
+        if document.json[i] == u8(92) and not escaped:
+            escaped = True
+        else:
+            escaped = False
+        i = i + 1
+    if i >= length or not valid_json_string(document, start, i):
+        document.valid = 0
+    return i
+
+
+def json_string_end(
+    document: raw_ptr[JsonDocument], start: i32, length: i32
+) -> i32:
+    # Beacon API keys and scalar strings are normally plain ASCII. Keep that
+    # path single-pass and defer escapes and UTF-8 to the strict validator.
+    i = start
+    while i < length:
+        value = i32(document.json[i])
+        if value == 34:
+            return i
+        if value < 32 or value >= 128 or value == 92:
+            return validated_json_string_end(document, start, length)
+        i = i + 1
+    document.valid = 0
+    return length
+
+
 def token_matches_ascii(
     document: raw_ptr[JsonDocument], start: i32, end: i32, expected: bytes
 ) -> bool:
@@ -324,24 +357,10 @@ def decode_json(source: bytes) -> raw_ptr[JsonDocument]:
             i = i + 1
         elif ch == u8(34):
             start = i + 1
-            i = start
-            escaped = False
-            simple_ascii = True
-            while i < length and (document.json[i] != u8(34) or escaped):
-                value = i32(document.json[i])
-                if value < 32 or value >= 128:
-                    simple_ascii = False
-                if value == 92 and not escaped:
-                    escaped = True
-                    simple_ascii = False
-                else:
-                    escaped = False
-                i = i + 1
+            i = json_string_end(document, start, length)
             if i >= length:
                 document.valid = 0
             else:
-                if not simple_ascii and not valid_json_string(document, start, i):
-                    document.valid = 0
                 if (
                     parent >= 0
                     and document.tokens[parent].kind == TOKEN_OBJECT
