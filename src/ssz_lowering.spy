@@ -31,6 +31,8 @@ def copy_data(
     obj: raw_ptr[SszObject],
 ) -> i32:
     offset = alloc_data(obj, length)
+    if offset < 0:
+        return offset
     if not require_range(document, start, start + length):
         obj.valid = 0
         return offset
@@ -48,7 +50,7 @@ def ssz_uint(
     obj: raw_ptr[SszObject],
 ) -> i32:
     offset = alloc_zeroed_data(obj, 32)
-    if not require_range(document, start, start + size):
+    if offset < 0 or not require_range(document, start, start + size):
         obj.valid = 0
         return add_uint_node(obj, offset)
     ptr_copy_slice(

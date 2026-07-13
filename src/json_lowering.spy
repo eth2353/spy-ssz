@@ -66,6 +66,8 @@ def decode_hex(
         return 0
     length = digits // 2
     offset = alloc_data(obj, length)
+    if offset < 0:
+        return offset
     i: i32 = 0
     while i < length:
         high = hex_nibble(document.json[token.start + 2 + i * 2])
@@ -85,7 +87,7 @@ def json_uint_sized(
     byte_length: i32,
 ) -> i32:
     offset = alloc_zeroed_data(obj, 32)
-    if document.valid == 0:
+    if offset < 0 or document.valid == 0:
         obj.valid = 0
         return add_uint_node(obj, offset)
     token = document.tokens[token_index]

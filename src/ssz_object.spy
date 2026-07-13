@@ -220,7 +220,7 @@ def reserve_edges(obj: raw_ptr[SszObject], count: i32) -> i32:
     first = obj.edge_count
     if count < 0 or first < 0 or first > obj.edge_capacity - count:
         obj.valid = 0
-        return 0
+        return -1
     obj.edge_count = first + count
     return first
 
@@ -228,6 +228,14 @@ def reserve_edges(obj: raw_ptr[SszObject], count: i32) -> i32:
 def set_edge(
     obj: raw_ptr[SszObject], first: i32, index: i32, child: i32
 ) -> None:
+    if (
+        first < 0
+        or index < 0
+        or first >= obj.edge_capacity
+        or index >= obj.edge_capacity - first
+    ):
+        obj.valid = 0
+        return
     obj.edges[first + index] = child
 
 
@@ -235,13 +243,15 @@ def alloc_data(obj: raw_ptr[SszObject], length: i32) -> i32:
     offset = obj.arena_cursor
     if length < 0 or offset < 0 or offset > obj.arena_capacity - length:
         obj.valid = 0
-        return 0
+        return -1
     obj.arena_cursor = offset + length
     return offset
 
 
 def alloc_zeroed_data(obj: raw_ptr[SszObject], length: i32) -> i32:
     offset = alloc_data(obj, length)
+    if offset < 0:
+        return offset
     i: i32 = 0
     while i < length:
         obj.arena[offset + i] = u8(0)
@@ -651,6 +661,8 @@ def clone_and_sign_block(
         target.valid = 0
         return target
     signature_offset = alloc_data(target, 96)
+    if signature_offset < 0:
+        return target
     i = 0
     while i < 96:
         target.arena[signature_offset + i] = encoded_signature.data[i]
