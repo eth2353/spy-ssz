@@ -11,7 +11,7 @@ from spy_ssz.schema import get_schema, schema_for
 from spy_ssz.ssz import Fork, ObjectKind, decode_json
 
 
-SAMPLE = Path(__file__).parents[1] / "block-sample-3642900.json"
+SAMPLE = Path(__file__).parent / "fixtures" / "block-sample-3642900.json"
 
 
 def test_fork_ids_follow_consensus_chronology() -> None:

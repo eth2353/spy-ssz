@@ -9,3 +9,5 @@ dist/
 spy_ssz/_spy.c
 spy_ssz/_spy.*.so
 *.pyc
+/uv
+/uvx

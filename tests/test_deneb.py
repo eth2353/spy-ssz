@@ -7,8 +7,8 @@ from spy_ssz.schema import get_schema
 from spy_ssz.ssz import Fork, ObjectKind
 
 
-SAMPLE = Path(__file__).parents[1] / "block-sample-3642900.json"
-SSZ_SAMPLE = Path(__file__).parents[1] / "block-sample-3642900.bin"
+SAMPLE = Path(__file__).parent / "fixtures" / "block-sample-3642900.json"
+SSZ_SAMPLE = Path(__file__).parent / "fixtures" / "block-sample-3642900.bin"
 SIGNED_ROOT = "036ead785909b45549a62c13f1617a3d84e686a0db3dc29e3b0b9a2a410a0821"
 
 

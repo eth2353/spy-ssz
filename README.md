@@ -233,7 +233,7 @@ Gloas is `7`, and Heze is `8`.
 Run the full checks:
 
 ```bash
-./uvx pre-commit run --all-files
+uvx pre-commit run --all-files
 uv run python -m pytest -q
 ```
 
