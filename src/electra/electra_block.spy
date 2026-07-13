@@ -27,6 +27,7 @@ from ssz_object import (
     add_basic_list_node,
     add_composite_node,
     alloc_data,
+    alloc_zeroed_data,
     configure_preset,
     new_object,
     reserve_edges,
@@ -40,7 +41,7 @@ def json_uint_data(
     obj: raw_ptr[SszObject],
     size: i32,
 ) -> i32:
-    offset = alloc_data(obj, size)
+    offset = alloc_zeroed_data(obj, size)
     token = document.tokens[token_index]
     if (
         token.end - token.start >= 2

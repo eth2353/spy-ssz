@@ -29,6 +29,7 @@ from ssz_object import (
     add_fixed_bytes_node,
     add_uint_node,
     alloc_data,
+    alloc_zeroed_data,
     new_object,
     reserve_edges,
     set_edge,
@@ -88,7 +89,7 @@ def json_uint(
     token_index: i32,
     obj: raw_ptr[SszObject],
 ) -> i32:
-    offset = alloc_data(obj, 32)
+    offset = alloc_zeroed_data(obj, 32)
     token = document.tokens[token_index]
     if (
         token.end - token.start >= 2

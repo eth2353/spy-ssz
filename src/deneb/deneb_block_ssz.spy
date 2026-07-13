@@ -19,6 +19,7 @@ from ssz_object import (
     add_fixed_bytes_node,
     add_uint_node,
     alloc_data,
+    alloc_zeroed_data,
     new_object,
     reserve_edges,
     set_edge,
@@ -54,7 +55,7 @@ def ssz_uint(
     size: i32,
     obj: raw_ptr[SszObject],
 ) -> i32:
-    offset = alloc_data(obj, 32)
+    offset = alloc_zeroed_data(obj, 32)
     if not require_range(document, start, start + size):
         obj.valid = 0
         return add_uint_node(obj, offset)
