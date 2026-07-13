@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from .schema import Fork
+from ._schema_enums import Fork
 
 class Projection:
     def to_obj(self) -> dict[str, Any]: ...

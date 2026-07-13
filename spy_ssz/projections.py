@@ -6,7 +6,7 @@ from dataclasses import dataclass, fields
 from typing import Any
 
 from .consensus_types import get_type_definition, get_type_shape
-from .schema import Fork
+from ._schema_enums import Fork
 
 
 _BYTE_KINDS = {
