@@ -23,6 +23,33 @@ typedef spy_unsafe$raw_ptr__json_parser$JsonDocument spy_raw_json_ptr;
 typedef spy_unsafe$raw_ptr__ssz_reader$SszDocument spy_raw_ssz_document_ptr;
 typedef spy_unsafe$raw_ptr__ssz_object$SszObject spy_raw_ssz_ptr;
 
+enum {
+    SPY_SSZ_OFFSET_SIZE = 4,
+    SPY_SSZ_UINT64_SIZE = 8,
+    SPY_SSZ_ROOT_SIZE = 32,
+    SPY_SIGNED_BLOCK_CONTENTS_FIELD_COUNT = 3,
+    SPY_SIGNED_BLOCK_CONTENTS_FIXED_SIZE =
+        SPY_SIGNED_BLOCK_CONTENTS_FIELD_COUNT * SPY_SSZ_OFFSET_SIZE,
+    SPY_SIGNED_BLOCK_CONTENTS_LIST_COUNT = 2,
+    SPY_BEACON_BLOCK_FIELD_COUNT = 5,
+    SPY_BEACON_BLOCK_HEADER_SIZE =
+        2 * SPY_SSZ_UINT64_SIZE + 3 * SPY_SSZ_ROOT_SIZE,
+};
+
+typedef enum {
+    SPY_SIGNED_BLOCK_CONTENTS_BLOCK = 0,
+    SPY_SIGNED_BLOCK_CONTENTS_PROOFS = 1,
+    SPY_SIGNED_BLOCK_CONTENTS_BLOBS = 2,
+} spy_signed_block_contents_field;
+
+typedef enum {
+    SPY_BEACON_BLOCK_SLOT = 0,
+    SPY_BEACON_BLOCK_PROPOSER = 1,
+    SPY_BEACON_BLOCK_PARENT_ROOT = 2,
+    SPY_BEACON_BLOCK_STATE_ROOT = 3,
+    SPY_BEACON_BLOCK_BODY = 4,
+} spy_beacon_block_field;
+
 static void spy_json_document_destroy(spy_raw_json_ptr opaque) {
     spy_json_parser$JsonDocument *document = opaque.p;
     if (document == NULL) return;
@@ -174,14 +201,18 @@ int32_t spy_schema_block_containers_ssz_size(spy_raw_ssz_ptr opaque) {
     if (obj->object_kind != SPY_SSZ_OBJECT_SIGNED_BEACON_BLOCK_CONTENTS)
         return spy_electra_block_containers_encode$block_container_ssz_size(opaque);
     int32_t contents = obj->root_node;
-    int32_t signed_block = spy_ssz_child(obj, contents, 0);
-    int32_t proofs = spy_ssz_child(obj, contents, 1);
-    int32_t blobs = spy_ssz_child(obj, contents, 2);
+    int32_t signed_block = spy_ssz_child(
+        obj, contents, SPY_SIGNED_BLOCK_CONTENTS_BLOCK);
+    int32_t proofs = spy_ssz_child(
+        obj, contents, SPY_SIGNED_BLOCK_CONTENTS_PROOFS);
+    int32_t blobs = spy_ssz_child(
+        obj, contents, SPY_SIGNED_BLOCK_CONTENTS_BLOBS);
     int32_t saved_root = obj->root_node;
     obj->root_node = signed_block;
     int32_t block_size = spy_electra_block_encode$electra_ssz_size(opaque);
     obj->root_node = saved_root;
-    return 12 + block_size + spy_ssz_fixed_list_size(obj, proofs)
+    return SPY_SIGNED_BLOCK_CONTENTS_FIXED_SIZE + block_size
+        + spy_ssz_fixed_list_size(obj, proofs)
         + spy_ssz_fixed_list_size(obj, blobs);
 }
 
@@ -191,26 +222,36 @@ int32_t spy_schema_block_containers_encode_ssz(spy_raw_ssz_ptr opaque,
     if (obj->object_kind != SPY_SSZ_OBJECT_SIGNED_BEACON_BLOCK_CONTENTS)
         return spy_electra_block_containers_encode$block_container_encode_ssz(opaque, output);
     int32_t contents = obj->root_node;
-    int32_t signed_block = spy_ssz_child(obj, contents, 0);
-    int32_t proofs = spy_ssz_child(obj, contents, 1);
-    int32_t blobs = spy_ssz_child(obj, contents, 2);
+    int32_t signed_block = spy_ssz_child(
+        obj, contents, SPY_SIGNED_BLOCK_CONTENTS_BLOCK);
+    int32_t proofs = spy_ssz_child(
+        obj, contents, SPY_SIGNED_BLOCK_CONTENTS_PROOFS);
+    int32_t blobs = spy_ssz_child(
+        obj, contents, SPY_SIGNED_BLOCK_CONTENTS_BLOBS);
     int32_t proof_size = spy_ssz_fixed_list_size(obj, proofs);
     int32_t saved_root = obj->root_node;
     obj->root_node = signed_block;
     int32_t block_size = spy_electra_block_encode$electra_ssz_size(opaque);
-    uint32_t offsets[3] = {12, 12 + block_size,
-                           12 + block_size + proof_size};
+    uint32_t offsets[SPY_SIGNED_BLOCK_CONTENTS_FIELD_COUNT] = {
+        SPY_SIGNED_BLOCK_CONTENTS_FIXED_SIZE,
+        SPY_SIGNED_BLOCK_CONTENTS_FIXED_SIZE + block_size,
+        SPY_SIGNED_BLOCK_CONTENTS_FIXED_SIZE + block_size + proof_size,
+    };
     memcpy(output->data.p, offsets, sizeof(offsets));
     spy_BytesObject block_output = {
-        .length = output->length - 12,
+        .length = output->length - SPY_SIGNED_BLOCK_CONTENTS_FIXED_SIZE,
         .hash = 0,
-        .data = {.p = output->data.p + 12},
+        .data = {
+            .p = output->data.p + SPY_SIGNED_BLOCK_CONTENTS_FIXED_SIZE,
+        },
     };
     spy_electra_block_encode$electra_encode_ssz(opaque, &block_output);
     obj->root_node = saved_root;
-    int32_t position = 12 + block_size;
-    int32_t lists[2] = {proofs, blobs};
-    for (int32_t list_index = 0; list_index < 2; list_index++) {
+    int32_t position = SPY_SIGNED_BLOCK_CONTENTS_FIXED_SIZE + block_size;
+    int32_t lists[SPY_SIGNED_BLOCK_CONTENTS_LIST_COUNT] = {proofs, blobs};
+    for (int32_t list_index = 0;
+         list_index < SPY_SIGNED_BLOCK_CONTENTS_LIST_COUNT;
+         list_index++) {
         spy_ssz_object$SszNode list = obj->nodes.p[lists[list_index]];
         for (int32_t i = 0; i < list.child_count; i++) {
             int32_t item_index = obj->edges.p[list.first_edge + i];
@@ -234,11 +275,15 @@ spy_ssz_decode_status spy_ssz_object_decode_status(spy_raw_ssz_ptr opaque) {
 }
 
 int32_t spy_ssz_object_error_start(spy_raw_ssz_ptr opaque) {
-    return opaque.p == NULL ? -1 : opaque.p->error_start;
+    return opaque.p == NULL
+        ? SPY_SSZ_ERROR_POSITION_UNSET
+        : opaque.p->error_start;
 }
 
 int32_t spy_ssz_object_error_end(spy_raw_ssz_ptr opaque) {
-    return opaque.p == NULL ? -1 : opaque.p->error_end;
+    return opaque.p == NULL
+        ? SPY_SSZ_ERROR_POSITION_UNSET
+        : opaque.p->error_end;
 }
 
 int32_t spy_ssz_object_fork(spy_raw_ssz_ptr opaque) {
@@ -282,37 +327,46 @@ int32_t spy_ssz_object_hash_tree_root_path(
 int32_t spy_ssz_object_block_header(
     spy_raw_ssz_ptr opaque, spy_BytesObject *output) {
     spy_ssz_object$SszObject *obj = opaque.p;
-    if (obj == NULL || output->length < 112) return 0;
+    if (obj == NULL || output->length < SPY_BEACON_BLOCK_HEADER_SIZE) return 0;
 
     int32_t block = obj->root_node;
     if (obj->object_kind == SPY_SSZ_OBJECT_BEACON_BLOCK_CONTENTS)
-        block = spy_ssz_child(obj, block, 0);
+        block = spy_ssz_child(obj, block, SPY_SIGNED_BLOCK_CONTENTS_BLOCK);
     else if (obj->object_kind != SPY_SSZ_OBJECT_BLINDED_BEACON_BLOCK)
         return 0;
 
     spy_ssz_object$SszNode block_node = obj->nodes.p[block];
-    if (block_node.child_count != 5) return 0;
-    int32_t slot = spy_ssz_child(obj, block, 0);
-    int32_t proposer = spy_ssz_child(obj, block, 1);
-    int32_t parent = spy_ssz_child(obj, block, 2);
-    int32_t state = spy_ssz_child(obj, block, 3);
-    int32_t body = spy_ssz_child(obj, block, 4);
+    if (block_node.child_count != SPY_BEACON_BLOCK_FIELD_COUNT) return 0;
+    int32_t slot = spy_ssz_child(obj, block, SPY_BEACON_BLOCK_SLOT);
+    int32_t proposer = spy_ssz_child(obj, block, SPY_BEACON_BLOCK_PROPOSER);
+    int32_t parent = spy_ssz_child(obj, block, SPY_BEACON_BLOCK_PARENT_ROOT);
+    int32_t state = spy_ssz_child(obj, block, SPY_BEACON_BLOCK_STATE_ROOT);
+    int32_t body = spy_ssz_child(obj, block, SPY_BEACON_BLOCK_BODY);
     spy_ssz_object$SszNode slot_node = obj->nodes.p[slot];
     spy_ssz_object$SszNode proposer_node = obj->nodes.p[proposer];
     spy_ssz_object$SszNode parent_node = obj->nodes.p[parent];
     spy_ssz_object$SszNode state_node = obj->nodes.p[state];
-    if (slot_node.data_length < 8 || proposer_node.data_length < 8 ||
-        parent_node.data_length != 32 || state_node.data_length != 32)
+    if (slot_node.data_length < SPY_SSZ_UINT64_SIZE ||
+        proposer_node.data_length < SPY_SSZ_UINT64_SIZE ||
+        parent_node.data_length != SPY_SSZ_ROOT_SIZE ||
+        state_node.data_length != SPY_SSZ_ROOT_SIZE)
         return 0;
 
-    memcpy(output->data.p, obj->arena.p + slot_node.data_offset, 8);
-    memcpy(output->data.p + 8, obj->arena.p + proposer_node.data_offset, 8);
-    memcpy(output->data.p + 16, obj->arena.p + parent_node.data_offset, 32);
-    memcpy(output->data.p + 48, obj->arena.p + state_node.data_offset, 32);
+    memcpy(output->data.p, obj->arena.p + slot_node.data_offset,
+           SPY_SSZ_UINT64_SIZE);
+    memcpy(output->data.p + SPY_SSZ_UINT64_SIZE,
+           obj->arena.p + proposer_node.data_offset, SPY_SSZ_UINT64_SIZE);
+    memcpy(output->data.p + 2 * SPY_SSZ_UINT64_SIZE,
+           obj->arena.p + parent_node.data_offset, SPY_SSZ_ROOT_SIZE);
+    memcpy(output->data.p + 2 * SPY_SSZ_UINT64_SIZE + SPY_SSZ_ROOT_SIZE,
+           obj->arena.p + state_node.data_offset, SPY_SSZ_ROOT_SIZE);
     spy_BytesObject body_root = {
-        .length = 32,
+        .length = SPY_SSZ_ROOT_SIZE,
         .hash = 0,
-        .data = {.p = output->data.p + 80},
+        .data = {
+            .p = output->data.p + 2 * SPY_SSZ_UINT64_SIZE
+                + 2 * SPY_SSZ_ROOT_SIZE,
+        },
     };
     return spy_ssz_fast_node_hash_tree_root(opaque, body, &body_root);
 }

@@ -7,4 +7,8 @@ typedef enum {
     SPY_SSZ_DECODE_VALID = 1,
 } spy_ssz_decode_status;
 
+enum {
+    SPY_SSZ_ERROR_POSITION_UNSET = -1,
+};
+
 #endif

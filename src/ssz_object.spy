@@ -24,7 +24,11 @@ from preset_config import (
     preset_sync_committee_size,
 )
 from ssz_kernels import ZERO_HASHES, hash_pair_into, merkleize_at
-from decode_status import DECODE_STATUS_MALFORMED_INPUT, DECODE_STATUS_VALID
+from decode_status import (
+    DECODE_STATUS_MALFORMED_INPUT,
+    DECODE_STATUS_VALID,
+    ERROR_POSITION_UNSET,
+)
 
 
 KIND_UINT: i32 = 1
@@ -37,6 +41,10 @@ KIND_PROGRESSIVE_CONTAINER: i32 = 7
 KIND_PROGRESSIVE_LIST: i32 = 8
 KIND_PROGRESSIVE_BITLIST: i32 = 9
 KIND_BASIC_LIST: i32 = 10
+
+NO_NODE: i32 = -1
+ALLOCATION_FAILED: i32 = -1
+UINT256_DECIMAL_WORK_CAPACITY: i32 = 128
 
 @struct
 class SszNode:
@@ -125,7 +133,7 @@ def new_object(
     configure_preset(obj, 0)
     obj.object_kind = object_kind
     obj.schema_id = schema_id
-    obj.root_node = -1
+    obj.root_node = NO_NODE
     obj.nodes = raw_alloc[SszNode](node_capacity)
     obj.node_count = 0
     obj.node_capacity = node_capacity
@@ -136,12 +144,12 @@ def new_object(
     obj.arena_cursor = 0
     obj.arena_capacity = arena_capacity
     obj.status = DECODE_STATUS_VALID
-    obj.error_start = -1
-    obj.error_end = -1
+    obj.error_start = ERROR_POSITION_UNSET
+    obj.error_end = ERROR_POSITION_UNSET
     # Public hashing uses the bounded-stack C merkleizer. The SPy writer only
     # needs scratch space for the decimal representation of a 256-bit integer
     # (32 working bytes plus at most 78 digits).
-    work_capacity = 128
+    work_capacity = UINT256_DECIMAL_WORK_CAPACITY
     obj.work = new_bytes(work_capacity, False)
     obj.work_capacity = work_capacity
     obj.work_cursor = 0
@@ -220,7 +228,7 @@ def reserve_edges(obj: raw_ptr[SszObject], count: i32) -> i32:
     first = obj.edge_count
     if count < 0 or first < 0 or first > obj.edge_capacity - count:
         obj.status = DECODE_STATUS_MALFORMED_INPUT
-        return -1
+        return ALLOCATION_FAILED
     obj.edge_count = first + count
     return first
 
@@ -243,7 +251,7 @@ def alloc_data(obj: raw_ptr[SszObject], length: i32) -> i32:
     offset = obj.arena_cursor
     if length < 0 or offset < 0 or offset > obj.arena_capacity - length:
         obj.status = DECODE_STATUS_MALFORMED_INPUT
-        return -1
+        return ALLOCATION_FAILED
     obj.arena_cursor = offset + length
     return offset
 

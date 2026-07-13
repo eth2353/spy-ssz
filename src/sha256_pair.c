@@ -2,6 +2,7 @@
 #define _POSIX_C_SOURCE 200809L
 #endif
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -90,7 +91,7 @@ typedef void (*spy_openssl_sha256_transform)(
 
 static spy_openssl_sha256_transform spy_linux_sha256_transform(void) {
     static spy_openssl_sha256_transform transform = NULL;
-    static int initialized = 0;
+    static bool initialized = false;
     static void *library = NULL;
     if (!initialized) {
         transform = (spy_openssl_sha256_transform)dlsym(
@@ -105,7 +106,7 @@ static spy_openssl_sha256_transform spy_linux_sha256_transform(void) {
                     library, "SHA256_Transform"
                 );
         }
-        initialized = 1;
+        initialized = true;
     }
     return transform;
 }

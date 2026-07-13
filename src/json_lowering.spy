@@ -28,6 +28,9 @@ from ssz_object import (
 )
 
 
+INVALID_HEX_NIBBLE: i32 = -1
+
+
 @struct
 class JsonDecodeResult:
     object: raw_ptr[SszObject]
@@ -42,7 +45,7 @@ def hex_nibble(ch: u8) -> i32:
         return value - 87
     if value >= 65 and value <= 70:
         return value - 55
-    return -1
+    return INVALID_HEX_NIBBLE
 
 
 def decode_hex(

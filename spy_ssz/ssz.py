@@ -232,10 +232,8 @@ class SszObject:
             else int(_DecodeStatus.MALFORMED_INPUT)
         )
         if raw_status != _DecodeStatus.VALID:
-            error_start = (
-                _spy.lib.spy_ssz_object_error_start(handle) if handle.p else -1
-            )
-            error_end = _spy.lib.spy_ssz_object_error_end(handle) if handle.p else -1
+            error_start = _spy.lib.spy_ssz_object_error_start(handle)
+            error_end = _spy.lib.spy_ssz_object_error_end(handle)
             if handle.p:
                 _spy.lib.spy_ssz_object_destroy(handle)
             try:
