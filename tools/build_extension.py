@@ -174,10 +174,6 @@ def build(spy_root: Path) -> Path:
             spy_BytesObject *source, int32_t preset);
         spy_raw_ssz_ptr spy_schema_deneb_decode_attestation_owned(
             spy_BytesObject *source);
-        spy_raw_ssz_ptr spy_schema_gloas_decode_attestation_owned(
-            spy_BytesObject *source);
-        spy_raw_ssz_ptr spy_schema_gloas_decode_attestation_ssz_owned(
-            spy_BytesObject *source);
         spy_raw_ssz_ptr spy_schema_signing_decode_json_owned(
             spy_BytesObject *source, int32_t kind, int32_t schema,
             int32_t preset);

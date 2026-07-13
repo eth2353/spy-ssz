@@ -60,8 +60,16 @@ def _hex_bytes(value: Any) -> bytes:
 @dataclass(frozen=True, slots=True, repr=False)
 class AggregateAndProof(Projection):
     aggregator_index: int
-    aggregate: ElectraAttestation
+    aggregate: Attestation
     selection_proof: bytes
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class Attestation(Projection):
+    aggregation_bits: bytes
+    data: AttestationData
+    signature: bytes
+    committee_bits: bytes
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -102,7 +110,7 @@ class BeaconBlockBody(Projection):
     graffiti: bytes
     proposer_slashings: tuple[ProposerSlashing, ...]
     attester_slashings: tuple[AttesterSlashing, ...]
-    attestations: tuple[ElectraAttestation, ...]
+    attestations: tuple[Attestation, ...]
     deposits: tuple[Deposit, ...]
     voluntary_exits: tuple[SignedVoluntaryExit, ...]
     sync_aggregate: SyncAggregate
@@ -165,14 +173,6 @@ class DepositRequest(Projection):
 
 
 @dataclass(frozen=True, slots=True, repr=False)
-class ElectraAttestation(Projection):
-    aggregation_bits: bytes
-    data: AttestationData
-    signature: bytes
-    committee_bits: bytes
-
-
-@dataclass(frozen=True, slots=True, repr=False)
 class Eth1Data(Projection):
     deposit_root: bytes
     deposit_count: int
@@ -205,22 +205,6 @@ class ExecutionRequests(Projection):
     deposits: tuple[DepositRequest, ...]
     withdrawals: tuple[WithdrawalRequest, ...]
     consolidations: tuple[ConsolidationRequest, ...]
-
-
-@dataclass(frozen=True, slots=True, repr=False)
-class FuluAttestation(Projection):
-    aggregation_bits: bytes
-    data: AttestationData
-    signature: bytes
-    committee_bits: bytes
-
-
-@dataclass(frozen=True, slots=True, repr=False)
-class GloasAttestation(Projection):
-    aggregation_bits: bytes
-    data: AttestationData
-    signature: bytes
-    committee_bits: bytes
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -348,7 +332,7 @@ _PROJECTION_TYPES = {
     (Fork.ELECTRA, 66): SignedBLSToExecutionChange,
     (Fork.ELECTRA, 72): Withdrawal,
     (Fork.ELECTRA, 73): ExecutionPayload,
-    (Fork.ELECTRA, 110): ElectraAttestation,
+    (Fork.ELECTRA, 110): Attestation,
     (Fork.ELECTRA, 112): AggregateAndProof,
     (Fork.ELECTRA, 113): SignedAggregateAndProof,
     (Fork.ELECTRA, 115): IndexedAttestation,
@@ -375,16 +359,13 @@ _PROJECTION_TYPES = {
     (Fork.FULU, 70): SignedBLSToExecutionChange,
     (Fork.FULU, 76): Withdrawal,
     (Fork.FULU, 77): ExecutionPayload,
-    (Fork.FULU, 115): FuluAttestation,
+    (Fork.FULU, 115): Attestation,
     (Fork.FULU, 120): IndexedAttestation,
     (Fork.FULU, 121): AttesterSlashing,
     (Fork.FULU, 125): ExecutionRequests,
     (Fork.FULU, 126): BeaconBlockBody,
     (Fork.FULU, 134): BeaconBlock,
     (Fork.FULU, 135): SignedBeaconBlock,
-    (Fork.GLOAS, 50): Checkpoint,
-    (Fork.GLOAS, 51): AttestationData,
-    (Fork.GLOAS, 130): GloasAttestation,
 }
 
 

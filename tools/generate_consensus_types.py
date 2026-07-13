@@ -27,8 +27,6 @@ OUTPUT = ROOT / "spy_ssz" / "consensus_types.json"
 FORK_MODULES = {
     "electra": "eth_consensus_specs.electra.mainnet",
     "fulu": "eth_consensus_specs.fulu.mainnet",
-    "gloas": "eth_consensus_specs.gloas.mainnet",
-    "heze": "eth_consensus_specs.heze.mainnet",
 }
 GENERIC_EXPORTS = {
     "View",
@@ -168,7 +166,7 @@ def main() -> None:
         },
         "forks": forks,
     }
-    OUTPUT.write_text(json.dumps(catalog, separators=(",", ":")))
+    OUTPUT.write_text(json.dumps(catalog, separators=(",", ":")) + "\n")
     print(
         ", ".join(
             f"{fork}: {len(data['names'])} names/{len(data['types'])} shapes"

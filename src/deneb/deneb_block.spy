@@ -87,34 +87,44 @@ def decode_hex(
     return offset
 
 
-def json_uint(
+def json_uint_sized(
     document: raw_ptr[JsonDocument],
     token_index: i32,
     obj: raw_ptr[SszObject],
+    byte_length: i32,
 ) -> i32:
     offset = alloc_zeroed_data(obj, 32)
     if document.valid == 0:
         obj.valid = 0
         return add_uint_node(obj, offset)
     token = document.tokens[token_index]
+    if token.end <= token.start:
+        obj.valid = 0
+        return add_uint_node(obj, offset)
     if (
         token.end - token.start >= 2
         and document.json[token.start] == u8(48)
         and document.json[token.start + 1] == u8(120)
     ):
         digits = token.end - token.start - 2
-        if digits % 2 != 0 or digits > 64:
+        if digits % 2 != 0 or digits > byte_length * 2:
             obj.valid = 0
             return add_uint_node(obj, offset)
         byte_count = digits // 2
         hex_j: i32 = 0
         while hex_j < byte_count:
-            high = hex_nibble(document.json[token.end - 2 - hex_j * 2])
-            low = hex_nibble(document.json[token.end - 1 - hex_j * 2])
+            high = hex_nibble(document.json[token.start + 2 + hex_j * 2])
+            low = hex_nibble(document.json[token.start + 3 + hex_j * 2])
             if high < 0 or low < 0:
                 obj.valid = 0
             obj.arena[offset + hex_j] = u8(high * 16 + low)
             hex_j = hex_j + 1
+        return add_uint_node(obj, offset)
+    if (
+        token.end - token.start > 1
+        and document.json[token.start] == u8(48)
+    ):
+        obj.valid = 0
         return add_uint_node(obj, offset)
     i = token.start
     while i < token.end:
@@ -132,7 +142,28 @@ def json_uint(
         if carry != 0:
             obj.valid = 0
         i = i + 1
+    j = byte_length
+    while j < 32:
+        if obj.arena[offset + j] != u8(0):
+            obj.valid = 0
+        j = j + 1
     return add_uint_node(obj, offset)
+
+
+def json_uint(
+    document: raw_ptr[JsonDocument],
+    token_index: i32,
+    obj: raw_ptr[SszObject],
+) -> i32:
+    return json_uint_sized(document, token_index, obj, 32)
+
+
+def json_uint64(
+    document: raw_ptr[JsonDocument],
+    token_index: i32,
+    obj: raw_ptr[SszObject],
+) -> i32:
+    return json_uint_sized(document, token_index, obj, 8)
 
 
 def json_fixed_bytes(
@@ -156,7 +187,7 @@ def decode_json_uint(
     document: raw_ptr[JsonDocument], token_index: i32,
     obj: raw_ptr[SszObject]
 ) -> i32:
-    return json_uint(document, token_index, obj)
+    return json_uint64(document, token_index, obj)
 
 
 def json_byte_list(
@@ -224,7 +255,7 @@ def checkpoint(
     document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
 ) -> i32:
     first = reserve_edges(obj, 2)
-    set_edge(obj, first, 0, json_uint(document, object_get(document, value, b"epoch"), obj))
+    set_edge(obj, first, 0, json_uint64(document, object_get(document, value, b"epoch"), obj))
     set_edge(obj, first, 1, json_fixed_bytes(document, object_get(document, value, b"root"), obj, 32))
     return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
 
@@ -233,8 +264,8 @@ def attestation_data(
     document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
 ) -> i32:
     first = reserve_edges(obj, 5)
-    set_edge(obj, first, 0, json_uint(document, object_get(document, value, b"slot"), obj))
-    set_edge(obj, first, 1, json_uint(document, object_get(document, value, b"index"), obj))
+    set_edge(obj, first, 0, json_uint64(document, object_get(document, value, b"slot"), obj))
+    set_edge(obj, first, 1, json_uint64(document, object_get(document, value, b"index"), obj))
     set_edge(obj, first, 2, json_fixed_bytes(document, object_get(document, value, b"beacon_block_root"), obj, 32))
     set_edge(obj, first, 3, checkpoint(document, object_get(document, value, b"source"), obj))
     set_edge(obj, first, 4, checkpoint(document, object_get(document, value, b"target"), obj))
@@ -267,10 +298,10 @@ def withdrawal(
     document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
 ) -> i32:
     first = reserve_edges(obj, 4)
-    set_edge(obj, first, 0, json_uint(document, object_get(document, value, b"index"), obj))
-    set_edge(obj, first, 1, json_uint(document, object_get(document, value, b"validator_index"), obj))
+    set_edge(obj, first, 0, json_uint64(document, object_get(document, value, b"index"), obj))
+    set_edge(obj, first, 1, json_uint64(document, object_get(document, value, b"validator_index"), obj))
     set_edge(obj, first, 2, json_fixed_bytes(document, object_get(document, value, b"address"), obj, 20))
-    set_edge(obj, first, 3, json_uint(document, object_get(document, value, b"amount"), obj))
+    set_edge(obj, first, 3, json_uint64(document, object_get(document, value, b"amount"), obj))
     return add_composite_node(obj, KIND_CONTAINER, first, 4, 4, 0, 0)
 
 
@@ -310,17 +341,17 @@ def execution_payload(
     set_edge(obj, first, 3, json_fixed_bytes(document, object_get(document, value, b"receipts_root"), obj, 32))
     set_edge(obj, first, 4, json_fixed_bytes(document, object_get(document, value, b"logs_bloom"), obj, 256))
     set_edge(obj, first, 5, json_fixed_bytes(document, object_get(document, value, b"prev_randao"), obj, 32))
-    set_edge(obj, first, 6, json_uint(document, object_get(document, value, b"block_number"), obj))
-    set_edge(obj, first, 7, json_uint(document, object_get(document, value, b"gas_limit"), obj))
-    set_edge(obj, first, 8, json_uint(document, object_get(document, value, b"gas_used"), obj))
-    set_edge(obj, first, 9, json_uint(document, object_get(document, value, b"timestamp"), obj))
+    set_edge(obj, first, 6, json_uint64(document, object_get(document, value, b"block_number"), obj))
+    set_edge(obj, first, 7, json_uint64(document, object_get(document, value, b"gas_limit"), obj))
+    set_edge(obj, first, 8, json_uint64(document, object_get(document, value, b"gas_used"), obj))
+    set_edge(obj, first, 9, json_uint64(document, object_get(document, value, b"timestamp"), obj))
     set_edge(obj, first, 10, json_byte_list(document, object_get(document, value, b"extra_data"), obj, 32))
     set_edge(obj, first, 11, json_uint(document, object_get(document, value, b"base_fee_per_gas"), obj))
     set_edge(obj, first, 12, json_fixed_bytes(document, object_get(document, value, b"block_hash"), obj, 32))
     set_edge(obj, first, 13, transaction_list(document, object_get(document, value, b"transactions"), obj))
     set_edge(obj, first, 14, withdrawal_list(document, object_get(document, value, b"withdrawals"), obj))
-    set_edge(obj, first, 15, json_uint(document, object_get(document, value, b"blob_gas_used"), obj))
-    set_edge(obj, first, 16, json_uint(document, object_get(document, value, b"excess_blob_gas"), obj))
+    set_edge(obj, first, 15, json_uint64(document, object_get(document, value, b"blob_gas_used"), obj))
+    set_edge(obj, first, 16, json_uint64(document, object_get(document, value, b"excess_blob_gas"), obj))
     return add_composite_node(obj, KIND_CONTAINER, first, 17, 17, 0, 0)
 
 
@@ -345,7 +376,7 @@ def eth1_data(
 ) -> i32:
     first = reserve_edges(obj, 3)
     set_edge(obj, first, 0, json_fixed_bytes(document, object_get(document, value, b"deposit_root"), obj, 32))
-    set_edge(obj, first, 1, json_uint(document, object_get(document, value, b"deposit_count"), obj))
+    set_edge(obj, first, 1, json_uint64(document, object_get(document, value, b"deposit_count"), obj))
     set_edge(obj, first, 2, json_fixed_bytes(document, object_get(document, value, b"block_hash"), obj, 32))
     return add_composite_node(obj, KIND_CONTAINER, first, 3, 3, 0, 0)
 
@@ -382,8 +413,8 @@ def beacon_block(
     document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
 ) -> i32:
     first = reserve_edges(obj, 5)
-    set_edge(obj, first, 0, json_uint(document, object_get(document, value, b"slot"), obj))
-    set_edge(obj, first, 1, json_uint(document, object_get(document, value, b"proposer_index"), obj))
+    set_edge(obj, first, 0, json_uint64(document, object_get(document, value, b"slot"), obj))
+    set_edge(obj, first, 1, json_uint64(document, object_get(document, value, b"proposer_index"), obj))
     set_edge(obj, first, 2, json_fixed_bytes(document, object_get(document, value, b"parent_root"), obj, 32))
     set_edge(obj, first, 3, json_fixed_bytes(document, object_get(document, value, b"state_root"), obj, 32))
     set_edge(obj, first, 4, block_body(document, object_get(document, value, b"body"), obj))

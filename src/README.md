@@ -10,7 +10,7 @@ only while a schema lowerer runs. The C ownership wrapper destroys their source
 copy before the opaque SSZ object reaches Python. JSON and SSZ therefore create
 the same retained graph layout.
 
-Fork-owned modules live under `deneb/`, `electra/`, and `gloas/`; the root
+Fork-owned modules live under `deneb/`, `electra/`, and `fulu/`; the root
 contains only shared runtime and build infrastructure. Schema IDs come from
 `spy_ssz/schemas.yaml`; validation limits come from canonical
 `spy_ssz/presets/<preset>/*.yaml` files. The build regenerates `metadata.spy`
@@ -32,7 +32,3 @@ remains the source of truth and no compatibility modules are maintained.
 `bridge.c` is deliberately small and contains only ownership transfer, object
 destruction, metadata accessors, and CFFI-visible function aliases. Codec and
 hashing logic stays in SPy.
-
-Progressive nodes implement progressive Merkleization and active-field/length
-mix-ins. The Gloas attestation test exercises a progressive container and a
-300-bit progressive bitlist against `eth-consensus-specs`.

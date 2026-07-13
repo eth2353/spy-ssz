@@ -5,7 +5,7 @@ from eth_consensus_specs.electra import mainnet as electra
 from remerkleable.byte_arrays import ByteVector
 from remerkleable.complex import Container, List
 
-from spy_ssz.blocks import (
+from spy_ssz.electra import (
     ElectraBeaconBlockContentsMainnet,
     ElectraBlindedBeaconBlockMainnet,
 )

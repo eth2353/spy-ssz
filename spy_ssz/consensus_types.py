@@ -1,4 +1,4 @@
-"""Normalized definitions for all named Electra, Fulu, and Gloas SSZ types."""
+"""Normalized definitions for all named Electra and Fulu SSZ types."""
 
 from __future__ import annotations
 

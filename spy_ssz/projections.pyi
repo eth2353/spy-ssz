@@ -16,15 +16,32 @@ class AggregateAndProof(Projection):
     def __init__(
         self,
         aggregator_index: int,
-        aggregate: ElectraAttestation,
+        aggregate: Attestation,
         selection_proof: bytes,
     ) -> None: ...
     @property
     def aggregator_index(self) -> int: ...
     @property
-    def aggregate(self) -> ElectraAttestation: ...
+    def aggregate(self) -> Attestation: ...
     @property
     def selection_proof(self) -> bytes: ...
+
+class Attestation(Projection):
+    def __init__(
+        self,
+        aggregation_bits: bytes,
+        data: AttestationData,
+        signature: bytes,
+        committee_bits: bytes,
+    ) -> None: ...
+    @property
+    def aggregation_bits(self) -> bytes: ...
+    @property
+    def data(self) -> AttestationData: ...
+    @property
+    def signature(self) -> bytes: ...
+    @property
+    def committee_bits(self) -> bytes: ...
 
 class AttestationData(Projection):
     def __init__(
@@ -99,7 +116,7 @@ class BeaconBlockBody(Projection):
         graffiti: bytes,
         proposer_slashings: tuple[ProposerSlashing, ...],
         attester_slashings: tuple[AttesterSlashing, ...],
-        attestations: tuple[ElectraAttestation, ...],
+        attestations: tuple[Attestation, ...],
         deposits: tuple[Deposit, ...],
         voluntary_exits: tuple[SignedVoluntaryExit, ...],
         sync_aggregate: SyncAggregate,
@@ -119,7 +136,7 @@ class BeaconBlockBody(Projection):
     @property
     def attester_slashings(self) -> tuple[AttesterSlashing, ...]: ...
     @property
-    def attestations(self) -> tuple[ElectraAttestation, ...]: ...
+    def attestations(self) -> tuple[Attestation, ...]: ...
     @property
     def deposits(self) -> tuple[Deposit, ...]: ...
     @property
@@ -242,23 +259,6 @@ class DepositRequest(Projection):
     @property
     def index(self) -> int: ...
 
-class ElectraAttestation(Projection):
-    def __init__(
-        self,
-        aggregation_bits: bytes,
-        data: AttestationData,
-        signature: bytes,
-        committee_bits: bytes,
-    ) -> None: ...
-    @property
-    def aggregation_bits(self) -> bytes: ...
-    @property
-    def data(self) -> AttestationData: ...
-    @property
-    def signature(self) -> bytes: ...
-    @property
-    def committee_bits(self) -> bytes: ...
-
 class Eth1Data(Projection):
     def __init__(
         self,
@@ -342,40 +342,6 @@ class ExecutionRequests(Projection):
     def withdrawals(self) -> tuple[WithdrawalRequest, ...]: ...
     @property
     def consolidations(self) -> tuple[ConsolidationRequest, ...]: ...
-
-class FuluAttestation(Projection):
-    def __init__(
-        self,
-        aggregation_bits: bytes,
-        data: AttestationData,
-        signature: bytes,
-        committee_bits: bytes,
-    ) -> None: ...
-    @property
-    def aggregation_bits(self) -> bytes: ...
-    @property
-    def data(self) -> AttestationData: ...
-    @property
-    def signature(self) -> bytes: ...
-    @property
-    def committee_bits(self) -> bytes: ...
-
-class GloasAttestation(Projection):
-    def __init__(
-        self,
-        aggregation_bits: bytes,
-        data: AttestationData,
-        signature: bytes,
-        committee_bits: bytes,
-    ) -> None: ...
-    @property
-    def aggregation_bits(self) -> bytes: ...
-    @property
-    def data(self) -> AttestationData: ...
-    @property
-    def signature(self) -> bytes: ...
-    @property
-    def committee_bits(self) -> bytes: ...
 
 class IndexedAttestation(Projection):
     def __init__(

@@ -21,8 +21,10 @@ PYTHON_ENUMS = ROOT / "spy_ssz" / "_schema_enums.py"
 PRESET_CONFIG = ROOT / "src" / "preset_config.spy"
 PACKAGE_STUB = ROOT / "spy_ssz" / "__init__.pyi"
 TYPE_STUBS = {
-    module: ROOT / "spy_ssz" / f"{module}.pyi"
-    for module in ("blocks", "deneb", "electra", "fulu", "gloas", "signing")
+    "deneb": ROOT / "spy_ssz" / "deneb.pyi",
+    "electra": ROOT / "spy_ssz" / "electra" / "__init__.pyi",
+    "fulu": ROOT / "spy_ssz" / "fulu" / "__init__.pyi",
+    "signing": ROOT / "spy_ssz" / "signing.pyi",
 }
 CONSENSUS_TYPES = ROOT / "spy_ssz" / "consensus_types.json"
 PROJECTIONS = ROOT / "spy_ssz" / "projections.py"
@@ -488,6 +490,7 @@ def _render_dynamic_stub(
     class_names: dict[tuple[str, int], str],
     *,
     alias_all: bool = False,
+    import_prefix: str = ".",
 ) -> str:
     properties_by_type = {
         schema["python_type"]: _schema_properties(schema, catalog, class_names)
@@ -503,11 +506,11 @@ def _render_dynamic_stub(
         "",
     ]
     if any(annotation.startswith("projections.") for annotation in annotations):
-        lines.extend(["from . import projections"])
+        lines.extend([f"from {import_prefix} import projections"])
     if "Bitfield" in annotations:
-        lines.extend(["from .ssz import Bitfield, SszObject"])
+        lines.extend([f"from {import_prefix}ssz import Bitfield, SszObject"])
     else:
-        lines.extend(["from .ssz import SszObject"])
+        lines.extend([f"from {import_prefix}ssz import SszObject"])
     lines.append("")
     for schema_index, schema in enumerate(schemas):
         base = schema["python_type"]
@@ -537,7 +540,9 @@ def _stub_method(name: str, return_type: str) -> list[str]:
     ]
 
 
-def _render_blocks_stub(schemas: list[dict[str, Any]]) -> str:
+def _render_blocks_stub(
+    schemas: list[dict[str, Any]], *, import_prefix: str = "."
+) -> str:
     by_kind = {schema["kind"]: schema for schema in schemas}
     contents = by_kind["BEACON_BLOCK_CONTENTS"]["python_type"]
     signed_contents = by_kind["SIGNED_BEACON_BLOCK_CONTENTS"]["python_type"]
@@ -547,7 +552,7 @@ def _render_blocks_stub(schemas: list[dict[str, Any]]) -> str:
     lines = [
         '"""Generated from spy_ssz/schemas.yaml; do not edit."""',
         "",
-        "from .ssz import SszObject",
+        f"from {import_prefix}ssz import SszObject",
         "",
         f"class {contents}(SszObject):",
         "    def header_dict(self) -> dict[str, str]: ...",
@@ -586,6 +591,25 @@ def _render_blocks_stub(schemas: list[dict[str, Any]]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def _render_electra_stub(
+    schemas: list[dict[str, Any]],
+    catalog: dict[str, Any],
+    class_names: dict[tuple[str, int], str],
+) -> str:
+    signed_block = _render_dynamic_stub(
+        [schema for schema in schemas if schema["codec"] == "electra_block"],
+        catalog,
+        class_names,
+        import_prefix="..",
+    )
+    containers = _render_blocks_stub(
+        [schema for schema in schemas if schema["codec"] == "block_containers"],
+        import_prefix="..",
+    )
+    container_classes = containers[containers.index("class ") :]
+    return signed_block.rstrip() + "\n\n" + container_classes
+
+
 def render_type_stubs() -> dict[Path, str]:
     source = _load(SCHEMAS)
     schemas = source["schemas"]
@@ -598,18 +622,14 @@ def render_type_stubs() -> dict[Path, str]:
         by_module.setdefault(module, []).append(schema)
 
     stubs = {
-        TYPE_STUBS["blocks"]: _render_blocks_stub(by_module["blocks"]),
         TYPE_STUBS["deneb"]: _render_dynamic_stub(
             by_module["deneb"], catalog, class_names, alias_all=True
         ),
-        TYPE_STUBS["electra"]: _render_dynamic_stub(
+        TYPE_STUBS["electra"]: _render_electra_stub(
             by_module["electra"], catalog, class_names
         ),
         TYPE_STUBS["fulu"]: _render_dynamic_stub(
-            by_module["fulu"], catalog, class_names
-        ),
-        TYPE_STUBS["gloas"]: _render_dynamic_stub(
-            by_module["gloas"], catalog, class_names, alias_all=True
+            by_module["fulu"], catalog, class_names, import_prefix=".."
         ),
         TYPE_STUBS["signing"]: _render_dynamic_stub(
             by_module["signing"], catalog, class_names

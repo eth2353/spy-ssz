@@ -19,8 +19,6 @@ from eth_consensus_specs.capella import mainnet as capella
 from eth_consensus_specs.deneb import mainnet as deneb
 from eth_consensus_specs.electra import mainnet as electra
 from eth_consensus_specs.fulu import mainnet as fulu
-from eth_consensus_specs.gloas import mainnet as gloas
-from eth_consensus_specs.heze import mainnet as heze
 from eth_consensus_specs.phase0 import mainnet as phase0
 
 
@@ -33,8 +31,6 @@ SPECS = {
     "deneb": deneb,
     "electra": electra,
     "fulu": fulu,
-    "gloas": gloas,
-    "heze": heze,
 }
 FORK_SLOT_STARTS = (
     (411_392 * 32, "fulu"),

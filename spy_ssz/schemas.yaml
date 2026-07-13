@@ -8,8 +8,6 @@ forks:
   DENEB: 4
   ELECTRA: 5
   FULU: 6
-  GLOAS: 7
-  HEZE: 8
 
 object_kinds:
   SIGNED_BEACON_BLOCK: 1
@@ -38,9 +36,8 @@ codecs:
   deneb_attestation: deneb
   electra_block: electra
   fulu_block: fulu
-  gloas_attestation: gloas
   signing: signing
-  block_containers: blocks
+  block_containers: electra
 
 schemas:
   - name: DENEB_SIGNED_BEACON_BLOCK
@@ -215,11 +212,3 @@ schemas:
     codec: fulu_block
     python_type: FuluSignedBeaconBlock
     presets: [mainnet, minimal, gnosis]
-  - name: GLOAS_ATTESTATION
-    id: 703
-    fork: GLOAS
-    kind: ATTESTATION
-    consensus_type: Attestation
-    codec: gloas_attestation
-    python_type: GloasAttestation
-    presets: [mainnet]

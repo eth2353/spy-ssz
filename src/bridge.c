@@ -8,8 +8,8 @@
 #include "electra_block.h"
 #include "electra_block_encode.h"
 #include "electra_block_ssz.h"
-#include "gloas_attestation.h"
-#include "gloas_attestation_ssz.h"
+#include "fulu_block.h"
+#include "fulu_block_ssz.h"
 #include "electra_signing.h"
 #include "electra_block_containers.h"
 #include "electra_block_containers_encode.h"
@@ -100,7 +100,7 @@ spy_raw_ssz_ptr spy_schema_electra_decode_ssz_preset_owned(
 
 spy_raw_ssz_ptr spy_schema_fulu_decode_owned(spy_BytesObject *source) {
     spy_deneb_block$DenebDecodeResult result =
-        spy_electra_block$decode_fulu_signed_block(source);
+        spy_fulu_block$decode_fulu_signed_block(source);
     spy_json_document_destroy(result.temporary);
     return result.object;
 }
@@ -108,14 +108,14 @@ spy_raw_ssz_ptr spy_schema_fulu_decode_owned(spy_BytesObject *source) {
 spy_raw_ssz_ptr spy_schema_fulu_decode_preset_owned(
     spy_BytesObject *source, int32_t preset) {
     spy_deneb_block$DenebDecodeResult result =
-        spy_electra_block$decode_fulu_signed_block_preset(source, preset);
+        spy_fulu_block$decode_fulu_signed_block_preset(source, preset);
     spy_json_document_destroy(result.temporary);
     return result.object;
 }
 
 spy_raw_ssz_ptr spy_schema_fulu_decode_ssz_owned(spy_BytesObject *source) {
     spy_deneb_block_ssz$DenebSszDecodeResult result =
-        spy_electra_block_ssz$decode_fulu_signed_block_ssz(source);
+        spy_fulu_block_ssz$decode_fulu_signed_block_ssz(source);
     spy_ssz_document_destroy(result.temporary);
     return result.object;
 }
@@ -123,24 +123,8 @@ spy_raw_ssz_ptr spy_schema_fulu_decode_ssz_owned(spy_BytesObject *source) {
 spy_raw_ssz_ptr spy_schema_fulu_decode_ssz_preset_owned(
     spy_BytesObject *source, int32_t preset) {
     spy_deneb_block_ssz$DenebSszDecodeResult result =
-        spy_electra_block_ssz$decode_fulu_signed_block_ssz_preset(
+        spy_fulu_block_ssz$decode_fulu_signed_block_ssz_preset(
             source, preset);
-    spy_ssz_document_destroy(result.temporary);
-    return result.object;
-}
-
-spy_raw_ssz_ptr spy_schema_gloas_decode_attestation_owned(
-    spy_BytesObject *source) {
-    spy_deneb_block$DenebDecodeResult result =
-        spy_gloas_attestation$decode_gloas_attestation(source);
-    spy_json_document_destroy(result.temporary);
-    return result.object;
-}
-
-spy_raw_ssz_ptr spy_schema_gloas_decode_attestation_ssz_owned(
-    spy_BytesObject *source) {
-    spy_deneb_block_ssz$DenebSszDecodeResult result =
-        spy_gloas_attestation_ssz$decode_gloas_attestation_ssz(source);
     spy_ssz_document_destroy(result.temporary);
     return result.object;
 }

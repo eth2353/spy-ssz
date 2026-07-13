@@ -1,7 +1,9 @@
-"""Electra SSZ block types."""
+"""Fulu SSZ block types, reusing the Electra block schema."""
 
-from . import _spy
-from .ssz import (
+from .. import _spy
+from ..preset import Preset
+from ..schema import schema_for
+from ..ssz import (
     SszObject,
     bind_decoder,
     register_json_decoder,
@@ -9,12 +11,10 @@ from .ssz import (
     register_ssz_decoder,
     register_ssz_encoder,
 )
-from .preset import Preset
-from .schema import schema_for
 
 
-_DEFINITION = schema_for("electra_block")
-ElectraSignedBeaconBlock = type(
+_DEFINITION = schema_for("fulu_block")
+FuluSignedBeaconBlock = type(
     _DEFINITION.python_type,
     (SszObject,),
     {"expected_fork": _DEFINITION.fork, "expected_kind": _DEFINITION.kind},
@@ -23,9 +23,9 @@ for _preset_name in _DEFINITION.presets:
     _preset = Preset[_preset_name.upper()]
     _name = f"{_DEFINITION.python_type}{_preset.name.title()}"
     globals()[_name] = (
-        ElectraSignedBeaconBlock
+        FuluSignedBeaconBlock
         if _preset is Preset.MAINNET
-        else type(_name, (ElectraSignedBeaconBlock,), {"expected_preset": _preset})
+        else type(_name, (FuluSignedBeaconBlock,), {"expected_preset": _preset})
     )
 
 for _preset_name in _DEFINITION.presets:
@@ -33,13 +33,13 @@ for _preset_name in _DEFINITION.presets:
     register_json_decoder(
         _DEFINITION.fork,
         _DEFINITION.kind,
-        bind_decoder(_spy.lib.spy_schema_electra_decode_preset_owned, _preset),
+        bind_decoder(_spy.lib.spy_schema_fulu_decode_preset_owned, _preset),
         _preset,
     )
     register_ssz_decoder(
         _DEFINITION.fork,
         _DEFINITION.kind,
-        bind_decoder(_spy.lib.spy_schema_electra_decode_ssz_preset_owned, _preset),
+        bind_decoder(_spy.lib.spy_schema_fulu_decode_ssz_preset_owned, _preset),
         _preset,
     )
     register_ssz_encoder(

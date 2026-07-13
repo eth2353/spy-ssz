@@ -22,9 +22,11 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.package-data]
 spy_ssz = ["*.pyi", "py.typed", "consensus_types.json", "schemas.yaml", "presets/*/*.yaml"]
+"spy_ssz.electra" = ["*.pyi"]
+"spy_ssz.fulu" = ["*.pyi"]
 
 [tool.setuptools]
-packages = ["spy_ssz", "spy_ssz.presets"]
+packages = ["spy_ssz", "spy_ssz.electra", "spy_ssz.fulu", "spy_ssz.presets"]
 
 [dependency-groups]
 dev = [

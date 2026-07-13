@@ -22,7 +22,18 @@ from .ssz import (
     decode_ssz as decode_ssz,
 )
 
-from .blocks import (
+from .deneb import (
+    DenebSignedBeaconBlock as DenebSignedBeaconBlock,
+    DenebSignedBeaconBlockMainnet as DenebSignedBeaconBlockMainnet,
+    DenebAttestation as DenebAttestation,
+    DenebAttestationMainnet as DenebAttestationMainnet,
+)
+
+from .electra import (
+    ElectraSignedBeaconBlock as ElectraSignedBeaconBlock,
+    ElectraSignedBeaconBlockMainnet as ElectraSignedBeaconBlockMainnet,
+    ElectraSignedBeaconBlockMinimal as ElectraSignedBeaconBlockMinimal,
+    ElectraSignedBeaconBlockGnosis as ElectraSignedBeaconBlockGnosis,
     ElectraBeaconBlockContents as ElectraBeaconBlockContents,
     ElectraBeaconBlockContentsMainnet as ElectraBeaconBlockContentsMainnet,
     ElectraBeaconBlockContentsMinimal as ElectraBeaconBlockContentsMinimal,
@@ -41,30 +52,11 @@ from .blocks import (
     ElectraSignedBlindedBeaconBlockGnosis as ElectraSignedBlindedBeaconBlockGnosis,
 )
 
-from .deneb import (
-    DenebSignedBeaconBlock as DenebSignedBeaconBlock,
-    DenebSignedBeaconBlockMainnet as DenebSignedBeaconBlockMainnet,
-    DenebAttestation as DenebAttestation,
-    DenebAttestationMainnet as DenebAttestationMainnet,
-)
-
-from .electra import (
-    ElectraSignedBeaconBlock as ElectraSignedBeaconBlock,
-    ElectraSignedBeaconBlockMainnet as ElectraSignedBeaconBlockMainnet,
-    ElectraSignedBeaconBlockMinimal as ElectraSignedBeaconBlockMinimal,
-    ElectraSignedBeaconBlockGnosis as ElectraSignedBeaconBlockGnosis,
-)
-
 from .fulu import (
     FuluSignedBeaconBlock as FuluSignedBeaconBlock,
     FuluSignedBeaconBlockMainnet as FuluSignedBeaconBlockMainnet,
     FuluSignedBeaconBlockMinimal as FuluSignedBeaconBlockMinimal,
     FuluSignedBeaconBlockGnosis as FuluSignedBeaconBlockGnosis,
-)
-
-from .gloas import (
-    GloasAttestation as GloasAttestation,
-    GloasAttestationMainnet as GloasAttestationMainnet,
 )
 
 from .signing import (

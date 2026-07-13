@@ -11,8 +11,6 @@ class Fork(IntEnum):
     DENEB = 4
     ELECTRA = 5
     FULU = 6
-    GLOAS = 7
-    HEZE = 8
 
 
 class ObjectKind(IntEnum):

@@ -1,12 +1,14 @@
-"""Electra block contents and blinded block types."""
+"""Electra SSZ block, block-contents, and blinded-block types."""
 
 from typing import TypeVar
 
-from . import _spy
-from .ssz import (
+from .. import _spy
+from ..preset import Preset
+from ..schema import get_schema, schema_for, schemas_for
+from ..ssz import (
     Fork,
-    SszObject,
     ObjectKind,
+    SszObject,
     _spy_bytes,
     bind_decoder,
     register_json_decoder,
@@ -14,8 +16,51 @@ from .ssz import (
     register_ssz_decoder,
     register_ssz_encoder,
 )
-from .preset import Preset
-from .schema import get_schema, schemas_for
+
+
+_SIGNED_BLOCK = schema_for("electra_block")
+ElectraSignedBeaconBlock = type(
+    _SIGNED_BLOCK.python_type,
+    (SszObject,),
+    {"expected_fork": _SIGNED_BLOCK.fork, "expected_kind": _SIGNED_BLOCK.kind},
+)
+for _preset_name in _SIGNED_BLOCK.presets:
+    _preset = Preset[_preset_name.upper()]
+    _name = f"{_SIGNED_BLOCK.python_type}{_preset.name.title()}"
+    globals()[_name] = (
+        ElectraSignedBeaconBlock
+        if _preset is Preset.MAINNET
+        else type(_name, (ElectraSignedBeaconBlock,), {"expected_preset": _preset})
+    )
+
+for _preset_name in _SIGNED_BLOCK.presets:
+    _preset = Preset[_preset_name.upper()]
+    register_json_decoder(
+        _SIGNED_BLOCK.fork,
+        _SIGNED_BLOCK.kind,
+        bind_decoder(_spy.lib.spy_schema_electra_decode_preset_owned, _preset),
+        _preset,
+    )
+    register_ssz_decoder(
+        _SIGNED_BLOCK.fork,
+        _SIGNED_BLOCK.kind,
+        bind_decoder(_spy.lib.spy_schema_electra_decode_ssz_preset_owned, _preset),
+        _preset,
+    )
+    register_ssz_encoder(
+        _SIGNED_BLOCK.fork,
+        _SIGNED_BLOCK.kind,
+        _spy.lib.spy_schema_electra_ssz_size,
+        _spy.lib.spy_schema_electra_encode_ssz,
+        _preset,
+    )
+    register_json_encoder(
+        _SIGNED_BLOCK.fork,
+        _SIGNED_BLOCK.kind,
+        _spy.lib.spy_schema_electra_json_size,
+        _spy.lib.spy_schema_electra_encode_json,
+        _preset,
+    )
 
 
 _CONTENTS = get_schema(Fork.ELECTRA, ObjectKind.BEACON_BLOCK_CONTENTS)

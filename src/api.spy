@@ -5,12 +5,13 @@ from deneb_block_ssz import decode_deneb_attestation_ssz, decode_deneb_signed_bl
 from electra_block import (
     decode_electra_signed_block,
     decode_electra_signed_block_preset,
-    decode_fulu_signed_block,
-    decode_fulu_signed_block_preset,
 )
 from electra_block_ssz import (
     decode_electra_signed_block_ssz,
     decode_electra_signed_block_ssz_preset,
+)
+from fulu_block import decode_fulu_signed_block, decode_fulu_signed_block_preset
+from fulu_block_ssz import (
     decode_fulu_signed_block_ssz,
     decode_fulu_signed_block_ssz_preset,
 )
@@ -20,8 +21,6 @@ from electra_block_encode import (
     electra_json_size,
     electra_ssz_size,
 )
-from gloas_attestation import decode_gloas_attestation
-from gloas_attestation_ssz import decode_gloas_attestation_ssz
 from electra_signing import (
     decode_signing_json,
     decode_signing_ssz,

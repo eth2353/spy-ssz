@@ -199,13 +199,11 @@ All concrete objects inherit from `SszObject` and expose:
 | Fulu `SignedBeaconBlock` | yes | yes | yes | yes |
 | Electra signing objects | yes | yes | yes | yes |
 | Electra block contents and blinded blocks | yes | yes | yes | yes |
-| Gloas progressive `Attestation` | yes | yes | no | no |
 
 Fulu blocks reuse the unchanged Electra block layout with Fulu metadata.
-Gloas progressive containers, lists, and bitlists are represented in the
-compiled object graph. The generated type catalog covers every named mainnet
-SSZ type in `eth-consensus-specs` 1.7.0a12 for Electra, Fulu, Gloas, and Heze,
-but most cataloged types do not yet have executable codecs.
+The generated type catalog covers every named mainnet SSZ type in
+`eth-consensus-specs` 1.7.0a12 for Electra and Fulu, but most cataloged types
+do not yet have executable codecs.
 
 Generalized-index views and mutation APIs are also not implemented yet.
 
@@ -225,8 +223,8 @@ Generalized-index views and mutation APIs are also not implemented yet.
 - `spy_ssz/ssz.py` owns Python lifetimes and codec dispatch.
 
 Fork identifiers follow consensus chronology: Phase0 is `0`, Altair is `1`,
-Bellatrix is `2`, Capella is `3`, Deneb is `4`, Electra is `5`, Fulu is `6`,
-Gloas is `7`, and Heze is `8`.
+Bellatrix is `2`, Capella is `3`, Deneb is `4`, Electra is `5`, and Fulu is
+`6`.
 
 ## Development and benchmarks
 

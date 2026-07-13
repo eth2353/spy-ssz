@@ -1,4 +1,5 @@
 import msgspec
+import pytest
 from eth_consensus_specs.electra import mainnet as electra
 from eth_consensus_specs.fulu import mainnet as fulu
 
@@ -121,3 +122,29 @@ def test_minimal_preset_changes_fixed_vector_sizes_and_roundtrips() -> None:
         body = encoded["message"]["body"]
         assert body["sync_aggregate"]["sync_committee_bits"] == "0x00000000"
         assert body["attestations"][0]["committee_bits"] == "0x01"
+
+
+def test_block_json_rejects_uint64_overflow() -> None:
+    value = populated_electra_block().to_obj()
+    value["message"]["slot"] = str(2**64)
+
+    with pytest.raises(ValueError, match="invalid JSON object"):
+        ElectraSignedBeaconBlock.from_obj(value)
+
+
+def test_block_json_accepts_remerkleable_little_endian_uint256_hex() -> None:
+    reference = populated_electra_block()
+    reference.message.body.execution_payload.base_fee_per_gas = 0x010203
+
+    with ElectraSignedBeaconBlock.from_obj(reference) as decoded:
+        assert decoded.to_ssz() == reference.encode_bytes()
+        assert decoded.hash_tree_root() == reference.hash_tree_root()
+
+
+@pytest.mark.parametrize("invalid", ["", str(2**256), "0x" + "ff" * 33])
+def test_block_json_rejects_invalid_uint256(invalid: str) -> None:
+    value = populated_electra_block().to_obj()
+    value["message"]["body"]["execution_payload"]["base_fee_per_gas"] = invalid
+
+    with pytest.raises(ValueError, match="invalid JSON object"):
+        ElectraSignedBeaconBlock.from_obj(value)
