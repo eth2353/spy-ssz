@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import os
 import shutil
 import subprocess
@@ -16,10 +17,23 @@ SOURCE = ROOT / "src"
 BUILD = SOURCE / "build"
 SPY_REVISION = "012ae501eb6a0adc3baff261c97ec9b56c80c2d1"
 SPY_REPOSITORY = "https://github.com/spylang/spy.git"
+METADATA_GENERATOR = ROOT / "tools" / "generate_spy_metadata.py"
 
 
 def run(command: list[str], *, env: dict[str, str]) -> None:
     subprocess.run(command, cwd=ROOT, env=env, check=True)
+
+
+def generate_metadata() -> None:
+    """Generate build inputs inside the active PEP 517 environment."""
+    spec = importlib.util.spec_from_file_location(
+        "spy_ssz_generate_spy_metadata", METADATA_GENERATOR
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load metadata generator: {METADATA_GENERATOR}")
+    generator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(generator)
+    generator.generate()
 
 
 def resolve_spy_root(value: str | Path | None = None) -> Path:
@@ -45,12 +59,15 @@ def build(spy_root: Path) -> Path:
         raise SystemExit(f"not a SPy source checkout: {spy_root}")
 
     env = os.environ.copy()
-    env["PYTHONPATH"] = str(spy_root)
+    python_path = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = os.pathsep.join(
+        value for value in (str(spy_root), python_path) if value
+    )
     env["PATH"] = f"{Path(sys.executable).parent}:{env.get('PATH', '')}"
     env.setdefault("ZIG_GLOBAL_CACHE_DIR", "/tmp/spy-zig-global-cache")
     env.setdefault("ZIG_LOCAL_CACHE_DIR", "/tmp/spy-zig-local-cache")
 
-    run([sys.executable, str(ROOT / "tools" / "generate_spy_metadata.py")], env=env)
+    generate_metadata()
 
     libspy = spy_root / "spy" / "libspy"
     run(
@@ -65,9 +82,12 @@ def build(spy_root: Path) -> Path:
     # graph.  A clean directory prevents stale schema/parser C files from
     # being compiled into the extension.
     shutil.rmtree(BUILD, ignore_errors=True)
+    spy_executable = shutil.which("spy", path=env["PATH"])
+    if spy_executable is None:
+        raise RuntimeError("cannot find the SPy compiler in the build environment")
     run(
         [
-            str(Path(sys.executable).with_name("spy")),
+            spy_executable,
             "build",
             "--output-kind",
             "py-cffi",

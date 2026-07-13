@@ -4,9 +4,18 @@ from pathlib import Path
 
 from spy_ssz.consensus_types import get_type_definition
 from spy_ssz.schema import Fork, schema_definitions
+from tools.build_extension import generate_metadata
 
 
 ROOT = Path(__file__).parents[1]
+
+
+def test_build_metadata_generation_does_not_spawn_python(monkeypatch) -> None:
+    def fail(*args, **kwargs) -> None:
+        raise AssertionError("metadata generation must run in-process")
+
+    monkeypatch.setattr(subprocess, "run", fail)
+    generate_metadata()
 
 
 def test_spy_metadata_matches_authoritative_yaml() -> None:
