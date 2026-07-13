@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from importlib import import_module
-from typing import Any, Callable, ClassVar
+from typing import Any, Callable, ClassVar, TypeVar
 
 import msgspec
 
@@ -25,6 +25,7 @@ Decoder = Callable[[Any], Any]
 Sizer = Callable[[Any], int]
 Encoder = Callable[[Any, Any], int]
 CodecKey = tuple[Fork, ObjectKind, Preset]
+Codec = TypeVar("Codec")
 _JSON_DECODERS: dict[CodecKey, Decoder] = {}
 _SSZ_DECODERS: dict[CodecKey, Decoder] = {}
 _SSZ_ENCODERS: dict[CodecKey, tuple[Sizer, Encoder]] = {}
@@ -32,9 +33,9 @@ _JSON_ENCODERS: dict[CodecKey, tuple[Sizer, Encoder]] = {}
 
 
 def _register(
-    registry: dict[Any, Any],
+    registry: dict[CodecKey, Codec],
     key: CodecKey,
-    value: Any,
+    value: Codec,
     encoding: str,
 ) -> None:
     if key in registry:
@@ -44,6 +45,23 @@ def _register(
             f"{fork.name}/{kind.name}/{preset.name}"
         )
     registry[key] = value
+
+
+def _lookup_codec(
+    registry: dict[CodecKey, Codec], key: CodecKey, operation: str
+) -> Codec:
+    codec = registry.get(key)
+    if codec is None:
+        fork, _, _ = key
+        _load_builtin_codecs(fork)
+        codec = registry.get(key)
+    if codec is None:
+        fork, kind, preset = key
+        raise NotImplementedError(
+            f"no SPy {operation} for "
+            f"{fork.name}/{kind.name}/{preset.name}"
+        )
+    return codec
 
 
 def register_json_decoder(
@@ -165,15 +183,7 @@ class SszObject:
         source = bytes(data)
         source_obj, source_view = _spy_bytes(source)
         key = (cls.expected_fork, cls.expected_kind, cls.expected_preset)
-        decoder = decoders.get(key)
-        if decoder is None:
-            _load_builtin_codecs(cls.expected_fork)
-            decoder = decoders.get(key)
-        if decoder is None:
-            raise NotImplementedError(
-                f"no SPy {encoding} decoder for "
-                f"{cls.expected_fork.name}/{cls.expected_kind.name}"
-            )
+        decoder = _lookup_codec(decoders, key, f"{encoding} decoder")
         handle = decoder(source_obj)
         assert source_view
         if not handle.p or not _spy.lib.spy_ssz_object_is_valid(handle):
@@ -239,15 +249,7 @@ class SszObject:
         encoding: str,
     ) -> bytes:
         key = (self.fork, self.object_kind, self.preset)
-        codec = encoders.get(key)
-        if codec is None:
-            _load_builtin_codecs(self.fork)
-            codec = encoders.get(key)
-        if codec is None:
-            raise NotImplementedError(
-                f"no SPy {encoding} encoder for "
-                f"{self.fork.name}/{self.object_kind.name}"
-            )
+        codec = _lookup_codec(encoders, key, f"{encoding} encoder")
         sizer, encoder = codec
         handle = self._require_handle()
         expected = sizer(handle)
