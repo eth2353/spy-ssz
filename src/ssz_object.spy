@@ -24,7 +24,7 @@ from preset_config import (
     preset_sync_committee_size,
 )
 from ssz_kernels import ZERO_HASHES, hash_pair_into, merkleize_at
-from decode_status import DECODE_STATUS_VALID
+from decode_status import DECODE_STATUS_MALFORMED_INPUT, DECODE_STATUS_VALID
 
 
 KIND_UINT: i32 = 1
@@ -262,6 +262,8 @@ def add_fixed_bytes_node(
 def add_byte_list_node(
     obj: raw_ptr[SszObject], data_offset: i32, length: i32, limit: i32
 ) -> i32:
+    if length < 0 or limit < 0 or length > limit:
+        obj.valid = DECODE_STATUS_MALFORMED_INPUT
     return add_node(obj, KIND_BYTE_LIST, data_offset, length, limit, 0, 0, 0, 0)
 
 
@@ -271,6 +273,8 @@ def add_bitlist_node(
     bit_length: i32,
     bit_limit: i32,
 ) -> i32:
+    if bit_length < 0 or bit_limit < 0 or bit_length > bit_limit:
+        obj.valid = DECODE_STATUS_MALFORMED_INPUT
     return add_node(obj, KIND_BITLIST, data_offset, bit_length, bit_limit, 0, 0, 0, 0)
 
 
@@ -281,11 +285,22 @@ def add_basic_list_node(
     element_size: i32,
     limit: i32,
 ) -> i32:
+    data_length: i32 = 0
+    if (
+        element_count < 0
+        or element_size <= 0
+        or limit < 0
+        or element_count > limit
+        or element_count > 2147483647 // element_size
+    ):
+        obj.valid = DECODE_STATUS_MALFORMED_INPUT
+    else:
+        data_length = element_count * element_size
     return add_node(
         obj,
         KIND_BASIC_LIST,
         data_offset,
-        element_count * element_size,
+        data_length,
         limit,
         0,
         0,
@@ -311,6 +326,11 @@ def add_composite_node(
     active_offset: i32,
     active_length: i32,
 ) -> i32:
+    if (
+        kind == KIND_LIST
+        and (child_count < 0 or limit < 0 or child_count > limit)
+    ):
+        obj.valid = DECODE_STATUS_MALFORMED_INPUT
     return add_node(
         obj,
         kind,

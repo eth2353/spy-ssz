@@ -220,3 +220,11 @@ def test_block_json_rejects_invalid_uint256(invalid: str) -> None:
 
     with pytest.raises(ValueError, match="invalid JSON object"):
         ElectraSignedBeaconBlock.from_obj(value)
+
+
+def test_block_json_rejects_list_longer_than_its_ssz_limit() -> None:
+    value = populated_electra_block().to_obj()
+    value["message"]["body"]["blob_kzg_commitments"] = ["0x" + "00" * 48] * 4097
+
+    with pytest.raises(ValueError, match="invalid JSON object"):
+        ElectraSignedBeaconBlock.from_obj(value)
