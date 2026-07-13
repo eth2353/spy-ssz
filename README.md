@@ -1,7 +1,7 @@
 # spy-ssz
 
 `spy-ssz` is a compiled Ethereum SSZ library for Python 3.12 and newer. It decodes
-Beacon API JSON and canonical SSZ directly into SPy-owned C object graphs, so
+Beacon API JSON and canonical SSZ directly into [SPy](https://github.com/spylang/spy)-owned C object graphs, so
 hashing and encoding do not traverse ordinary Python objects.
 
 This is currently a proof of concept focused on the operations needed by
@@ -17,14 +17,14 @@ uv add 'spy-ssz @ git+https://github.com/eth2353/spy-ssz.git@REVISION'
 ```
 
 The package builds a platform-specific C extension during installation. For
-local development, set `SPY_ROOT` to reuse an existing SPy checkout:
+local development, set `SPY_ROOT` to reuse an existing [SPy](https://github.com/spylang/spy) checkout:
 
 ```bash
 SPY_ROOT=/path/to/spy uv sync
 ```
 
 Without `SPY_ROOT`, the build uses `.deps/spy` when present or checks out the
-pinned SPy revision in a temporary directory.
+pinned [SPy](https://github.com/spylang/spy) revision in a temporary directory.
 
 ## Quick start
 
