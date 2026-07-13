@@ -1,6 +1,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "decode_status.h"
+
 void spy_sha256_pair(const uint8_t *source, uint8_t *output);
 
 enum {
@@ -220,7 +222,7 @@ static int spy_fast_hash_node(
             object->node_roots.p, (size_t)object->node_count * 32
         );
         if (node_roots == NULL) {
-            object->valid = 0;
+            object->status = SPY_SSZ_DECODE_MALFORMED_INPUT;
             return 0;
         }
         object->node_roots.p = node_roots;
@@ -228,7 +230,7 @@ static int spy_fast_hash_node(
             object->node_root_valid.p, (size_t)object->node_count
         );
         if (node_root_valid == NULL) {
-            object->valid = 0;
+            object->status = SPY_SSZ_DECODE_MALFORMED_INPUT;
             return 0;
         }
         object->node_root_valid.p = node_root_valid;
@@ -339,5 +341,5 @@ static int32_t spy_ssz_fast_object_hash_tree_root(
         object->root_valid = 1;
     }
     memcpy(output->data.p, object->root.p->data.p, 32);
-    return object->valid;
+    return object->status;
 }

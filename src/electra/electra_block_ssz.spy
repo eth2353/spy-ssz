@@ -1,6 +1,7 @@
 """Electra SSZ-byte block schema shared structurally with Fulu."""
 
 from unsafe import raw_ptr
+from decode_status import DECODE_STATUS_MALFORMED_INPUT, DECODE_STATUS_VALID
 from metadata import (
     FORK_ELECTRA,
     OBJECT_SIGNED_BEACON_BLOCK,
@@ -73,11 +74,11 @@ def proposer_slashing_list(
 ) -> i32:
     length = end - start
     if length < 0 or length % 416 != 0:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
         return empty_list(obj, obj.max_proposer_slashings)
     count = length // 416
     if count > obj.max_proposer_slashings:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     first = reserve_edges(obj, count)
     i: i32 = 0
     while i < count:
@@ -94,12 +95,12 @@ def attesting_indices(
 ) -> i32:
     length = end - start
     if length < 0 or length % 8 != 0:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
         length = 0
     count = length // 8
     limit = obj.max_validators_per_committee * obj.max_committees_per_slot
     if count > limit:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     offset = copy_data(document, start, length, obj)
     return add_basic_list_node(obj, offset, count, 8, limit)
 
@@ -111,7 +112,7 @@ def indexed_attestation(
     obj: raw_ptr[SszObject],
 ) -> i32:
     if end - start < 228:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     indices = first_variable_offset(document, start, end, 0, 228)
     first = reserve_edges(obj, 3)
     set_edge(obj, first, 0, attesting_indices(document, indices, end, obj))
@@ -127,11 +128,11 @@ def attester_slashing(
     obj: raw_ptr[SszObject],
 ) -> i32:
     if end - start < 8:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     first_attestation = first_variable_offset(document, start, end, 0, 8)
     second_attestation = variable_offset(document, start, end, 4, 8)
     if second_attestation < first_attestation:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     first = reserve_edges(obj, 2)
     set_edge(obj, first, 0, indexed_attestation(document, first_attestation, second_attestation, obj))
     set_edge(obj, first, 1, indexed_attestation(document, second_attestation, end, obj))
@@ -148,7 +149,7 @@ def attester_slashing_list(
         return empty_list(obj, obj.max_attester_slashings_electra)
     first_offset = read_u32(document, start)
     if first_offset != 4:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
         return empty_list(obj, obj.max_attester_slashings_electra)
     first = reserve_edges(obj, 1)
     set_edge(obj, first, 0, attester_slashing(document, start + 4, end, obj))
@@ -164,7 +165,7 @@ def attestation(
     committee_size = (obj.max_committees_per_slot + 7) // 8
     fixed_size = 228 + committee_size
     if end - start < fixed_size:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     bits = first_variable_offset(document, start, end, 0, fixed_size)
     first = reserve_edges(obj, 4)
     set_edge(obj, first, 0, ssz_bitlist(document, bits, end, obj.max_validators_per_committee * obj.max_committees_per_slot, obj))
@@ -184,11 +185,11 @@ def attestation_list(
         return empty_list(obj, obj.max_attestations_electra)
     first_offset = read_u32(document, start)
     if first_offset <= 0 or first_offset % 4 != 0:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
         return empty_list(obj, obj.max_attestations_electra)
     count = first_offset // 4
     if count > obj.max_attestations_electra or start + first_offset > end:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
         return empty_list(obj, obj.max_attestations_electra)
     first = reserve_edges(obj, count)
     i: i32 = 0
@@ -198,7 +199,7 @@ def attestation_list(
         if i + 1 < count:
             item_end = start + read_u32(document, start + (i + 1) * 4)
         if item_start < start + first_offset or item_end < item_start or item_end > end:
-            obj.valid = 0
+            obj.status = DECODE_STATUS_MALFORMED_INPUT
         set_edge(obj, first, i, attestation(document, item_start, item_end, obj))
         i = i + 1
     return add_composite_node(obj, KIND_LIST, first, count, obj.max_attestations_electra, 0, 0)
@@ -245,11 +246,11 @@ def deposit_list(
 ) -> i32:
     length = end - start
     if length < 0 or length % 1240 != 0:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
         return empty_list(obj, obj.max_deposits)
     count = length // 1240
     if count > obj.max_deposits:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     first = reserve_edges(obj, count)
     i: i32 = 0
     while i < count:
@@ -279,11 +280,11 @@ def voluntary_exit_list(
 ) -> i32:
     length = end - start
     if length < 0 or length % 112 != 0:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
         return empty_list(obj, obj.max_voluntary_exits)
     count = length // 112
     if count > obj.max_voluntary_exits:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     first = reserve_edges(obj, count)
     i: i32 = 0
     while i < count:
@@ -314,11 +315,11 @@ def bls_change_list(
 ) -> i32:
     length = end - start
     if length < 0 or length % 172 != 0:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
         return empty_list(obj, obj.max_bls_to_execution_changes)
     count = length // 172
     if count > obj.max_bls_to_execution_changes:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     first = reserve_edges(obj, count)
     i: i32 = 0
     while i < count:
@@ -366,20 +367,20 @@ def execution_requests(
     obj: raw_ptr[SszObject],
 ) -> i32:
     if end - start < 12:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     deposits = first_variable_offset(document, start, end, 0, 12)
     withdrawals = variable_offset(document, start, end, 4, 12)
     consolidations = variable_offset(document, start, end, 8, 12)
     if withdrawals < deposits or consolidations < withdrawals:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
 
     deposit_length = withdrawals - deposits
     if deposit_length < 0 or deposit_length % 192 != 0:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
         deposit_length = 0
     deposit_count = deposit_length // 192
     if deposit_count > obj.max_deposit_requests_per_payload:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     deposit_first = reserve_edges(obj, deposit_count)
     i: i32 = 0
     while i < deposit_count:
@@ -389,11 +390,11 @@ def execution_requests(
 
     withdrawal_length = consolidations - withdrawals
     if withdrawal_length < 0 or withdrawal_length % 76 != 0:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
         withdrawal_length = 0
     withdrawal_count = withdrawal_length // 76
     if withdrawal_count > obj.max_withdrawal_requests_per_payload:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     withdrawal_first = reserve_edges(obj, withdrawal_count)
     i = 0
     while i < withdrawal_count:
@@ -403,11 +404,11 @@ def execution_requests(
 
     consolidation_length = end - consolidations
     if consolidation_length < 0 or consolidation_length % 116 != 0:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
         consolidation_length = 0
     consolidation_count = consolidation_length // 116
     if consolidation_count > obj.max_consolidation_requests_per_payload:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     consolidation_first = reserve_edges(obj, consolidation_count)
     i = 0
     while i < consolidation_count:
@@ -432,7 +433,7 @@ def block_body(
     payload_position = 316 + sync_size
     fixed_size = payload_position + 16
     if end - start < fixed_size:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     proposer = first_variable_offset(document, start, end, 200, fixed_size)
     attester = variable_offset(document, start, end, 204, fixed_size)
     attestations = variable_offset(document, start, end, 208, fixed_size)
@@ -443,11 +444,11 @@ def block_body(
     commitments = variable_offset(document, start, end, payload_position + 8, fixed_size)
     requests = variable_offset(document, start, end, payload_position + 12, fixed_size)
     if attester < proposer or attestations < attester or deposits < attestations:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     if exits < deposits or payload < exits or changes < payload:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     if commitments < changes or requests < commitments:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
 
     first = reserve_edges(obj, 13)
     set_edge(obj, first, 0, ssz_fixed_bytes(document, start, 96, obj))
@@ -473,7 +474,7 @@ def beacon_block(
     obj: raw_ptr[SszObject],
 ) -> i32:
     if end - start < 84:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     body = first_variable_offset(document, start, end, 80, 84)
     first = reserve_edges(obj, 5)
     set_edge(obj, first, 0, ssz_uint(document, start, 8, obj))
@@ -488,7 +489,7 @@ def signed_beacon_block(
     document: raw_ptr[SszDocument], obj: raw_ptr[SszObject]
 ) -> i32:
     if document.length < 100:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     message = first_variable_offset(document, 0, document.length, 0, 100)
     first = reserve_edges(obj, 2)
     set_edge(obj, first, 0, beacon_block(document, message, document.length, obj))
@@ -511,8 +512,8 @@ def decode_signed_block_ssz(
     )
     configure_preset(obj, preset)
     obj.root_node = signed_beacon_block(document, obj)
-    if document.valid == 0:
-        obj.valid = 0
+    if document.status != DECODE_STATUS_VALID:
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     return SszDecodeResult(obj, document)
 
 

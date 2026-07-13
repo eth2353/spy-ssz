@@ -136,8 +136,8 @@ def decode_block_container_json(source: bytes, kind: i32, preset: i32) -> JsonDe
         ],
     )
     require_recognized_object_fields(document)
-    if document.valid != DECODE_STATUS_VALID:
-        obj.valid = document.valid
+    if document.status != DECODE_STATUS_VALID:
+        obj.status = document.status
         obj.error_start = document.error_start
         obj.error_end = document.error_end
     return JsonDecodeResult(obj, document)

@@ -2,13 +2,14 @@
 
 from _bytes import BytesObject
 from unsafe import gc_ptr, raw_alloc, raw_ptr
+from decode_status import DECODE_STATUS_MALFORMED_INPUT, DECODE_STATUS_VALID
 
 
 @struct
 class SszDocument:
     data: gc_ptr[u8]
     length: i32
-    valid: i32
+    status: i32
 
 
 def decode_ssz(source: bytes) -> raw_ptr[SszDocument]:
@@ -19,20 +20,20 @@ def decode_ssz(source: bytes) -> raw_ptr[SszDocument]:
     # the complete document before copying its decoded leaves into the arena.
     document.data = src.data
     document.length = src.length
-    document.valid = 1
+    document.status = DECODE_STATUS_VALID
     return document
 
 
 def require_range(document: raw_ptr[SszDocument], start: i32, end: i32) -> bool:
     if start < 0 or end < start or end > document.length:
-        document.valid = 0
+        document.status = DECODE_STATUS_MALFORMED_INPUT
         return False
     return True
 
 
 def read_u32(document: raw_ptr[SszDocument], position: i32) -> i32:
     if position < 0 or position > document.length - 4:
-        document.valid = 0
+        document.status = DECODE_STATUS_MALFORMED_INPUT
         return 0
     return (
         i32(document.data[position])
@@ -50,11 +51,11 @@ def variable_offset(
     fixed_size: i32,
 ) -> i32:
     if start < 0 or position < 0 or start > end or start > document.length - position:
-        document.valid = 0
+        document.status = DECODE_STATUS_MALFORMED_INPUT
         return end
     offset = read_u32(document, start + position)
     if offset < fixed_size or offset > end - start:
-        document.valid = 0
+        document.status = DECODE_STATUS_MALFORMED_INPUT
         return end
     return start + offset
 
@@ -68,6 +69,6 @@ def first_variable_offset(
 ) -> i32:
     absolute = variable_offset(document, start, end, position, fixed_size)
     if absolute != start + fixed_size:
-        document.valid = 0
+        document.status = DECODE_STATUS_MALFORMED_INPUT
         return end
     return absolute

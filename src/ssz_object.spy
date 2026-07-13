@@ -85,7 +85,7 @@ class SszObject:
     arena: raw_ptr[u8]
     arena_cursor: i32
     arena_capacity: i32
-    valid: i32
+    status: i32
     error_start: i32
     error_end: i32
     work: gc_ptr[BytesObject]
@@ -135,7 +135,7 @@ def new_object(
     obj.arena = raw_alloc[u8](arena_capacity)
     obj.arena_cursor = 0
     obj.arena_capacity = arena_capacity
-    obj.valid = DECODE_STATUS_VALID
+    obj.status = DECODE_STATUS_VALID
     obj.error_start = -1
     obj.error_end = -1
     # Public hashing uses the bounded-stack C merkleizer. The SPy writer only
@@ -201,7 +201,7 @@ def add_node(
 ) -> i32:
     index = obj.node_count
     if index >= obj.node_capacity:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
         return 0
     node = obj.nodes[index]
     node.kind = kind
@@ -219,7 +219,7 @@ def add_node(
 def reserve_edges(obj: raw_ptr[SszObject], count: i32) -> i32:
     first = obj.edge_count
     if count < 0 or first < 0 or first > obj.edge_capacity - count:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
         return -1
     obj.edge_count = first + count
     return first
@@ -234,7 +234,7 @@ def set_edge(
         or first >= obj.edge_capacity
         or index >= obj.edge_capacity - first
     ):
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
         return
     obj.edges[first + index] = child
 
@@ -242,7 +242,7 @@ def set_edge(
 def alloc_data(obj: raw_ptr[SszObject], length: i32) -> i32:
     offset = obj.arena_cursor
     if length < 0 or offset < 0 or offset > obj.arena_capacity - length:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
         return -1
     obj.arena_cursor = offset + length
     return offset
@@ -273,7 +273,7 @@ def add_byte_list_node(
     obj: raw_ptr[SszObject], data_offset: i32, length: i32, limit: i32
 ) -> i32:
     if length < 0 or limit < 0 or length > limit:
-        obj.valid = DECODE_STATUS_MALFORMED_INPUT
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     return add_node(obj, KIND_BYTE_LIST, data_offset, length, limit, 0, 0, 0, 0)
 
 
@@ -284,7 +284,7 @@ def add_bitlist_node(
     bit_limit: i32,
 ) -> i32:
     if bit_length < 0 or bit_limit < 0 or bit_length > bit_limit:
-        obj.valid = DECODE_STATUS_MALFORMED_INPUT
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     return add_node(obj, KIND_BITLIST, data_offset, bit_length, bit_limit, 0, 0, 0, 0)
 
 
@@ -303,7 +303,7 @@ def add_basic_list_node(
         or element_count > limit
         or element_count > 2147483647 // element_size
     ):
-        obj.valid = DECODE_STATUS_MALFORMED_INPUT
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     else:
         data_length = element_count * element_size
     return add_node(
@@ -340,7 +340,7 @@ def add_composite_node(
         kind == KIND_LIST
         and (child_count < 0 or limit < 0 or child_count > limit)
     ):
-        obj.valid = DECODE_STATUS_MALFORMED_INPUT
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     return add_node(
         obj,
         kind,
@@ -373,7 +373,7 @@ def ceil_depth(limit: i32) -> i32:
 def alloc_work(obj: raw_ptr[SszObject], length: i32) -> i32:
     offset = obj.work_cursor
     if offset + length > obj.work_capacity:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
         return 0
     obj.work_cursor = offset + length
     i: i32 = 0
@@ -574,7 +574,7 @@ def hash_node(obj: raw_ptr[SszObject], node_index: i32) -> i32:
         return mix_active_fields(
             obj, progressive, node.active_offset, node.active_length
         )
-    obj.valid = 0
+    obj.status = DECODE_STATUS_MALFORMED_INPUT
     return roots
 
 
@@ -594,7 +594,7 @@ def object_hash_tree_root(
     while j < 32:
         out.data[j] = obj.root.data[j]
         j = j + 1
-    return obj.valid
+    return obj.status
 
 
 def object_node_hash_tree_root(
@@ -607,7 +607,7 @@ def object_node_hash_tree_root(
     while i < 32:
         out.data[i] = obj.work.data[root_offset + i]
         i = i + 1
-    return obj.valid
+    return obj.status
 
 
 def clone_and_sign_block(
@@ -627,7 +627,7 @@ def clone_and_sign_block(
         source.arena_capacity + 96,
     )
     configure_preset(target, source.preset)
-    target.valid = source.valid
+    target.status = source.status
 
     i: i32 = 0
     while i < source.node_count:
@@ -658,7 +658,7 @@ def clone_and_sign_block(
 
     encoded_signature = BytesObject.from_bytes(signature)
     if encoded_signature.length != 96:
-        target.valid = 0
+        target.status = DECODE_STATUS_MALFORMED_INPUT
         return target
     signature_offset = alloc_data(target, 96)
     if signature_offset < 0:

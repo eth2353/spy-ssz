@@ -34,7 +34,7 @@ class JsonDocument:
     tokens: raw_ptr[JsonToken]
     token_count: i32
     token_capacity: i32
-    valid: i32
+    status: i32
     root_count: i32
     error_start: i32
     error_end: i32
@@ -141,7 +141,7 @@ def validated_json_string_end(
             escaped = False
         i = i + 1
     if i >= length or not valid_json_string(document, start, i):
-        document.valid = 0
+        document.status = DECODE_STATUS_MALFORMED_INPUT
     return i
 
 
@@ -158,7 +158,7 @@ def json_string_end(
         if value < 32 or value >= 128 or value == 92:
             return validated_json_string_end(document, start, length)
         i = i + 1
-    document.valid = 0
+    document.status = DECODE_STATUS_MALFORMED_INPUT
     return length
 
 
@@ -267,7 +267,7 @@ def add_token(
 ) -> i32:
     index = document.token_count
     if index >= document.token_capacity:
-        document.valid = 0
+        document.status = DECODE_STATUS_MALFORMED_INPUT
         return -1
     token = document.tokens[index]
     token.kind = kind
@@ -285,20 +285,20 @@ def add_token(
 def consume_value(document: raw_ptr[JsonDocument], parent: i32) -> None:
     if parent < 0:
         if document.root_count != 0:
-            document.valid = 0
+            document.status = DECODE_STATUS_MALFORMED_INPUT
         document.root_count = document.root_count + 1
         return
     token = document.tokens[parent]
     if token.kind == TOKEN_OBJECT:
         if token.state != 2:
-            document.valid = 0
+            document.status = DECODE_STATUS_MALFORMED_INPUT
         token.state = 3
     elif token.kind == TOKEN_ARRAY:
         if token.state != 0 and token.state != 2:
-            document.valid = 0
+            document.status = DECODE_STATUS_MALFORMED_INPUT
         token.state = 3
     else:
-        document.valid = 0
+        document.status = DECODE_STATUS_MALFORMED_INPUT
 
 
 def decode_json(source: bytes) -> raw_ptr[JsonDocument]:
@@ -312,26 +312,26 @@ def decode_json(source: bytes) -> raw_ptr[JsonDocument]:
     document.token_capacity = length // 2 + 16
     document.tokens = raw_alloc[JsonToken](document.token_capacity)
     document.token_count = 0
-    document.valid = DECODE_STATUS_VALID
+    document.status = DECODE_STATUS_VALID
     document.root_count = 0
     document.error_start = -1
     document.error_end = -1
 
     parent: i32 = -1
     i: i32 = 0
-    while i < length and document.valid == DECODE_STATUS_VALID:
+    while i < length and document.status == DECODE_STATUS_VALID:
         ch = document.json[i]
         if is_space(ch):
             i = i + 1
         elif ch == u8(44):
             if parent < 0 or document.tokens[parent].state != 3:
-                document.valid = 0
+                document.status = DECODE_STATUS_MALFORMED_INPUT
             elif document.tokens[parent].kind == TOKEN_OBJECT:
                 document.tokens[parent].state = 4
             elif document.tokens[parent].kind == TOKEN_ARRAY:
                 document.tokens[parent].state = 2
             else:
-                document.valid = 0
+                document.status = DECODE_STATUS_MALFORMED_INPUT
             i = i + 1
         elif ch == u8(58):
             if (
@@ -339,7 +339,7 @@ def decode_json(source: bytes) -> raw_ptr[JsonDocument]:
                 or document.tokens[parent].kind != TOKEN_OBJECT
                 or document.tokens[parent].state != 1
             ):
-                document.valid = 0
+                document.status = DECODE_STATUS_MALFORMED_INPUT
             else:
                 document.tokens[parent].state = 2
             i = i + 1
@@ -353,7 +353,7 @@ def decode_json(source: bytes) -> raw_ptr[JsonDocument]:
             i = i + 1
         elif ch == u8(125) or ch == u8(93):
             if parent < 0:
-                document.valid = 0
+                document.status = DECODE_STATUS_MALFORMED_INPUT
             else:
                 token = document.tokens[parent]
                 matching = (
@@ -361,7 +361,7 @@ def decode_json(source: bytes) -> raw_ptr[JsonDocument]:
                     or (ch == u8(93) and token.kind == TOKEN_ARRAY)
                 )
                 if not matching or (token.state != 0 and token.state != 3):
-                    document.valid = 0
+                    document.status = DECODE_STATUS_MALFORMED_INPUT
                 else:
                     token.end = i + 1
                     parent = token.parent
@@ -370,7 +370,7 @@ def decode_json(source: bytes) -> raw_ptr[JsonDocument]:
             start = i + 1
             i = json_string_end(document, start, length)
             if i >= length:
-                document.valid = 0
+                document.status = DECODE_STATUS_MALFORMED_INPUT
             else:
                 if (
                     parent >= 0
@@ -381,7 +381,7 @@ def decode_json(source: bytes) -> raw_ptr[JsonDocument]:
                     )
                 ):
                     if object_has_duplicate_key(document, parent, start, i):
-                        document.valid = 0
+                        document.status = DECODE_STATUS_MALFORMED_INPUT
                     key = add_token(document, TOKEN_STRING, start, i, parent)
                     if key >= 0:
                         document.tokens[key].state = 1
@@ -401,18 +401,18 @@ def decode_json(source: bytes) -> raw_ptr[JsonDocument]:
             ):
                 i = i + 1
             if not valid_json_primitive(document, start, i):
-                document.valid = 0
+                document.status = DECODE_STATUS_MALFORMED_INPUT
             consume_value(document, parent)
             add_token(document, TOKEN_PRIMITIVE, start, i, parent)
 
     if parent != -1 or document.root_count != 1:
-        document.valid = 0
+        document.status = DECODE_STATUS_MALFORMED_INPUT
     return document
 
 
 def token_equals(document: raw_ptr[JsonDocument], index: i32, value: bytes) -> bool:
     if index < 0 or index >= document.token_count:
-        document.valid = 0
+        document.status = DECODE_STATUS_MALFORMED_INPUT
         return False
     token = document.tokens[index]
     expected = BytesObject.from_bytes(value)
@@ -429,7 +429,7 @@ def token_equals(document: raw_ptr[JsonDocument], index: i32, value: bytes) -> b
 
 def token_equals_str(document: raw_ptr[JsonDocument], index: i32, value: str) -> bool:
     if index < 0 or index >= document.token_count:
-        document.valid = 0
+        document.status = DECODE_STATUS_MALFORMED_INPUT
         return False
     token = document.tokens[index]
     expected = StrObject.from_str(value)
@@ -446,7 +446,7 @@ def token_equals_str(document: raw_ptr[JsonDocument], index: i32, value: str) ->
 
 def object_get(document: raw_ptr[JsonDocument], obj: i32, key: bytes) -> i32:
     if obj < 0 or obj >= document.token_count or document.tokens[obj].kind != TOKEN_OBJECT:
-        document.valid = 0
+        document.status = DECODE_STATUS_MALFORMED_INPUT
         return -1
     i = obj + 1
     end = document.tokens[obj].end
@@ -463,7 +463,7 @@ def object_get(document: raw_ptr[JsonDocument], obj: i32, key: bytes) -> i32:
             document.tokens[i].state = TOKEN_KEY_USED
             return i + 1
         i = i + 1
-    document.valid = 0
+    document.status = DECODE_STATUS_MALFORMED_INPUT
     return -1
 
 
@@ -471,7 +471,7 @@ def object_mark_expected_field_if_present(
     document: raw_ptr[JsonDocument], obj: i32, key: str
 ) -> None:
     if obj < 0 or obj >= document.token_count or document.tokens[obj].kind != TOKEN_OBJECT:
-        document.valid = 0
+        document.status = DECODE_STATUS_MALFORMED_INPUT
         return
     i = obj + 1
     end = document.tokens[obj].end
@@ -500,7 +500,7 @@ def mark_expected_fields(
 
 
 def require_recognized_object_fields(document: raw_ptr[JsonDocument]) -> None:
-    if document.valid != DECODE_STATUS_VALID:
+    if document.status != DECODE_STATUS_VALID:
         return
     i: i32 = 0
     while i < document.token_count:
@@ -511,7 +511,7 @@ def require_recognized_object_fields(document: raw_ptr[JsonDocument]) -> None:
             and token.parent >= 0
             and document.tokens[token.parent].kind == TOKEN_OBJECT
         ):
-            document.valid = DECODE_STATUS_UNRECOGNIZED_FIELD
+            document.status = DECODE_STATUS_UNRECOGNIZED_FIELD
             document.error_start = token.start
             document.error_end = token.end
             return
@@ -520,7 +520,7 @@ def require_recognized_object_fields(document: raw_ptr[JsonDocument]) -> None:
 
 def array_get(document: raw_ptr[JsonDocument], array: i32, wanted: i32) -> i32:
     if array < 0 or array >= document.token_count or document.tokens[array].kind != TOKEN_ARRAY:
-        document.valid = DECODE_STATUS_MALFORMED_INPUT
+        document.status = DECODE_STATUS_MALFORMED_INPUT
         return -1
     # Primitive children are contiguous in the pre-order token stream, which
     # covers large transaction and index lists without a linear scan.
@@ -543,12 +543,12 @@ def array_get(document: raw_ptr[JsonDocument], array: i32, wanted: i32) -> i32:
                 return i
             seen = seen + 1
         i = i + 1
-    document.valid = 0
+    document.status = DECODE_STATUS_MALFORMED_INPUT
     return -1
 
 
 def array_length(document: raw_ptr[JsonDocument], array: i32) -> i32:
     if array < 0 or array >= document.token_count or document.tokens[array].kind != TOKEN_ARRAY:
-        document.valid = 0
+        document.status = DECODE_STATUS_MALFORMED_INPUT
         return 0
     return document.tokens[array].children

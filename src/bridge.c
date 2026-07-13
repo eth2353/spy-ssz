@@ -16,17 +16,12 @@
 #include "electra_block_containers_ssz.h"
 #include "ssz_object.h"
 #include "ssz_reader.h"
+#include "decode_status.h"
 #include "merkle.c"
 
 typedef spy_unsafe$raw_ptr__json_parser$JsonDocument spy_raw_json_ptr;
 typedef spy_unsafe$raw_ptr__ssz_reader$SszDocument spy_raw_ssz_document_ptr;
 typedef spy_unsafe$raw_ptr__ssz_object$SszObject spy_raw_ssz_ptr;
-
-typedef enum {
-    SPY_SSZ_DECODE_UNRECOGNIZED_FIELD = -1,
-    SPY_SSZ_DECODE_MALFORMED_INPUT = 0,
-    SPY_SSZ_DECODE_VALID = 1,
-} spy_ssz_decode_status;
 
 static void spy_json_document_destroy(spy_raw_json_ptr opaque) {
     spy_json_parser$JsonDocument *document = opaque.p;
@@ -229,13 +224,13 @@ int32_t spy_schema_block_containers_encode_ssz(spy_raw_ssz_ptr opaque,
 }
 
 int32_t spy_ssz_object_is_valid(spy_raw_ssz_ptr opaque) {
-    return opaque.p != NULL && opaque.p->valid == SPY_SSZ_DECODE_VALID;
+    return opaque.p != NULL && opaque.p->status == SPY_SSZ_DECODE_VALID;
 }
 
 spy_ssz_decode_status spy_ssz_object_decode_status(spy_raw_ssz_ptr opaque) {
     return opaque.p == NULL
         ? SPY_SSZ_DECODE_MALFORMED_INPUT
-        : (spy_ssz_decode_status)opaque.p->valid;
+        : (spy_ssz_decode_status)opaque.p->status;
 }
 
 int32_t spy_ssz_object_error_start(spy_raw_ssz_ptr opaque) {

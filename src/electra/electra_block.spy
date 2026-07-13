@@ -1,7 +1,7 @@
 """Electra JSON-to-SPy block schema shared structurally with Fulu."""
 
 from unsafe import raw_ptr
-from decode_status import DECODE_STATUS_VALID
+from decode_status import DECODE_STATUS_MALFORMED_INPUT, DECODE_STATUS_VALID
 from json_parser import (
     JsonDocument,
     array_get,
@@ -51,12 +51,12 @@ def json_uint_data(
     size: i32,
 ) -> i32:
     offset = alloc_zeroed_data(obj, size)
-    if offset < 0 or document.valid == 0:
-        obj.valid = 0
+    if offset < 0 or document.status != DECODE_STATUS_VALID:
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
         return offset
     token = document.tokens[token_index]
     if token.end <= token.start:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
         return offset
     if (
         token.end - token.start >= 2
@@ -65,7 +65,7 @@ def json_uint_data(
     ):
         digits = token.end - token.start - 2
         if digits % 2 != 0 or digits > size * 2:
-            obj.valid = 0
+            obj.status = DECODE_STATUS_MALFORMED_INPUT
             return offset
         byte_count = digits // 2
         hex_j: i32 = 0
@@ -73,7 +73,7 @@ def json_uint_data(
             high = hex_nibble(document.json[token.start + 2 + hex_j * 2])
             low = hex_nibble(document.json[token.start + 3 + hex_j * 2])
             if high < 0 or low < 0:
-                obj.valid = 0
+                obj.status = DECODE_STATUS_MALFORMED_INPUT
             obj.arena[offset + hex_j] = u8(high * 16 + low)
             hex_j = hex_j + 1
         return offset
@@ -81,13 +81,13 @@ def json_uint_data(
         token.end - token.start > 1
         and document.json[token.start] == u8(48)
     ):
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
         return offset
     i = token.start
     while i < token.end:
         digit = i32(document.json[i]) - 48
         if digit < 0 or digit > 9:
-            obj.valid = 0
+            obj.status = DECODE_STATUS_MALFORMED_INPUT
             return offset
         carry = digit
         j: i32 = 0
@@ -97,7 +97,7 @@ def json_uint_data(
             carry = value >> 8
             j = j + 1
         if carry != 0:
-            obj.valid = 0
+            obj.status = DECODE_STATUS_MALFORMED_INPUT
         i = i + 1
     return offset
 
@@ -137,7 +137,7 @@ def proposer_slashing_list(
 ) -> i32:
     count = array_length(document, values)
     if count > obj.max_proposer_slashings:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     first = reserve_edges(obj, count)
     i: i32 = 0
     while i < count:
@@ -152,7 +152,7 @@ def attesting_indices(
     count = array_length(document, values)
     limit = obj.max_validators_per_committee * obj.max_committees_per_slot
     if count > limit:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
         return add_basic_list_node(obj, 0, count, 8, limit)
     offset = alloc_data(obj, count * 8)
     if offset < 0:
@@ -192,7 +192,7 @@ def attester_slashing_list(
 ) -> i32:
     count = array_length(document, values)
     if count > obj.max_attester_slashings_electra:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     first = reserve_edges(obj, count)
     i: i32 = 0
     while i < count:
@@ -218,7 +218,7 @@ def attestation_list(
 ) -> i32:
     count = array_length(document, values)
     if count > obj.max_attestations_electra:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     first = reserve_edges(obj, count)
     i: i32 = 0
     while i < count:
@@ -244,7 +244,7 @@ def deposit(
     proof_values = object_get(document, value, b"proof")
     count = array_length(document, proof_values)
     if count != 33:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     proof_first = reserve_edges(obj, count)
     i: i32 = 0
     while i < count:
@@ -262,7 +262,7 @@ def deposit_list(
 ) -> i32:
     count = array_length(document, values)
     if count > obj.max_deposits:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     first = reserve_edges(obj, count)
     i: i32 = 0
     while i < count:
@@ -290,7 +290,7 @@ def voluntary_exit_list(
 ) -> i32:
     count = array_length(document, values)
     if count > obj.max_voluntary_exits:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     first = reserve_edges(obj, count)
     i: i32 = 0
     while i < count:
@@ -319,7 +319,7 @@ def bls_change_list(
 ) -> i32:
     count = array_length(document, values)
     if count > obj.max_bls_to_execution_changes:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     first = reserve_edges(obj, count)
     i: i32 = 0
     while i < count:
@@ -391,7 +391,7 @@ def execution_requests(
     consolidation_node = add_composite_node(obj, KIND_LIST, consolidation_first, consolidation_count, obj.max_consolidation_requests_per_payload, 0, 0)
 
     if deposit_count > obj.max_deposit_requests_per_payload or withdrawal_count > obj.max_withdrawal_requests_per_payload or consolidation_count > obj.max_consolidation_requests_per_payload:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     first = reserve_edges(obj, 3)
     set_edge(obj, first, 0, deposit_node)
     set_edge(obj, first, 1, withdrawal_node)
@@ -460,8 +460,8 @@ def decode_signed_block(source: bytes, fork: i32, schema_id: i32, preset: i32) -
         ["data", "version", "execution_optimistic", "finalized"],
     )
     require_recognized_object_fields(document)
-    if document.valid != DECODE_STATUS_VALID:
-        obj.valid = document.valid
+    if document.status != DECODE_STATUS_VALID:
+        obj.status = document.status
         obj.error_start = document.error_start
         obj.error_end = document.error_end
     return JsonDecodeResult(obj, document)

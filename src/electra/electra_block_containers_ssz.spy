@@ -1,6 +1,7 @@
 """SSZ lowering for Electra block contents and blinded blocks."""
 
 from unsafe import raw_ptr
+from decode_status import DECODE_STATUS_MALFORMED_INPUT, DECODE_STATUS_VALID
 from metadata import (
     FORK_ELECTRA,
     OBJECT_BEACON_BLOCK_CONTENTS,
@@ -65,9 +66,9 @@ def blinded_body(document: raw_ptr[SszDocument], start: i32, end: i32, obj: raw_
     commitments = variable_offset(document, start, end, header_position + 8, fixed_size)
     requests = variable_offset(document, start, end, header_position + 12, fixed_size)
     if attester < proposer or attestations < attester or deposits < attestations:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     if exits < deposits or changes < exits or commitments < changes or requests < commitments:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     first = reserve_edges(obj, 13)
     set_edge(obj, first, 0, ssz_fixed_bytes(document, start, 96, obj))
     set_edge(obj, first, 1, eth1_data(document, start + 96, obj))
@@ -109,7 +110,7 @@ def block_contents(document: raw_ptr[SszDocument], signed: bool, obj: raw_ptr[Ss
     proofs_start = variable_offset(document, 0, document.length, 4, 12)
     blobs_start = variable_offset(document, 0, document.length, 8, 12)
     if proofs_start < block_start or blobs_start < proofs_start:
-        obj.valid = 0
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     first = reserve_edges(obj, 3)
     if signed:
         # Decode the signed block inside its bounded slice by temporarily using
@@ -146,6 +147,6 @@ def decode_block_container_ssz(source: bytes, kind: i32, preset: i32) -> SszDeco
         obj.root_node = blinded_block(document, 0, document.length, obj)
     else:
         obj.root_node = signed_blinded_block(document, obj)
-    if document.valid == 0:
-        obj.valid = 0
+    if document.status != DECODE_STATUS_VALID:
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     return SszDecodeResult(obj, document)

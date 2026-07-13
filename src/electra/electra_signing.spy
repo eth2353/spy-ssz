@@ -2,7 +2,7 @@
 
 from _bytes import BytesObject
 from unsafe import gc_ptr, raw_ptr
-from decode_status import DECODE_STATUS_VALID
+from decode_status import DECODE_STATUS_MALFORMED_INPUT, DECODE_STATUS_VALID
 from json_parser import (
     JsonDocument,
     decode_json,
@@ -241,8 +241,8 @@ def decode_signing_json(source: bytes, kind: i32, schema: i32, preset: i32) -> J
     else:
         obj.root_node = proposer_slashing(document, 0, obj)
     require_recognized_object_fields(document)
-    if document.valid != DECODE_STATUS_VALID:
-        obj.valid = document.valid
+    if document.status != DECODE_STATUS_VALID:
+        obj.status = document.status
         obj.error_start = document.error_start
         obj.error_end = document.error_end
     return JsonDecodeResult(obj, document)
@@ -253,7 +253,7 @@ def decode_signing_ssz(source: bytes, kind: i32, schema: i32, preset: i32) -> Ss
     obj = new_signing_object(FORK_ELECTRA, kind, schema, preset, document.length // 4 + 128, document.length * 3 + 1024)
     if kind == OBJECT_ATTESTATION_DATA:
         if document.length != 128:
-            document.valid = 0
+            document.status = DECODE_STATUS_MALFORMED_INPUT
         obj.root_node = decode_ssz_attestation_data(document, 0, obj)
     elif kind == OBJECT_ATTESTATION:
         obj.root_node = decode_electra_attestation(document, 0, document.length, obj)
@@ -261,27 +261,27 @@ def decode_signing_ssz(source: bytes, kind: i32, schema: i32, preset: i32) -> Ss
         obj.root_node = aggregate_and_proof_ssz(document, 0, document.length, obj)
     elif kind == OBJECT_SYNC_COMMITTEE_CONTRIBUTION:
         if document.length != 144 + obj.sync_committee_size // 32:
-            document.valid = 0
+            document.status = DECODE_STATUS_MALFORMED_INPUT
         obj.root_node = sync_contribution_ssz(document, 0, obj)
     elif kind == OBJECT_CONTRIBUTION_AND_PROOF:
         if document.length != 248 + obj.sync_committee_size // 32:
-            document.valid = 0
+            document.status = DECODE_STATUS_MALFORMED_INPUT
         obj.root_node = contribution_and_proof_ssz(document, 0, obj)
     elif kind == OBJECT_SINGLE_ATTESTATION:
         if document.length != 240:
-            document.valid = 0
+            document.status = DECODE_STATUS_MALFORMED_INPUT
         obj.root_node = single_attestation_ssz(document, 0, obj)
     elif kind == OBJECT_SYNC_COMMITTEE_MESSAGE:
         if document.length != 144:
-            document.valid = 0
+            document.status = DECODE_STATUS_MALFORMED_INPUT
         obj.root_node = sync_message_ssz(document, 0, obj)
     elif kind == OBJECT_SIGNED_AGGREGATE_AND_PROOF:
         if document.length < 100:
-            document.valid = 0
+            document.status = DECODE_STATUS_MALFORMED_INPUT
         obj.root_node = signed_aggregate_ssz(document, obj)
     elif kind == OBJECT_SIGNED_CONTRIBUTION_AND_PROOF:
         if document.length != 344 + obj.sync_committee_size // 32:
-            document.valid = 0
+            document.status = DECODE_STATUS_MALFORMED_INPUT
         obj.root_node = signed_contribution_ssz(document, obj)
     elif kind == OBJECT_INDEXED_ATTESTATION:
         obj.root_node = decode_ssz_indexed_attestation(document, 0, document.length, obj)
@@ -289,18 +289,18 @@ def decode_signing_ssz(source: bytes, kind: i32, schema: i32, preset: i32) -> Ss
         obj.root_node = decode_ssz_attester_slashing(document, 0, document.length, obj)
     elif kind == OBJECT_BEACON_BLOCK_HEADER:
         if document.length != 112:
-            document.valid = 0
+            document.status = DECODE_STATUS_MALFORMED_INPUT
         obj.root_node = decode_ssz_block_header(document, 0, obj)
     elif kind == OBJECT_SIGNED_BEACON_BLOCK_HEADER:
         if document.length != 208:
-            document.valid = 0
+            document.status = DECODE_STATUS_MALFORMED_INPUT
         obj.root_node = decode_ssz_signed_block_header(document, 0, obj)
     else:
         if document.length != 416:
-            document.valid = 0
+            document.status = DECODE_STATUS_MALFORMED_INPUT
         obj.root_node = decode_ssz_proposer_slashing(document, 0, obj)
-    if document.valid == 0:
-        obj.valid = 0
+    if document.status != DECODE_STATUS_VALID:
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
     return SszDecodeResult(obj, document)
 
 
