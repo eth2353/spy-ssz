@@ -38,4 +38,4 @@ from schema_block_containers_encode import (
     block_container_ssz_size,
 )
 from schema_block_containers_ssz import decode_block_container_ssz
-from ssz_object import object_hash_tree_root, object_node_hash_tree_root
+from ssz_object import clone_and_sign_block, object_hash_tree_root, object_node_hash_tree_root

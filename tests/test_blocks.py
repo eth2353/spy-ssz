@@ -1,3 +1,5 @@
+from unittest import mock
+
 import msgspec
 from eth_consensus_specs.electra import mainnet as electra
 from remerkleable.byte_arrays import ByteVector
@@ -56,17 +58,40 @@ def test_block_contents_json_ssz_signing_and_projections() -> None:
         assert value.block_hash_tree_root() == (
             f"0x{reference.block.hash_tree_root().hex()}"
         )
-        header = value.header_dict()
+        with mock.patch.object(
+            ElectraBeaconBlockContentsMainnet,
+            "to_obj",
+            side_effect=AssertionError("header projection must stay native"),
+        ):
+            header = value.header_dict()
         assert header["slot"] == "12"
         assert header["proposer_index"] == "34"
+        assert header["parent_root"] == f"0x{reference.block.parent_root.hex()}"
+        assert header["state_root"] == f"0x{reference.block.state_root.hex()}"
         assert header["body_root"] == f"0x{reference.block.body.hash_tree_root().hex()}"
-        signed = value.sign(bytes(96))
+        signature = bytes(range(96))
+        with mock.patch.object(
+            ElectraBeaconBlockContentsMainnet,
+            "to_json",
+            side_effect=AssertionError("signing must stay native"),
+        ):
+            signed = value.sign(signature)
         try:
             signed_reference = SignedBlockContents(
-                signed_block=electra.SignedBeaconBlock(message=reference.block)
+                signed_block=electra.SignedBeaconBlock(
+                    message=reference.block,
+                    signature=signature,
+                )
             )
             assert signed.hash_tree_root() == signed_reference.hash_tree_root()
             assert signed.to_ssz() == signed_reference.encode_bytes()
+            assert (
+                SignedBlockContents.from_obj(
+                    msgspec.json.decode(signed.to_json())
+                ).hash_tree_root()
+                == signed_reference.hash_tree_root()
+            )
+            assert value.hash_tree_root() == reference.hash_tree_root()
         finally:
             signed.close()
 
@@ -88,14 +113,35 @@ def test_blinded_block_json_ssz_signing_and_projections() -> None:
         assert value.hash_tree_root() == reference.hash_tree_root()
         assert value.to_ssz() == reference.encode_bytes()
         assert value.block_hash_tree_root() == f"0x{reference.hash_tree_root().hex()}"
-        assert value.header_dict()["body_root"] == (
-            f"0x{reference.body.hash_tree_root().hex()}"
-        )
-        signed = value.sign(bytes(96))
+        with mock.patch.object(
+            ElectraBlindedBeaconBlockMainnet,
+            "to_obj",
+            side_effect=AssertionError("header projection must stay native"),
+        ):
+            assert value.header_dict()["body_root"] == (
+                f"0x{reference.body.hash_tree_root().hex()}"
+            )
+        signature = bytes(range(96))
+        with mock.patch.object(
+            ElectraBlindedBeaconBlockMainnet,
+            "to_json",
+            side_effect=AssertionError("signing must stay native"),
+        ):
+            signed = value.sign(signature)
         try:
-            signed_reference = SignedBlindedBlock(message=reference)
+            signed_reference = SignedBlindedBlock(
+                message=reference,
+                signature=signature,
+            )
             assert signed.hash_tree_root() == signed_reference.hash_tree_root()
             assert signed.to_ssz() == signed_reference.encode_bytes()
+            assert (
+                SignedBlindedBlock.from_obj(
+                    msgspec.json.decode(signed.to_json())
+                ).hash_tree_root()
+                == signed_reference.hash_tree_root()
+            )
+            assert value.hash_tree_root() == reference.hash_tree_root()
         finally:
             signed.close()
 

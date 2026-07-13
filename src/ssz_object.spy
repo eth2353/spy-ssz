@@ -567,3 +567,94 @@ def object_node_hash_tree_root(
         out.data[i] = obj.work.data[root_offset + i]
         i = i + 1
     return obj.valid
+
+
+def clone_and_sign_block(
+    source: raw_ptr[SszObject],
+    signature: bytes,
+    signed_kind: i32,
+    signed_schema: i32,
+    contents: bool,
+) -> raw_ptr[SszObject]:
+    """Clone a block graph and wrap its block node with a BLS signature."""
+    target = new_object(
+        source.fork,
+        signed_kind,
+        signed_schema,
+        source.node_capacity + 3,
+        source.edge_capacity + 5,
+        source.arena_capacity + 96,
+    )
+    configure_preset(target, source.preset)
+    target.valid = source.valid
+
+    i: i32 = 0
+    while i < source.node_count:
+        source_node = source.nodes[i]
+        target_node = target.nodes[i]
+        target_node.kind = source_node.kind
+        target_node.data_offset = source_node.data_offset
+        target_node.data_length = source_node.data_length
+        target_node.limit = source_node.limit
+        target_node.first_edge = source_node.first_edge
+        target_node.child_count = source_node.child_count
+        target_node.active_offset = source_node.active_offset
+        target_node.active_length = source_node.active_length
+        i = i + 1
+    target.node_count = source.node_count
+
+    i = 0
+    while i < source.edge_count:
+        target.edges[i] = source.edges[i]
+        i = i + 1
+    target.edge_count = source.edge_count
+
+    i = 0
+    while i < source.arena_cursor:
+        target.arena[i] = source.arena[i]
+        i = i + 1
+    target.arena_cursor = source.arena_cursor
+
+    encoded_signature = BytesObject.from_bytes(signature)
+    if encoded_signature.length != 96:
+        target.valid = 0
+        return target
+    signature_offset = alloc_data(target, 96)
+    i = 0
+    while i < 96:
+        target.arena[signature_offset + i] = encoded_signature.data[i]
+        i = i + 1
+    signature_node = add_fixed_bytes_node(target, signature_offset, 96)
+
+    source_root = source.root_node
+    block_node = source_root
+    proofs_node: i32 = 0
+    blobs_node: i32 = 0
+    if contents:
+        source_container = source.nodes[source_root]
+        block_node = source.edges[source_container.first_edge]
+        proofs_node = source.edges[source_container.first_edge + 1]
+        blobs_node = source.edges[source_container.first_edge + 2]
+
+    signed_edges = reserve_edges(target, 2)
+    set_edge(target, signed_edges, 0, block_node)
+    set_edge(target, signed_edges, 1, signature_node)
+    signed_block = add_composite_node(
+        target, KIND_CONTAINER, signed_edges, 2, 2, 0, 0
+    )
+
+    if contents:
+        contents_edges = reserve_edges(target, 3)
+        set_edge(target, contents_edges, 0, signed_block)
+        set_edge(target, contents_edges, 1, proofs_node)
+        set_edge(target, contents_edges, 2, blobs_node)
+        target.root_node = add_composite_node(
+            target, KIND_CONTAINER, contents_edges, 3, 3, 0, 0
+        )
+    else:
+        target.root_node = signed_block
+
+    target.object_kind = signed_kind
+    target.schema_id = signed_schema
+    target.root_valid = 0
+    return target

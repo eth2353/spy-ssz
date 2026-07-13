@@ -161,6 +161,11 @@ def build(spy_root: Path) -> Path:
         int32_t spy_ssz_object_hash_tree_root_path(
             spy_raw_ssz_ptr object, int32_t first, int32_t second,
             int32_t depth, spy_BytesObject *output);
+        int32_t spy_ssz_object_block_header(
+            spy_raw_ssz_ptr object, spy_BytesObject *output);
+        spy_raw_ssz_ptr spy_ssz_object_clone_and_sign_block(
+            spy_raw_ssz_ptr object, spy_BytesObject *signature,
+            int32_t signed_kind, int32_t signed_schema, int32_t contents);
         int32_t spy_schema_electra_ssz_size(spy_raw_ssz_ptr object);
         int32_t spy_schema_electra_encode_ssz(
             spy_raw_ssz_ptr object, spy_BytesObject *output);
