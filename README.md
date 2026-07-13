@@ -235,6 +235,23 @@ uvx pre-commit run --all-files
 uv run python -m pytest -q
 ```
 
+Check the implemented Electra and Fulu codecs against extracted
+`consensus-specs` SSZ static vectors:
+
+```bash
+uv run --with python-snappy python tools/check_consensus_vectors.py \
+  /path/to/consensus-spec-tests
+```
+
+The path may be the extraction root containing `tests/minimal` and
+`tests/mainnet`, or the `tests` directory itself. Use `--preset minimal` or
+`--preset mainnet` to check only one preset. The runner verifies SSZ decode,
+canonical re-encoding, and hash-tree roots for every vector matching an
+implemented Electra or Fulu codec.
+
+The upstream archives are hundreds of megabytes, so this check is intended for
+scheduled or release CI rather than the per-commit pre-commit suite.
+
 Benchmark a directory containing raw `.json`, `.ssz`, or `.bin` blocks:
 
 ```bash
