@@ -24,12 +24,12 @@ from electra_block_ssz import (
     signed_beacon_block,
     voluntary_exit_list,
 )
-from ssz_reader import SszDocument, decode_ssz, variable_offset
+from ssz_reader import SszDocument, decode_ssz, first_variable_offset, variable_offset
 from ssz_object import KIND_CONTAINER, SszObject, add_composite_node, configure_preset, new_object, reserve_edges, set_edge
 
 
 def execution_payload_header(document: raw_ptr[SszDocument], start: i32, end: i32, obj: raw_ptr[SszObject]) -> i32:
-    extra = variable_offset(document, start, end, 436, 584)
+    extra = first_variable_offset(document, start, end, 436, 584)
     first = reserve_edges(obj, 17)
     set_edge(obj, first, 0, ssz_fixed_bytes(document, start, 32, obj))
     set_edge(obj, first, 1, ssz_fixed_bytes(document, start + 32, 20, obj))
@@ -55,7 +55,7 @@ def blinded_body(document: raw_ptr[SszDocument], start: i32, end: i32, obj: raw_
     sync_size = obj.sync_committee_size // 8
     header_position = 316 + sync_size
     fixed_size = header_position + 16
-    proposer = variable_offset(document, start, end, 200, fixed_size)
+    proposer = first_variable_offset(document, start, end, 200, fixed_size)
     attester = variable_offset(document, start, end, 204, fixed_size)
     attestations = variable_offset(document, start, end, 208, fixed_size)
     deposits = variable_offset(document, start, end, 212, fixed_size)
@@ -86,7 +86,7 @@ def blinded_body(document: raw_ptr[SszDocument], start: i32, end: i32, obj: raw_
 
 
 def blinded_block(document: raw_ptr[SszDocument], start: i32, end: i32, obj: raw_ptr[SszObject]) -> i32:
-    body = variable_offset(document, start, end, 80, 84)
+    body = first_variable_offset(document, start, end, 80, 84)
     first = reserve_edges(obj, 5)
     set_edge(obj, first, 0, ssz_uint(document, start, 8, obj))
     set_edge(obj, first, 1, ssz_uint(document, start + 8, 8, obj))
@@ -97,7 +97,7 @@ def blinded_block(document: raw_ptr[SszDocument], start: i32, end: i32, obj: raw
 
 
 def signed_blinded_block(document: raw_ptr[SszDocument], obj: raw_ptr[SszObject]) -> i32:
-    message = variable_offset(document, 0, document.length, 0, 100)
+    message = first_variable_offset(document, 0, document.length, 0, 100)
     first = reserve_edges(obj, 2)
     set_edge(obj, first, 0, blinded_block(document, message, document.length, obj))
     set_edge(obj, first, 1, ssz_fixed_bytes(document, 4, 96, obj))
@@ -105,7 +105,7 @@ def signed_blinded_block(document: raw_ptr[SszDocument], obj: raw_ptr[SszObject]
 
 
 def block_contents(document: raw_ptr[SszDocument], signed: bool, obj: raw_ptr[SszObject]) -> i32:
-    block_start = variable_offset(document, 0, document.length, 0, 12)
+    block_start = first_variable_offset(document, 0, document.length, 0, 12)
     proofs_start = variable_offset(document, 0, document.length, 4, 12)
     blobs_start = variable_offset(document, 0, document.length, 8, 12)
     if proofs_start < block_start or blobs_start < proofs_start:
@@ -114,7 +114,7 @@ def block_contents(document: raw_ptr[SszDocument], signed: bool, obj: raw_ptr[Ss
     if signed:
         # Decode the signed block inside its bounded slice by temporarily using
         # the same fixed layout directly.
-        message = variable_offset(document, block_start, proofs_start, 0, 100)
+        message = first_variable_offset(document, block_start, proofs_start, 0, 100)
         signed_first = reserve_edges(obj, 2)
         set_edge(obj, signed_first, 0, beacon_block(document, message, proofs_start, obj))
         set_edge(obj, signed_first, 1, ssz_fixed_bytes(document, block_start + 4, 96, obj))

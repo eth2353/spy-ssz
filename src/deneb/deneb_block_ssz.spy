@@ -8,7 +8,7 @@ from metadata import (
     SCHEMA_DENEB_ATTESTATION,
     SCHEMA_DENEB_SIGNED_BEACON_BLOCK,
 )
-from ssz_reader import SszDocument, decode_ssz, read_u32, require_range, variable_offset
+from ssz_reader import SszDocument, decode_ssz, first_variable_offset, read_u32, require_range, variable_offset
 from ssz_object import (
     KIND_CONTAINER,
     KIND_LIST,
@@ -181,7 +181,7 @@ def attestation(
 ) -> i32:
     if not require_range(document, start, end) or end - start < 228:
         obj.valid = 0
-    bits = variable_offset(document, start, end, 0, 228)
+    bits = first_variable_offset(document, start, end, 0, 228)
     first = reserve_edges(obj, 3)
     set_edge(obj, first, 0, ssz_bitlist(document, bits, end, obj.max_validators_per_committee, obj))
     set_edge(obj, first, 1, attestation_data(document, start + 4, obj))
@@ -289,7 +289,7 @@ def execution_payload(
 ) -> i32:
     if end - start < 528:
         obj.valid = 0
-    extra = variable_offset(document, start, end, 436, 528)
+    extra = first_variable_offset(document, start, end, 436, 528)
     transactions = variable_offset(document, start, end, 504, 528)
     withdrawals = variable_offset(document, start, end, 508, 528)
     if transactions < extra or withdrawals < transactions:
@@ -366,7 +366,7 @@ def block_body(
 ) -> i32:
     if end - start < 392:
         obj.valid = 0
-    proposer = variable_offset(document, start, end, 200, 392)
+    proposer = first_variable_offset(document, start, end, 200, 392)
     attester = variable_offset(document, start, end, 204, 392)
     attestations = variable_offset(document, start, end, 208, 392)
     deposits = variable_offset(document, start, end, 212, 392)
@@ -402,7 +402,7 @@ def beacon_block(
 ) -> i32:
     if end - start < 84:
         obj.valid = 0
-    body = variable_offset(document, start, end, 80, 84)
+    body = first_variable_offset(document, start, end, 80, 84)
     first = reserve_edges(obj, 5)
     set_edge(obj, first, 0, ssz_uint(document, start, 8, obj))
     set_edge(obj, first, 1, ssz_uint(document, start + 8, 8, obj))
@@ -417,7 +417,7 @@ def signed_beacon_block(
 ) -> i32:
     if document.length < 100:
         obj.valid = 0
-    message = variable_offset(document, 0, document.length, 0, 100)
+    message = first_variable_offset(document, 0, document.length, 0, 100)
     first = reserve_edges(obj, 2)
     set_edge(obj, first, 0, beacon_block(document, message, document.length, obj))
     set_edge(obj, first, 1, ssz_fixed_bytes(document, 4, 96, obj))

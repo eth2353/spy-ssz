@@ -21,7 +21,7 @@ from deneb_block_ssz import (
     ssz_uint,
     sync_aggregate,
 )
-from ssz_reader import SszDocument, decode_ssz, read_u32, require_range, variable_offset
+from ssz_reader import SszDocument, decode_ssz, first_variable_offset, read_u32, require_range, variable_offset
 from ssz_object import (
     KIND_CONTAINER,
     KIND_LIST,
@@ -113,7 +113,7 @@ def indexed_attestation(
 ) -> i32:
     if end - start < 228:
         obj.valid = 0
-    indices = variable_offset(document, start, end, 0, 228)
+    indices = first_variable_offset(document, start, end, 0, 228)
     first = reserve_edges(obj, 3)
     set_edge(obj, first, 0, attesting_indices(document, indices, end, obj))
     set_edge(obj, first, 1, attestation_data(document, start + 4, obj))
@@ -129,7 +129,7 @@ def attester_slashing(
 ) -> i32:
     if end - start < 8:
         obj.valid = 0
-    first_attestation = variable_offset(document, start, end, 0, 8)
+    first_attestation = first_variable_offset(document, start, end, 0, 8)
     second_attestation = variable_offset(document, start, end, 4, 8)
     if second_attestation < first_attestation:
         obj.valid = 0
@@ -166,7 +166,7 @@ def attestation(
     fixed_size = 228 + committee_size
     if end - start < fixed_size:
         obj.valid = 0
-    bits = variable_offset(document, start, end, 0, fixed_size)
+    bits = first_variable_offset(document, start, end, 0, fixed_size)
     first = reserve_edges(obj, 4)
     set_edge(obj, first, 0, ssz_bitlist(document, bits, end, obj.max_validators_per_committee * obj.max_committees_per_slot, obj))
     set_edge(obj, first, 1, attestation_data(document, start + 4, obj))
@@ -368,7 +368,7 @@ def execution_requests(
 ) -> i32:
     if end - start < 12:
         obj.valid = 0
-    deposits = variable_offset(document, start, end, 0, 12)
+    deposits = first_variable_offset(document, start, end, 0, 12)
     withdrawals = variable_offset(document, start, end, 4, 12)
     consolidations = variable_offset(document, start, end, 8, 12)
     if withdrawals < deposits or consolidations < withdrawals:
@@ -434,7 +434,7 @@ def block_body(
     fixed_size = payload_position + 16
     if end - start < fixed_size:
         obj.valid = 0
-    proposer = variable_offset(document, start, end, 200, fixed_size)
+    proposer = first_variable_offset(document, start, end, 200, fixed_size)
     attester = variable_offset(document, start, end, 204, fixed_size)
     attestations = variable_offset(document, start, end, 208, fixed_size)
     deposits = variable_offset(document, start, end, 212, fixed_size)
@@ -475,7 +475,7 @@ def beacon_block(
 ) -> i32:
     if end - start < 84:
         obj.valid = 0
-    body = variable_offset(document, start, end, 80, 84)
+    body = first_variable_offset(document, start, end, 80, 84)
     first = reserve_edges(obj, 5)
     set_edge(obj, first, 0, ssz_uint(document, start, 8, obj))
     set_edge(obj, first, 1, ssz_uint(document, start + 8, 8, obj))
@@ -490,7 +490,7 @@ def signed_beacon_block(
 ) -> i32:
     if document.length < 100:
         obj.valid = 0
-    message = variable_offset(document, 0, document.length, 0, 100)
+    message = first_variable_offset(document, 0, document.length, 0, 100)
     first = reserve_edges(obj, 2)
     set_edge(obj, first, 0, beacon_block(document, message, document.length, obj))
     set_edge(obj, first, 1, ssz_fixed_bytes(document, 4, 96, obj))

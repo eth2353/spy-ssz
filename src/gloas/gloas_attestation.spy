@@ -26,6 +26,9 @@ def progressive_bitlist(
     token_index: i32,
     obj: raw_ptr[SszObject],
 ) -> i32:
+    if document.valid == 0:
+        obj.valid = 0
+        return add_progressive_bitlist_node(obj, 0, 0)
     token = document.tokens[token_index]
     encoded_length = (token.end - token.start - 2) // 2
     offset = decode_hex(document, token_index, obj)

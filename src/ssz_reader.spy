@@ -55,3 +55,17 @@ def variable_offset(
         document.valid = 0
         return end
     return absolute
+
+
+def first_variable_offset(
+    document: raw_ptr[SszDocument],
+    start: i32,
+    end: i32,
+    position: i32,
+    fixed_size: i32,
+) -> i32:
+    absolute = variable_offset(document, start, end, position, fixed_size)
+    if absolute != start + fixed_size:
+        document.valid = 0
+        return end
+    return absolute

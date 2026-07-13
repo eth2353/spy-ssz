@@ -249,6 +249,10 @@ def build(spy_root: Path) -> Path:
     ).resolve()
     artifact = ROOT / "spy_ssz" / compiled.name
     shutil.copy2(compiled, artifact)
+    if sys.platform == "darwin":
+        subprocess.run(
+            ["codesign", "--force", "--sign", "-", str(artifact)], check=True
+        )
     print(artifact)
     return artifact
 

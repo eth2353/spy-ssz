@@ -58,6 +58,9 @@ def decode_hex(
     token_index: i32,
     obj: raw_ptr[SszObject],
 ) -> i32:
+    if document.valid == 0:
+        obj.valid = 0
+        return 0
     token = document.tokens[token_index]
     if (
         token.end - token.start < 2
@@ -90,6 +93,9 @@ def json_uint(
     obj: raw_ptr[SszObject],
 ) -> i32:
     offset = alloc_zeroed_data(obj, 32)
+    if document.valid == 0:
+        obj.valid = 0
+        return add_uint_node(obj, offset)
     token = document.tokens[token_index]
     if (
         token.end - token.start >= 2
@@ -135,6 +141,9 @@ def json_fixed_bytes(
     obj: raw_ptr[SszObject],
     size: i32,
 ) -> i32:
+    if document.valid == 0:
+        obj.valid = 0
+        return add_fixed_bytes_node(obj, 0, 0)
     token = document.tokens[token_index]
     length = (token.end - token.start - 2) // 2
     offset = decode_hex(document, token_index, obj)
@@ -156,6 +165,9 @@ def json_byte_list(
     obj: raw_ptr[SszObject],
     limit: i32,
 ) -> i32:
+    if document.valid == 0:
+        obj.valid = 0
+        return add_byte_list_node(obj, 0, 0, limit)
     token = document.tokens[token_index]
     length = (token.end - token.start - 2) // 2
     offset = decode_hex(document, token_index, obj)
@@ -170,6 +182,9 @@ def json_bitlist(
     obj: raw_ptr[SszObject],
     limit: i32,
 ) -> i32:
+    if document.valid == 0:
+        obj.valid = 0
+        return add_bitlist_node(obj, 0, 0, limit)
     token = document.tokens[token_index]
     encoded_length = (token.end - token.start - 2) // 2
     offset = decode_hex(document, token_index, obj)

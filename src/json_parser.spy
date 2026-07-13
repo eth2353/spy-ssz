@@ -124,6 +124,9 @@ def decode_json(source: bytes) -> raw_ptr[JsonDocument]:
 
 
 def token_equals(document: raw_ptr[JsonDocument], index: i32, value: bytes) -> bool:
+    if index < 0 or index >= document.token_count:
+        document.valid = 0
+        return False
     token = document.tokens[index]
     expected = BytesObject.from_bytes(value)
     length = token.end - token.start
@@ -138,6 +141,9 @@ def token_equals(document: raw_ptr[JsonDocument], index: i32, value: bytes) -> b
 
 
 def object_get(document: raw_ptr[JsonDocument], obj: i32, key: bytes) -> i32:
+    if obj < 0 or obj >= document.token_count or document.tokens[obj].kind != TOKEN_OBJECT:
+        document.valid = 0
+        return -1
     i = obj + 1
     end = document.tokens[obj].end
     while i < document.token_count and document.tokens[i].start < end:
@@ -153,6 +159,9 @@ def object_get(document: raw_ptr[JsonDocument], obj: i32, key: bytes) -> i32:
 
 
 def array_get(document: raw_ptr[JsonDocument], array: i32, wanted: i32) -> i32:
+    if array < 0 or array >= document.token_count or document.tokens[array].kind != TOKEN_ARRAY:
+        document.valid = 0
+        return -1
     i = array + 1
     seen: i32 = 0
     end = document.tokens[array].end
@@ -167,4 +176,7 @@ def array_get(document: raw_ptr[JsonDocument], array: i32, wanted: i32) -> i32:
 
 
 def array_length(document: raw_ptr[JsonDocument], array: i32) -> i32:
+    if array < 0 or array >= document.token_count or document.tokens[array].kind != TOKEN_ARRAY:
+        document.valid = 0
+        return 0
     return document.tokens[array].children

@@ -9,7 +9,7 @@ import msgspec
 
 from . import _spy
 from .preset import Preset
-from .schema import Fork, ObjectKind, module_for_codec, schema_definitions
+from .schema import Fork, ObjectKind, get_schema, module_for_codec, schema_definitions
 
 
 def _spy_bytes(buffer: bytes | bytearray) -> tuple[Any, Any]:
@@ -397,12 +397,7 @@ def decode_json(
     kind: ObjectKind,
     preset: Preset = Preset.MAINNET,
 ) -> SszObject:
-    class RegisteredObject(SszObject):
-        expected_fork = fork
-        expected_kind = kind
-        expected_preset = preset
-
-    return RegisteredObject.from_json(data)
+    return _concrete_type(fork, kind, preset).from_json(data)
 
 
 def decode_ssz(
@@ -411,9 +406,16 @@ def decode_ssz(
     kind: ObjectKind,
     preset: Preset = Preset.MAINNET,
 ) -> SszObject:
-    class RegisteredObject(SszObject):
-        expected_fork = fork
-        expected_kind = kind
-        expected_preset = preset
+    return _concrete_type(fork, kind, preset).from_ssz(data)
 
-    return RegisteredObject.from_ssz(data)
+
+def _concrete_type(fork: Fork, kind: ObjectKind, preset: Preset) -> type[SszObject]:
+    definition = get_schema(fork, kind)
+    preset_name = preset.name.lower()
+    if preset_name not in definition.presets:
+        raise NotImplementedError(
+            f"no SPy schema for {fork.name}/{kind.name}/{preset.name}"
+        )
+    module = import_module(f"{__package__}.{module_for_codec(definition.codec)}")
+    name = f"{definition.python_type}{preset.name.title()}"
+    return getattr(module, name)

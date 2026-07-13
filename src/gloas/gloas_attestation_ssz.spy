@@ -8,7 +8,7 @@ from deneb_block_ssz import (
     copy_data,
     ssz_fixed_bytes,
 )
-from ssz_reader import SszDocument, decode_ssz, variable_offset
+from ssz_reader import SszDocument, decode_ssz, first_variable_offset
 from ssz_object import (
     KIND_PROGRESSIVE_CONTAINER,
     SszObject,
@@ -48,7 +48,7 @@ def gloas_attestation(
 ) -> i32:
     if document.length < 236:
         obj.valid = 0
-    bits = variable_offset(document, 0, document.length, 0, 236)
+    bits = first_variable_offset(document, 0, document.length, 0, 236)
     first = reserve_edges(obj, 4)
     set_edge(obj, first, 0, progressive_bitlist(document, bits, document.length, obj))
     set_edge(obj, first, 1, attestation_data(document, 4, obj))

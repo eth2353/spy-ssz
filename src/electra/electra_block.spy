@@ -42,6 +42,9 @@ def json_uint_data(
     size: i32,
 ) -> i32:
     offset = alloc_zeroed_data(obj, size)
+    if document.valid == 0:
+        obj.valid = 0
+        return offset
     token = document.tokens[token_index]
     if (
         token.end - token.start >= 2

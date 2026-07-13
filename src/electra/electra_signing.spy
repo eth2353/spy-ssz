@@ -22,7 +22,7 @@ from deneb_block_ssz import DenebSszDecodeResult, decode_ssz_attestation_data, d
 from electra_block import attestation
 from electra_block_encode import json_attestation, json_attestation_data, ssz_attestation, ssz_attestation_data
 from electra_block_ssz import decode_electra_attestation
-from ssz_reader import SszDocument, decode_ssz, variable_offset
+from ssz_reader import SszDocument, decode_ssz, first_variable_offset
 from ssz_object import KIND_CONTAINER, SszObject, add_composite_node, configure_preset, new_object, reserve_edges, set_edge
 
 
@@ -62,7 +62,7 @@ def aggregate_and_proof_json(document: raw_ptr[JsonDocument], value: i32, obj: r
 
 
 def aggregate_and_proof_ssz(document: raw_ptr[SszDocument], obj: raw_ptr[SszObject]) -> i32:
-    aggregate_start = variable_offset(document, 0, document.length, 8, 108)
+    aggregate_start = first_variable_offset(document, 0, document.length, 8, 108)
     first = reserve_edges(obj, 3)
     set_edge(obj, first, 0, decode_ssz_uint(document, 0, 8, obj))
     set_edge(obj, first, 1, decode_electra_attestation(document, aggregate_start, document.length, obj))
@@ -108,14 +108,20 @@ def decode_signing_ssz(source: bytes, kind: i32, schema: i32, preset: i32) -> De
     document = decode_ssz(source)
     obj = new_signing_object(FORK_ELECTRA, kind, schema, preset, document.length // 4 + 128, document.length * 3 + 1024)
     if kind == OBJECT_ATTESTATION_DATA:
+        if document.length != 128:
+            document.valid = 0
         obj.root_node = decode_ssz_attestation_data(document, 0, obj)
     elif kind == OBJECT_ATTESTATION:
         obj.root_node = decode_electra_attestation(document, 0, document.length, obj)
     elif kind == OBJECT_AGGREGATE_AND_PROOF:
         obj.root_node = aggregate_and_proof_ssz(document, obj)
     elif kind == OBJECT_SYNC_COMMITTEE_CONTRIBUTION:
+        if document.length != 144 + obj.sync_committee_size // 32:
+            document.valid = 0
         obj.root_node = sync_contribution_ssz(document, 0, obj)
     else:
+        if document.length != 248 + obj.sync_committee_size // 32:
+            document.valid = 0
         obj.root_node = contribution_and_proof_ssz(document, obj)
     if document.valid == 0:
         obj.valid = 0
