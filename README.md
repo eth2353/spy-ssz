@@ -1,146 +1,248 @@
 # spy-ssz
 
-This repository explores a compiled SPy backend for Ethereum SSZ. The SPy
-path decodes Beacon API JSON or canonical SSZ bytes directly into a typed,
-heap-owned C object graph;
-Python receives only an opaque owner with metadata and `hash_tree_root()`.
-The temporary JSON text and token table are freed before decoding returns, so
-hashing performs no Python object traversal or JSON/hex parsing.
+`spy-ssz` is a compiled Ethereum SSZ library for Python 3.12. It decodes
+Beacon API JSON and canonical SSZ directly into SPy-owned C object graphs, so
+hashing and encoding do not traverse ordinary Python objects.
 
-The reusable value graph supports unsigned integers, fixed bytes, byte lists,
-bitlists, containers, and lists. It also implements progressive containers,
-progressive lists, and progressive bitlists using the Gloas SSZ rules.
+This is currently a proof of concept focused on the operations needed by
+validator clients. It is not yet a complete replacement for
+`eth-remerkleable`; see [Current scope](#current-scope).
 
-Implemented schemas in this proof:
+## Install
 
-- Deneb `SignedBeaconBlock`: JSON and SSZ input
-- Deneb `Attestation`: JSON and SSZ input
-- Electra `SignedBeaconBlock`: JSON and SSZ input
-- Fulu `SignedBeaconBlock`: reuses the Electra codec with Fulu metadata
-- Electra `AttestationData`, `Attestation`, `AggregateAndProof`,
-  `SyncCommitteeContribution`, and `ContributionAndProof`: JSON and SSZ I/O
-- Electra block contents and blinded blocks, including signing, header
-  projection, and block-root projection
-- Gloas progressive `Attestation`: JSON and SSZ input
+Install directly from Git with [uv](https://docs.astral.sh/uv/):
 
-The generated catalog defines every named mainnet SSZ type in
-`eth-consensus-specs` 1.7.0a12 for Electra (92), Fulu (103), Gloas (121), and
-Heze (123).
-Nested anonymous list/vector shapes are normalized and referenced by type id.
-Run `tools/generate_consensus_types.py` after changing the consensus-specs
-version.
-
-`spy_ssz/schemas.yaml` is the authoritative runtime schema registry. It owns
-fork IDs, object-kind IDs, schema IDs, codec modules, supported presets, and
-public type names. The files under `spy_ssz/presets/` are the sole source for
-preset IDs and preset-dependent consensus limits. Python reads these YAML files
-directly; `tools/generate_spy_metadata.py` generates the SPy constants consumed
-by compiled codecs and is run automatically during builds.
-
-## Architecture
-
-- `src/json_parser.spy`: temporary, replaceable JSON tokenizer
-- `src/ssz_reader.spy`: bounds-checked SSZ input
-- `src/ssz_object.spy`: typed nodes, SPy storage, SSZ hashing, root cache
-- `src/writer.spy`: allocation-free JSON and SSZ output primitives
-- `src/schema_*.spy`: fork/object-specific codecs
-- `src/bridge.c`: narrow ownership and CFFI bridge
-- `spy_ssz/ssz.py`: opaque ownership and `(fork, kind, preset)` registry
-- `spy_ssz/schemas.yaml`: authoritative runtime schema and public API registry
-- `spy_ssz/presets/*.yaml`: authoritative preset definitions
-- `spy_ssz/consensus_types.json`: generated Electra-through-Heze definitions
-- `spy_ssz/{deneb,electra,fulu,gloas,blocks,signing}.py`: public types and codecs
-
-`msgspec` remains the Python comparison decoder. Its public JSON API constructs
-Python objects, and it does not currently publish a stable C decoder API that
-can populate SPy-owned structs. The SPy tokenizer is isolated specifically
-so it can later be replaced by a supported msgspec C API (or another parser)
-without changing the SSZ representation.
-
-Fork identifiers follow consensus chronology: Phase0 is `0`, Altair is `1`,
-Bellatrix is `2`, Capella is `3`, Deneb is `4`, and subsequent forks continue
-in order.
-
-## SPy API
-
-```python
-from spy_ssz.electra import ElectraSignedBeaconBlock
-
-block_from_json = ElectraSignedBeaconBlock.from_json(json_bytes)
-block_from_ssz = ElectraSignedBeaconBlock.from_ssz(ssz_bytes)
-
-assert block_from_json.hash_tree_root() == block_from_ssz.hash_tree_root()
-assert block_from_json.to_ssz() == ssz_bytes
-beacon_api_json = block_from_ssz.to_json()
-block_from_json.close()
-block_from_ssz.close()
+```bash
+uv add 'spy-ssz @ git+https://github.com/eth2353/spy-ssz.git@REVISION'
 ```
 
-The generic entry points are `decode_json(data, fork, kind)` and
-`decode_ssz(data, fork, kind)`. SPy JSON and SSZ output encoding is
-available for Electra and Fulu signed blocks; Fulu reuses the unchanged Electra
-block schema.
+The package builds a platform-specific C extension during installation. For
+local development, set `SPY_ROOT` to reuse an existing SPy checkout:
 
-Validator-client types expose `from_obj`, `from_json`, `from_ssz`, `to_obj`,
-`to_json`, `to_ssz`, field projection, and `hash_tree_root`. Block types also
-provide `header_dict`, `block_hash_tree_root`, and `sign` helpers:
+```bash
+SPY_ROOT=/path/to/spy uv sync
+```
+
+Without `SPY_ROOT`, the build uses `.deps/spy` when present or checks out the
+pinned SPy revision in a temporary directory.
+
+## Quick start
+
+Import the class for the fork, object, and preset you are decoding. The
+mainnet Electra signed-block class accepts the standard Beacon API
+`{"data": ...}` JSON envelope:
+
+```python
+from spy_ssz import ElectraSignedBeaconBlock
+
+with ElectraSignedBeaconBlock.from_json(response.content) as block:
+    root: bytes = block.hash_tree_root()
+    canonical_ssz: bytes = block.to_ssz()
+    beacon_api_json: bytes = block.to_json()
+
+    print(block.message.slot)
+    print(root.hex())
+```
+
+Decode canonical SSZ into the same object type:
+
+```python
+from spy_ssz import ElectraSignedBeaconBlock
+
+with ElectraSignedBeaconBlock.from_ssz(ssz_bytes) as block:
+    assert block.to_ssz() == ssz_bytes
+    print(block.hash_tree_root().hex())
+```
+
+Objects own compiled memory. Prefer a context manager as shown above, or call
+`close()` explicitly. Accessing a closed object raises `RuntimeError`.
+
+## Presets
+
+Mainnet is the default. Minimal and Gnosis use explicit class suffixes:
+
+```python
+from spy_ssz import (
+    ElectraSignedBeaconBlock,
+    ElectraSignedBeaconBlockGnosis,
+    ElectraSignedBeaconBlockMinimal,
+)
+
+mainnet_block = ElectraSignedBeaconBlock.from_ssz(mainnet_ssz)
+minimal_block = ElectraSignedBeaconBlockMinimal.from_ssz(minimal_ssz)
+gnosis_block = ElectraSignedBeaconBlockGnosis.from_ssz(gnosis_ssz)
+```
+
+The canonical YAML files under `spy_ssz/presets/<preset>/` are the source of
+truth for preset-dependent consensus limits. `load_preset()` exposes the
+limits used by the compiled codecs:
+
+```python
+from spy_ssz import Preset, load_preset
+
+config = load_preset(Preset.MINIMAL)
+assert config.sync_committee_size == 32
+```
+
+## Generic decoding
+
+When the concrete class is selected dynamically, use the generic registry:
+
+```python
+from spy_ssz import Fork, ObjectKind, Preset, decode_json, decode_ssz
+
+from_json = decode_json(
+    json_bytes,
+    Fork.ELECTRA,
+    ObjectKind.SIGNED_BEACON_BLOCK,
+    Preset.MAINNET,
+)
+from_ssz = decode_ssz(
+    ssz_bytes,
+    Fork.ELECTRA,
+    ObjectKind.SIGNED_BEACON_BLOCK,
+    Preset.MAINNET,
+)
+
+try:
+    assert from_json.hash_tree_root() == from_ssz.hash_tree_root()
+finally:
+    from_json.close()
+    from_ssz.close()
+```
+
+## Validator-client objects
+
+Electra signing objects accept bare JSON objects rather than a Beacon API
+`data` envelope. They support JSON, SSZ, Python-object conversion, field
+projection, and tree hashing:
+
+```python
+from spy_ssz import AttestationData
+
+with AttestationData.from_obj(
+    {
+        "slot": "123",
+        "index": "0",
+        "beacon_block_root": "0x" + "00" * 32,
+        "source": {"epoch": "2", "root": "0x" + "11" * 32},
+        "target": {"epoch": "3", "root": "0x" + "22" * 32},
+    }
+) as data:
+    wire_bytes = data.to_ssz()
+    root = data.hash_tree_root()
+```
+
+Available signing classes are:
+
+- `AttestationData`
+- `Attestation`
+- `AggregateAndProof`
+- `SyncCommitteeContribution`
+- `ContributionAndProof`
+
+Each also has `Minimal` and `Gnosis` variants, such as
+`AttestationMinimal` and `AttestationGnosis`.
+
+## Block contents and blinded blocks
+
+Electra block-container types provide helpers used during block proposal:
 
 ```python
 from spy_ssz import ElectraBeaconBlockContentsMainnet
 
-contents = ElectraBeaconBlockContentsMainnet.from_ssz(response_body)
-header = contents.header_dict()
-signed = contents.sign(signature)
-wire_bytes = signed.to_ssz()
+with ElectraBeaconBlockContentsMainnet.from_json(response.content) as contents:
+    header = contents.header_dict()
+    block_root = contents.block_hash_tree_root()
+
+    signed = contents.sign(bls_signature)
+    try:
+        publish_body = signed.to_json()
+        publish_ssz = signed.to_ssz()
+    finally:
+        signed.close()
 ```
 
-Mainnet, minimal, and Gnosis variants are available. Checked-in preset YAML is
-loaded through `load_preset` and generates the compiled preset table; the
-selected limits are attached to every SPy object, so fixed SSZ layouts
-(including committee and sync vectors) are preset-aware without parallel
-hardcoded definitions.
+The corresponding blinded types are `ElectraBlindedBeaconBlockMainnet` and
+`ElectraSignedBlindedBeaconBlockMainnet`. Minimal and Gnosis variants use the
+same suffix convention.
 
-## Build
+## API summary
 
-The project can be installed directly from Git with uv. Its PEP 517 build
-creates a platform wheel and obtains the pinned SPy source needed for `libspy`:
+All concrete objects inherit from `SszObject` and expose:
+
+- `from_json(bytes)`, `from_ssz(bytes)`, and `from_obj(value)`
+- `hash_tree_root() -> bytes`
+- `to_json() -> bytes`, `to_ssz() -> bytes`, and `to_obj()` when an encoder is
+  implemented for that schema
+- immutable attribute projection such as `block.message.slot` for schemas with
+  JSON output support
+- `fork`, `object_kind`, `preset`, `schema_id`, and `node_count` metadata
+- `close()` and context-manager ownership
+
+`decode_bytes()` and `encode_bytes()` are compatibility aliases for
+`from_ssz()` and `to_ssz()`.
+
+## Current scope
+
+| Fork/object | JSON decode | SSZ decode | JSON encode | SSZ encode |
+| --- | ---: | ---: | ---: | ---: |
+| Deneb `SignedBeaconBlock` | yes | yes | no | no |
+| Deneb `Attestation` | yes | yes | no | no |
+| Electra `SignedBeaconBlock` | yes | yes | yes | yes |
+| Fulu `SignedBeaconBlock` | yes | yes | yes | yes |
+| Electra signing objects | yes | yes | yes | yes |
+| Electra block contents and blinded blocks | yes | yes | yes | yes |
+| Gloas progressive `Attestation` | yes | yes | no | no |
+
+Fulu blocks reuse the unchanged Electra block layout with Fulu metadata.
+Gloas progressive containers, lists, and bitlists are represented in the
+compiled object graph. The generated type catalog covers every named mainnet
+SSZ type in `eth-consensus-specs` 1.7.0a12 for Electra, Fulu, Gloas, and Heze,
+but most cataloged types do not yet have executable codecs.
+
+Generalized-index views and mutation APIs are also not implemented yet.
+
+## Architecture and sources of truth
+
+- `spy_ssz/schemas.yaml` defines fork IDs, object-kind IDs, schema IDs, codec
+  modules, supported presets, and public type names.
+- `spy_ssz/presets/<preset>/*.yaml` contains canonical preset definitions
+  copied from the consensus specification repositories.
+- `tools/generate_spy_metadata.py` derives Python, SPy, and C constants from
+  those definitions during builds.
+- `src/ssz_object.spy` owns typed nodes, SSZ hashing, and the root cache.
+- `src/json_parser.spy` and `src/ssz_reader.spy` decode JSON and SSZ input.
+- `src/writer.spy` provides JSON and SSZ output primitives.
+- `src/schema_*.spy` implements concrete fork/object codecs.
+- `src/bridge.c` is the ownership and CFFI boundary.
+- `spy_ssz/ssz.py` owns Python lifetimes and codec dispatch.
+
+Fork identifiers follow consensus chronology: Phase0 is `0`, Altair is `1`,
+Bellatrix is `2`, Capella is `3`, Deneb is `4`, Electra is `5`, Fulu is `6`,
+Gloas is `7`, and Heze is `8`.
+
+## Development and benchmarks
+
+Run the full checks:
 
 ```bash
-uv add 'spy-ssz @ git+https://github.com/OWNER/spy-ssz.git@REVISION'
-```
-
-For local development, `SPY_ROOT=/path/to/spy uv sync` reuses an existing SPy
-checkout. Without `SPY_ROOT`, the build helper uses `.deps/spy` when present or
-clones the pinned revision into the system temporary directory.
-
-## Verify and benchmark
-
-```bash
+./uvx pre-commit run --all-files
 uv run python -m pytest -q
+```
+
+Benchmark a directory containing raw `.json`, `.ssz`, or `.bin` blocks:
+
+```bash
 uv run python -m benchmarks.benchmark_corpus \
   /Users/luca/Downloads/eth-blocks/beacon_blocks
 ```
 
-The corpus benchmark discovers paired or standalone `.json`, `.ssz`, and `.bin`
-blocks, measures JSON/SSZ encode and decode separately, and
-prints all-fork and per-fork p50, p95, total time, and throughput. Use
-`--csv timings.csv` for per-block results, `--limit` for a quick sample, or
-`--fork deneb` when a synthetic/standalone file cannot be identified from its
-metadata, path, or slot. Available SPy Deneb, Electra, and Fulu decode
-timings are included, along with SPy Electra/Fulu JSON and SSZ encode timings;
-pass `--no-spy` to measure only the consensus-spec codecs.
+Use `--csv timings.csv` for per-block results, `--limit` for a quick sample,
+`--fork deneb` when a standalone file's fork cannot be inferred, or `--no-spy`
+to measure only the consensus-spec codecs.
 
 On a 592-block Fulu corpus, representative p50 results were 0.901 ms for SPy
-JSON decode, 0.451 ms for SPy JSON encode, 0.269 ms for SPy SSZ decode,
-and 0.491 ms for SPy SSZ encode. The corresponding consensus-spec codec
-operations took 7.696, 15.067, 7.885, and 17.085 ms.
-
-The sample roots match the official consensus types:
-
-- block: `0x784dad99478a2ca8fd04615fb530290655b41f49896e90146318ecec9fbd31e7`
-- signed block: `0x036ead785909b45549a62c13f1617a3d84e686a0db3dc29e3b0b9a2a410a0821`
-
-This is still a proof of concept, not a complete `eth-remerkleable`
-replacement. Electra+ definitions are complete, but executable SPy codecs
-must still be connected for the remaining non-block cataloged types.
-Generalized-index views and mutation APIs also remain to be implemented.
+JSON decode, 0.451 ms for SPy JSON encode, 0.269 ms for SPy SSZ decode, and
+0.491 ms for SPy SSZ encode. The corresponding consensus-spec operations took
+7.696, 15.067, 7.885, and 17.085 ms.
