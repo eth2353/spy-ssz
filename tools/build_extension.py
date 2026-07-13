@@ -229,7 +229,11 @@ def build(spy_root: Path) -> Path:
             "-O3",
             "-flto",
             "--std=c99",
-            "-w",
+            # SPy emits unreachable fallback branches and temporary stores as
+            # part of normal lowering. Suppress those two generated-code
+            # diagnostics while preserving every other compiler warning.
+            "-Wno-unreachable-code",
+            "-Wno-unused-but-set-variable",
         ],
         extra_link_args=["-flto"],
     )
