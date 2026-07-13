@@ -9,10 +9,10 @@ from .ssz import (
     register_ssz_encoder,
 )
 from .preset import Preset
-from .schema import schemas_for
+from .schema import schema_for
 
 
-_DEFINITION = schemas_for("fulu_block")[0]
+_DEFINITION = schema_for("fulu_block")
 FuluSignedBeaconBlock = type(
     _DEFINITION.python_type,
     (SszObject,),

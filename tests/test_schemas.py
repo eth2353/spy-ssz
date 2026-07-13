@@ -1,12 +1,13 @@
 from pathlib import Path
 
 import msgspec
+import pytest
 from eth_consensus_specs.deneb import mainnet as deneb
 from eth_consensus_specs.gloas import mainnet as gloas
 
 from spy_ssz.deneb import DenebAttestation
 from spy_ssz.gloas import GloasAttestation
-from spy_ssz.schema import get_schema
+from spy_ssz.schema import get_schema, schema_for
 from spy_ssz.ssz import Fork, ObjectKind, decode_json
 
 
@@ -26,6 +27,12 @@ def test_fork_ids_follow_consensus_chronology() -> None:
         Fork.HEZE,
     ]
     assert [fork.value for fork in Fork] == list(range(9))
+
+
+def test_single_schema_codec_lookup_rejects_multiplexed_codecs() -> None:
+    assert schema_for("electra_block").fork is Fork.ELECTRA
+    with pytest.raises(ValueError, match="found 5"):
+        schema_for("signing")
 
 
 def test_deneb_attestation_is_an_independent_schema() -> None:

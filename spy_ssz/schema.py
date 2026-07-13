@@ -38,7 +38,7 @@ class SchemaDefinition:
 
 @lru_cache(maxsize=1)
 def schema_definitions() -> tuple[SchemaDefinition, ...]:
-    return tuple(
+    definitions = tuple(
         SchemaDefinition(
             name=value["name"],
             schema_id=int(value["id"]),
@@ -51,10 +51,41 @@ def schema_definitions() -> tuple[SchemaDefinition, ...]:
         )
         for value in _source()["schemas"]
     )
+    schema_ids = [value.schema_id for value in definitions]
+    schema_keys = [(value.fork, value.kind) for value in definitions]
+    if len(set(schema_ids)) != len(schema_ids):
+        raise ValueError("schema IDs must be unique")
+    if len(set(schema_keys)) != len(schema_keys):
+        raise ValueError("fork/object-kind schema pairs must be unique")
+    return definitions
+
+
+@lru_cache(maxsize=1)
+def _schemas_by_codec() -> dict[str, tuple[SchemaDefinition, ...]]:
+    result: dict[str, list[SchemaDefinition]] = {}
+    for definition in schema_definitions():
+        result.setdefault(definition.codec, []).append(definition)
+    return {codec: tuple(definitions) for codec, definitions in result.items()}
+
+
+@lru_cache(maxsize=1)
+def _schemas_by_key() -> dict[tuple[Fork, ObjectKind], SchemaDefinition]:
+    return {
+        (definition.fork, definition.kind): definition
+        for definition in schema_definitions()
+    }
 
 
 def schemas_for(codec: str) -> tuple[SchemaDefinition, ...]:
-    return tuple(value for value in schema_definitions() if value.codec == codec)
+    return _schemas_by_codec().get(codec, ())
+
+
+def schema_for(codec: str) -> SchemaDefinition:
+    """Return the sole schema for a codec that does not multiplex object kinds."""
+    definitions = schemas_for(codec)
+    if len(definitions) != 1:
+        raise ValueError(f"expected one schema for {codec!r}, found {len(definitions)}")
+    return definitions[0]
 
 
 def module_for_codec(codec: str) -> str:
@@ -62,7 +93,4 @@ def module_for_codec(codec: str) -> str:
 
 
 def get_schema(fork: Fork, kind: ObjectKind) -> SchemaDefinition:
-    for value in schema_definitions():
-        if value.fork is fork and value.kind is kind:
-            return value
-    raise KeyError((fork, kind))
+    return _schemas_by_key()[fork, kind]

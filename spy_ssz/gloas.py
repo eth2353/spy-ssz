@@ -3,10 +3,10 @@
 from . import _spy
 from .ssz import SszObject, register_json_decoder, register_ssz_decoder
 from .preset import Preset
-from .schema import schemas_for
+from .schema import schema_for
 
 
-_DEFINITION = schemas_for("gloas_attestation")[0]
+_DEFINITION = schema_for("gloas_attestation")
 GloasAttestation = type(
     _DEFINITION.python_type,
     (SszObject,),
