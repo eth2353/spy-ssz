@@ -29,8 +29,11 @@ class BuildPy(_build_py):
         artifact = _build_extension.build(
             _build_extension.resolve_spy_root(os.environ.get("SPY_ROOT"))
         )
+        package_build = Path(self.build_lib) / "spy_ssz"
+        if package_build.exists():
+            shutil.rmtree(package_build)
         super().run()
-        target = Path(self.build_lib) / "spy_ssz" / artifact.name
+        target = package_build / artifact.name
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(artifact, target)
 

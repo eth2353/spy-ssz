@@ -2,6 +2,7 @@
 
 #include "json_parser.h"
 #include "metadata.h"
+#include "metadata_constants.h"
 #include "schema_deneb.h"
 #include "schema_deneb_ssz.h"
 #include "schema_electra.h"
@@ -210,7 +211,7 @@ static int32_t spy_ssz_fixed_list_size(spy_ssz_object$SszObject *obj,
 
 int32_t spy_schema_block_containers_ssz_size(spy_raw_ssz_ptr opaque) {
     spy_ssz_object$SszObject *obj = opaque.p;
-    if (obj->object_kind != spy_metadata$OBJECT_SIGNED_BEACON_BLOCK_CONTENTS)
+    if (obj->object_kind != SPY_SSZ_OBJECT_SIGNED_BEACON_BLOCK_CONTENTS)
         return spy_schema_block_containers_encode$block_container_ssz_size(opaque);
     int32_t contents = obj->root_node;
     int32_t signed_block = spy_ssz_child(obj, contents, 0);
@@ -227,7 +228,7 @@ int32_t spy_schema_block_containers_ssz_size(spy_raw_ssz_ptr opaque) {
 int32_t spy_schema_block_containers_encode_ssz(spy_raw_ssz_ptr opaque,
                                    spy_BytesObject *output) {
     spy_ssz_object$SszObject *obj = opaque.p;
-    if (obj->object_kind != spy_metadata$OBJECT_SIGNED_BEACON_BLOCK_CONTENTS)
+    if (obj->object_kind != SPY_SSZ_OBJECT_SIGNED_BEACON_BLOCK_CONTENTS)
         return spy_schema_block_containers_encode$block_container_encode_ssz(opaque, output);
     int32_t contents = obj->root_node;
     int32_t signed_block = spy_ssz_child(obj, contents, 0);

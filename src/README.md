@@ -12,8 +12,8 @@ the same retained graph layout.
 
 Fork modules such as `schema_deneb.spy` and `schema_gloas.spy` implement
 concrete field layouts. Schema IDs come from `spy_ssz/schemas.yaml`; validation
-limits come from `spy_ssz/presets/*.yaml`. The build regenerates `metadata.spy`
-and `preset_config.spy` from those authoritative inputs. New block,
+limits come from canonical `spy_ssz/presets/<preset>/*.yaml` files. The build
+regenerates `metadata.spy` and `preset_config.spy` from those authoritative inputs. New block,
 attestation, or fork schemas reuse the same node constructors and generic
 hasher.
 

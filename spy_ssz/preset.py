@@ -11,26 +11,82 @@ from typing import Any
 import yaml
 
 
+# Preset identifiers are part of spy-ssz's ABI, not the canonical consensus
+# preset definitions. Keep them here rather than adding project metadata to the
+# copied YAML files.
+_PRESET_IDS = {
+    "mainnet": 0,
+    "minimal": 1,
+    "gnosis": 2,
+}
+
+# Only values consumed by the compiled codecs are exposed through PresetConfig
+# and generated into SPy. The canonical files remain the source for the values.
+SSZ_LIMIT_KEYS = (
+    "MAX_COMMITTEES_PER_SLOT",
+    "MAX_VALIDATORS_PER_COMMITTEE",
+    "SYNC_COMMITTEE_SIZE",
+    "MAX_PROPOSER_SLASHINGS",
+    "MAX_ATTESTER_SLASHINGS",
+    "MAX_ATTESTER_SLASHINGS_ELECTRA",
+    "MAX_ATTESTATIONS",
+    "MAX_ATTESTATIONS_ELECTRA",
+    "MAX_DEPOSITS",
+    "MAX_VOLUNTARY_EXITS",
+    "MAX_WITHDRAWALS_PER_PAYLOAD",
+    "MAX_BLS_TO_EXECUTION_CHANGES",
+    "MAX_BLOB_COMMITMENTS_PER_BLOCK",
+    "FIELD_ELEMENTS_PER_BLOB",
+    "MAX_TRANSACTIONS_PER_PAYLOAD",
+    "MAX_BYTES_PER_TRANSACTION",
+    "MAX_DEPOSIT_REQUESTS_PER_PAYLOAD",
+    "MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD",
+    "MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD",
+)
+
+
+def _load_directory(directory: Any) -> dict[str, Any]:
+    values: dict[str, Any] = {}
+    sources: dict[str, str] = {}
+    resources = sorted(
+        (resource for resource in directory.iterdir() if resource.name.endswith(".yaml")),
+        key=lambda resource: resource.name,
+    )
+    if not resources:
+        raise ValueError(f"preset directory {directory} contains no YAML files")
+    for resource in resources:
+        document = yaml.safe_load(resource.read_text())
+        if not isinstance(document, dict):
+            raise ValueError(f"{resource} must contain a mapping")
+        for key, value in document.items():
+            if key in values:
+                raise ValueError(
+                    f"duplicate preset key {key} in {sources[key]} and {resource.name}"
+                )
+            values[key] = value
+            sources[key] = resource.name
+    return values
+
+
 @lru_cache(maxsize=1)
 def _sources() -> dict[str, dict[str, Any]]:
     directory = files(__package__).joinpath("presets")
-    result = {}
-    for resource in directory.iterdir():
-        if resource.name.endswith(".yaml"):
-            result[resource.name.removesuffix(".yaml").upper()] = yaml.safe_load(
-                resource.read_text()
+    result = {
+        name.upper(): _load_directory(directory.joinpath(name))
+        for name in _PRESET_IDS
+    }
+    for name, values in result.items():
+        missing = set(SSZ_LIMIT_KEYS).difference(values)
+        if missing:
+            raise ValueError(
+                f"{name.lower()} preset is missing: {', '.join(sorted(missing))}"
             )
     return result
 
 
 Preset = IntEnum(
     "Preset",
-    {
-        name: int(values["PRESET_ID"])
-        for name, values in sorted(
-            _sources().items(), key=lambda item: int(item[1]["PRESET_ID"])
-        )
-    },
+    {name.upper(): identifier for name, identifier in _PRESET_IDS.items()},
     module=__name__,
 )
 
@@ -65,9 +121,5 @@ def load_preset(preset: Preset | str) -> PresetConfig:
     values = _sources()[preset.name]
     return PresetConfig(
         preset=preset,
-        **{
-            key.lower(): int(value)
-            for key, value in values.items()
-            if key != "PRESET_ID"
-        },
+        **{key.lower(): int(values[key]) for key in SSZ_LIMIT_KEYS},
     )

@@ -1,3 +1,3 @@
 include tools/build_extension.py
 include tools/generate_spy_metadata.py
-recursive-include src *.c *.spy
+recursive-include src *.c *.h *.spy
