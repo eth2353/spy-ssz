@@ -46,7 +46,11 @@ def _load_directory(directory: Traversable) -> dict[str, Any]:
     values: dict[str, Any] = {}
     sources: dict[str, str] = {}
     resources = sorted(
-        (resource for resource in directory.iterdir() if resource.name.endswith(".yaml")),
+        (
+            resource
+            for resource in directory.iterdir()
+            if resource.name.endswith(".yaml")
+        ),
         key=lambda resource: resource.name,
     )
     if not resources:

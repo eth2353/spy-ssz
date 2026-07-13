@@ -15,12 +15,8 @@ def populated_electra_block() -> electra.SignedBeaconBlock:
         proposer_slashings=[electra.ProposerSlashing()],
         attester_slashings=[
             electra.AttesterSlashing(
-                attestation_1=electra.IndexedAttestation(
-                    attesting_indices=[1, 2, 3]
-                ),
-                attestation_2=electra.IndexedAttestation(
-                    attesting_indices=[4, 5]
-                ),
+                attestation_1=electra.IndexedAttestation(attesting_indices=[1, 2, 3]),
+                attestation_2=electra.IndexedAttestation(attesting_indices=[4, 5]),
             )
         ],
         attestations=[
@@ -55,9 +51,10 @@ def test_electra_json_and_ssz_cover_every_block_operation_family() -> None:
 
     with ElectraSignedBeaconBlock.from_json(raw_json) as decoded:
         assert decoded.fork is Fork.ELECTRA
-        assert decoded.schema_id == get_schema(
-            Fork.ELECTRA, ObjectKind.SIGNED_BEACON_BLOCK
-        ).schema_id
+        assert (
+            decoded.schema_id
+            == get_schema(Fork.ELECTRA, ObjectKind.SIGNED_BEACON_BLOCK).schema_id
+        )
         assert decoded.hash_tree_root() == expected
         assert decoded.to_ssz() == raw_ssz
         assert decoded.encode_bytes() == raw_ssz
@@ -87,9 +84,10 @@ def test_fulu_reuses_the_electra_block_codec_with_fulu_metadata() -> None:
 
     with FuluSignedBeaconBlock.from_json(raw_json) as decoded:
         assert decoded.fork is Fork.FULU
-        assert decoded.schema_id == get_schema(
-            Fork.FULU, ObjectKind.SIGNED_BEACON_BLOCK
-        ).schema_id
+        assert (
+            decoded.schema_id
+            == get_schema(Fork.FULU, ObjectKind.SIGNED_BEACON_BLOCK).schema_id
+        )
         assert decoded.hash_tree_root() == expected
         assert decoded.to_ssz() == raw_ssz
         roundtrip = fulu.SignedBeaconBlock.from_obj(

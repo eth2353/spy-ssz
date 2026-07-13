@@ -28,9 +28,12 @@ def test_signing_types_match_consensus_ssz(reference_type, spy_type) -> None:
     with spy_type.from_obj(value) as from_json:
         assert from_json.hash_tree_root() == reference.hash_tree_root()
         assert from_json.to_ssz() == reference.encode_bytes()
-        assert reference_type.from_obj(
-            msgspec.json.decode(from_json.to_json())
-        ).hash_tree_root() == reference.hash_tree_root()
+        assert (
+            reference_type.from_obj(
+                msgspec.json.decode(from_json.to_json())
+            ).hash_tree_root()
+            == reference.hash_tree_root()
+        )
     with spy_type.from_ssz(reference.encode_bytes()) as from_ssz:
         assert from_ssz.hash_tree_root() == reference.hash_tree_root()
         assert from_ssz.to_ssz() == reference.encode_bytes()

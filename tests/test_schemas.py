@@ -43,7 +43,10 @@ def test_deneb_attestation_is_an_independent_schema() -> None:
     with DenebAttestation.from_json(msgspec.json.encode(value)) as decoded:
         assert decoded.fork is Fork.DENEB
         assert decoded.object_kind is ObjectKind.ATTESTATION
-        assert decoded.schema_id == get_schema(Fork.DENEB, ObjectKind.ATTESTATION).schema_id
+        assert (
+            decoded.schema_id
+            == get_schema(Fork.DENEB, ObjectKind.ATTESTATION).schema_id
+        )
         assert decoded.hash_tree_root() == reference.hash_tree_root()
     with DenebAttestation.from_ssz(reference.encode_bytes()) as decoded:
         assert decoded.hash_tree_root() == reference.hash_tree_root()
@@ -51,12 +54,9 @@ def test_deneb_attestation_is_an_independent_schema() -> None:
 
 def test_generic_registry_dispatches_by_fork_and_object_kind() -> None:
     raw = SAMPLE.read_bytes()
-    with decode_json(
-        raw, Fork.DENEB, ObjectKind.SIGNED_BEACON_BLOCK
-    ) as decoded:
+    with decode_json(raw, Fork.DENEB, ObjectKind.SIGNED_BEACON_BLOCK) as decoded:
         assert decoded.hash_tree_root().hex() == (
-            "036ead785909b45549a62c13f1617a3d"
-            "84e686a0db3dc29e3b0b9a2a410a0821"
+            "036ead785909b45549a62c13f1617a3d84e686a0db3dc29e3b0b9a2a410a0821"
         )
 
 
@@ -75,7 +75,10 @@ def test_gloas_progressive_attestation_matches_consensus_spec() -> None:
     with GloasAttestation.from_json(raw) as decoded:
         assert decoded.fork is Fork.GLOAS
         assert decoded.object_kind is ObjectKind.ATTESTATION
-        assert decoded.schema_id == get_schema(Fork.GLOAS, ObjectKind.ATTESTATION).schema_id
+        assert (
+            decoded.schema_id
+            == get_schema(Fork.GLOAS, ObjectKind.ATTESTATION).schema_id
+        )
         assert decoded.hash_tree_root() == reference.hash_tree_root()
     with GloasAttestation.from_ssz(reference.encode_bytes()) as decoded:
         assert decoded.hash_tree_root() == reference.hash_tree_root()

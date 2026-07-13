@@ -58,8 +58,7 @@ def _lookup_codec(
     if codec is None:
         fork, kind, preset = key
         raise NotImplementedError(
-            f"no SPy {operation} for "
-            f"{fork.name}/{kind.name}/{preset.name}"
+            f"no SPy {operation} for {fork.name}/{kind.name}/{preset.name}"
         )
     return codec
 

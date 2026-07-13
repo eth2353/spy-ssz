@@ -89,9 +89,15 @@ def generate(*, check: bool = False) -> None:
         METADATA_HEADER: render_metadata_header(),
         PRESET_CONFIG: render_preset_config(),
     }
-    stale = [path for path, value in outputs.items() if not path.exists() or path.read_text() != value]
+    stale = [
+        path
+        for path, value in outputs.items()
+        if not path.exists() or path.read_text() != value
+    ]
     if check and stale:
-        raise SystemExit("generated SPy metadata is stale: " + ", ".join(map(str, stale)))
+        raise SystemExit(
+            "generated SPy metadata is stale: " + ", ".join(map(str, stale))
+        )
     for path, value in outputs.items():
         path.write_text(value)
 

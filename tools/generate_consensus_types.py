@@ -147,7 +147,11 @@ def main() -> None:
         builder = CatalogBuilder()
         names: dict[str, int] = {}
         for name, value in vars(module).items():
-            if name.startswith("_") or name in GENERIC_EXPORTS or not isinstance(value, type):
+            if (
+                name.startswith("_")
+                or name in GENERIC_EXPORTS
+                or not isinstance(value, type)
+            ):
                 continue
             try:
                 if issubclass(value, View):

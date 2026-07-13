@@ -32,16 +32,16 @@ for _preset_name in _DEFINITION.presets:
     register_json_decoder(
         _DEFINITION.fork,
         _DEFINITION.kind,
-        lambda source, preset=_preset: (
-            _spy.lib.spy_schema_fulu_decode_preset_owned(source, preset)
+        lambda source, preset=_preset: _spy.lib.spy_schema_fulu_decode_preset_owned(
+            source, preset
         ),
         _preset,
     )
     register_ssz_decoder(
         _DEFINITION.fork,
         _DEFINITION.kind,
-        lambda source, preset=_preset: (
-            _spy.lib.spy_schema_fulu_decode_ssz_preset_owned(source, preset)
+        lambda source, preset=_preset: _spy.lib.spy_schema_fulu_decode_ssz_preset_owned(
+            source, preset
         ),
         _preset,
     )

@@ -154,7 +154,9 @@ for _definition in schemas_for("block_containers"):
             _definition.fork,
             _kind,
             lambda source, kind=_kind, preset=_preset: (
-                _spy.lib.spy_schema_block_containers_decode_json_owned(source, kind, preset)
+                _spy.lib.spy_schema_block_containers_decode_json_owned(
+                    source, kind, preset
+                )
             ),
             _preset,
         )
@@ -162,7 +164,9 @@ for _definition in schemas_for("block_containers"):
             _definition.fork,
             _kind,
             lambda source, kind=_kind, preset=_preset: (
-                _spy.lib.spy_schema_block_containers_decode_ssz_owned(source, kind, preset)
+                _spy.lib.spy_schema_block_containers_decode_ssz_owned(
+                    source, kind, preset
+                )
             ),
             _preset,
         )

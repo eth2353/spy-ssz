@@ -32,8 +32,8 @@ for _preset_name in _DEFINITION.presets:
     register_json_decoder(
         _DEFINITION.fork,
         _DEFINITION.kind,
-        lambda source, preset=_preset: (
-            _spy.lib.spy_schema_electra_decode_preset_owned(source, preset)
+        lambda source, preset=_preset: _spy.lib.spy_schema_electra_decode_preset_owned(
+            source, preset
         ),
         _preset,
     )

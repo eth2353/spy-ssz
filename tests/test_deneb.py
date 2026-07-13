@@ -18,9 +18,10 @@ def test_spy_decodes_json_into_owned_ssz() -> None:
     try:
         assert block.fork is Fork.DENEB
         assert block.object_kind is ObjectKind.SIGNED_BEACON_BLOCK
-        assert block.schema_id == get_schema(
-            Fork.DENEB, ObjectKind.SIGNED_BEACON_BLOCK
-        ).schema_id
+        assert (
+            block.schema_id
+            == get_schema(Fork.DENEB, ObjectKind.SIGNED_BEACON_BLOCK).schema_id
+        )
         assert block.node_count > 1_000
         assert block.hash_tree_root().hex() == SIGNED_ROOT
     finally:

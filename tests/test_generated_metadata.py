@@ -21,7 +21,10 @@ def test_runtime_consensus_types_exist_in_generated_catalog() -> None:
     for schema in schema_definitions():
         if schema.consensus_type is None or schema.fork is Fork.DENEB:
             continue
-        assert get_type_definition(schema.fork, schema.consensus_type).name == schema.consensus_type
+        assert (
+            get_type_definition(schema.fork, schema.consensus_type).name
+            == schema.consensus_type
+        )
 
 
 def test_schema_ids_are_unique() -> None:

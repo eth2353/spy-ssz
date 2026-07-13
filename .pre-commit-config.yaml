@@ -1,0 +1,40 @@
+default_language_version:
+    python: python3.12
+
+repos:
+  # All files basic formatter
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-ast
+      - id: check-merge-conflict
+      - id: check-yaml
+        exclude: "docs/mkdocs.yml"
+      - id: end-of-file-fixer
+        exclude: "src/spec/configs/\\w+\\.yaml$"
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.11
+    hooks:
+      - id: ruff-format
+      - id: ruff-check
+        exclude: "scripts/.*\\.py$"
+        args: [--fix, --exit-non-zero-on-fix]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.20.1
+    hooks:
+    -   id: mypy
+        exclude: "scripts/.*\\.py$"
+        additional_dependencies:
+          [
+          aiohttp==3.13.5,
+          aiosignal==1.4.0,
+          msgspec==0.21.1,
+          prometheus-client==0.25.0,
+          pytest==9.0.3,
+          remerkleable==0.1.28,
+          types-PyYAML==6.0.12.20260408,
+          ]

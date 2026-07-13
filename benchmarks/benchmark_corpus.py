@@ -263,6 +263,7 @@ def benchmark_case(
     spy: bool,
 ) -> None:
     spec = case.spec
+
     def json_decode() -> Any:
         value, _ = unwrap_json(case.json_bytes)
         return spec.SignedBeaconBlock.from_obj(value)
@@ -457,9 +458,7 @@ def main() -> None:
     for index, source in enumerate(sources, 1):
         try:
             case = prepare_case(source, args.fork)
-            benchmark_case(
-                case, results, args.warmup, args.rounds, not args.no_spy
-            )
+            benchmark_case(case, results, args.warmup, args.rounds, not args.no_spy)
             print(
                 f"[{index:>5}/{len(sources)}] {case.fork:<7} {case.key}",
                 file=sys.stderr,

@@ -35,9 +35,7 @@ def resolve_spy_root(value: str | Path | None = None) -> Path:
             ["git", "clone", "--filter=blob:none", SPY_REPOSITORY, str(checkout)],
             check=True,
         )
-        subprocess.run(
-            ["git", "checkout", SPY_REVISION], cwd=checkout, check=True
-        )
+        subprocess.run(["git", "checkout", SPY_REVISION], cwd=checkout, check=True)
     return checkout.resolve()
 
 

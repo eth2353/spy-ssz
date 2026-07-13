@@ -30,9 +30,7 @@ _body_fields = {
     )
     for name, field_type in electra.BeaconBlockBody.__annotations__.items()
 }
-BlindedBody = type(
-    "BlindedBody", (Container,), {"__annotations__": _body_fields}
-)
+BlindedBody = type("BlindedBody", (Container,), {"__annotations__": _body_fields})
 
 
 class BlindedBlock(Container):
@@ -72,13 +70,14 @@ def test_block_contents_json_ssz_signing_and_projections() -> None:
         finally:
             signed.close()
 
-    with ElectraBeaconBlockContentsMainnet.from_ssz(
-        reference.encode_bytes()
-    ) as value:
+    with ElectraBeaconBlockContentsMainnet.from_ssz(reference.encode_bytes()) as value:
         assert value.hash_tree_root() == reference.hash_tree_root()
-        assert BlockContents.from_obj(
-            msgspec.json.decode(value.to_json())
-        ).hash_tree_root() == reference.hash_tree_root()
+        assert (
+            BlockContents.from_obj(
+                msgspec.json.decode(value.to_json())
+            ).hash_tree_root()
+            == reference.hash_tree_root()
+        )
 
 
 def test_blinded_block_json_ssz_signing_and_projections() -> None:
@@ -100,10 +99,9 @@ def test_blinded_block_json_ssz_signing_and_projections() -> None:
         finally:
             signed.close()
 
-    with ElectraBlindedBeaconBlockMainnet.from_ssz(
-        reference.encode_bytes()
-    ) as value:
+    with ElectraBlindedBeaconBlockMainnet.from_ssz(reference.encode_bytes()) as value:
         assert value.hash_tree_root() == reference.hash_tree_root()
-        assert BlindedBlock.from_obj(
-            msgspec.json.decode(value.to_json())
-        ).hash_tree_root() == reference.hash_tree_root()
+        assert (
+            BlindedBlock.from_obj(msgspec.json.decode(value.to_json())).hash_tree_root()
+            == reference.hash_tree_root()
+        )
