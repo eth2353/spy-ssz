@@ -1,14 +1,7 @@
 """SSZ-byte lowering for the Deneb types implemented by deneb_block."""
 
 from unsafe import raw_ptr
-from metadata import (
-    FORK_DENEB,
-    OBJECT_ATTESTATION,
-    OBJECT_SIGNED_BEACON_BLOCK,
-    SCHEMA_DENEB_ATTESTATION,
-    SCHEMA_DENEB_SIGNED_BEACON_BLOCK,
-)
-from ssz_reader import SszDocument, decode_ssz, first_variable_offset, read_u32, require_range, variable_offset
+from ssz_reader import SszDocument, first_variable_offset, read_u32, require_range, variable_offset
 from ssz_object import (
     KIND_CONTAINER,
     KIND_LIST,
@@ -20,7 +13,6 @@ from ssz_object import (
     add_uint_node,
     alloc_data,
     alloc_zeroed_data,
-    new_object,
     reserve_edges,
     set_edge,
 )
@@ -118,10 +110,17 @@ def ssz_bitlist(
     obj: raw_ptr[SszObject],
 ) -> i32:
     encoded_length = end - start
-    offset = copy_data(document, start, encoded_length, obj)
-    if encoded_length <= 0:
+    if (
+        encoded_length <= 0
+        or not require_range(document, start, end)
+        or obj.arena_cursor < 0
+        or obj.arena_cursor > obj.arena_capacity - encoded_length
+    ):
         obj.valid = 0
-        return add_bitlist_node(obj, offset, 0, limit)
+        return add_bitlist_node(obj, 0, 0, limit)
+
+    offset = copy_data(document, start, encoded_length, obj)
+
     last = i32(obj.arena[offset + encoded_length - 1])
     delimiter: i32 = 7
     while delimiter > 0 and (last & (1 << delimiter)) == 0:
@@ -422,37 +421,3 @@ def signed_beacon_block(
     set_edge(obj, first, 0, beacon_block(document, message, document.length, obj))
     set_edge(obj, first, 1, ssz_fixed_bytes(document, 4, 96, obj))
     return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
-
-
-def decode_deneb_signed_block_ssz(source: bytes) -> DenebSszDecodeResult:
-    document = decode_ssz(source)
-    capacity = document.length // 4 + 1024
-    obj = new_object(
-        FORK_DENEB,
-        OBJECT_SIGNED_BEACON_BLOCK,
-        SCHEMA_DENEB_SIGNED_BEACON_BLOCK,
-        capacity,
-        capacity,
-        document.length * 2 + 4096,
-    )
-    obj.root_node = signed_beacon_block(document, obj)
-    if document.valid == 0:
-        obj.valid = 0
-    return DenebSszDecodeResult(obj, document)
-
-
-def decode_deneb_attestation_ssz(source: bytes) -> DenebSszDecodeResult:
-    document = decode_ssz(source)
-    capacity = document.length // 4 + 64
-    obj = new_object(
-        FORK_DENEB,
-        OBJECT_ATTESTATION,
-        SCHEMA_DENEB_ATTESTATION,
-        capacity,
-        capacity,
-        document.length * 2 + 1024,
-    )
-    obj.root_node = attestation(document, 0, document.length, obj)
-    if document.valid == 0:
-        obj.valid = 0
-    return DenebSszDecodeResult(obj, document)

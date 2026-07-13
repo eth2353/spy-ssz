@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 from spy_ssz.consensus_types import get_type_definition
-from spy_ssz.schema import Fork, schema_definitions
+from spy_ssz.schema import schema_definitions
 from tools.build_extension import generate_metadata
 
 
@@ -28,7 +28,7 @@ def test_spy_metadata_matches_authoritative_yaml() -> None:
 
 def test_runtime_consensus_types_exist_in_generated_catalog() -> None:
     for schema in schema_definitions():
-        if schema.consensus_type is None or schema.fork is Fork.DENEB:
+        if schema.consensus_type is None:
             continue
         assert (
             get_type_definition(schema.fork, schema.consensus_type).name

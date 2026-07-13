@@ -21,7 +21,6 @@ PYTHON_ENUMS = ROOT / "spy_ssz" / "_schema_enums.py"
 PRESET_CONFIG = ROOT / "src" / "preset_config.spy"
 PACKAGE_STUB = ROOT / "spy_ssz" / "__init__.pyi"
 TYPE_STUBS = {
-    "deneb": ROOT / "spy_ssz" / "deneb.pyi",
     "electra": ROOT / "spy_ssz" / "electra" / "__init__.pyi",
     "fulu": ROOT / "spy_ssz" / "fulu" / "__init__.pyi",
     "signing": ROOT / "spy_ssz" / "signing.pyi",
@@ -622,9 +621,6 @@ def render_type_stubs() -> dict[Path, str]:
         by_module.setdefault(module, []).append(schema)
 
     stubs = {
-        TYPE_STUBS["deneb"]: _render_dynamic_stub(
-            by_module["deneb"], catalog, class_names, alias_all=True
-        ),
         TYPE_STUBS["electra"]: _render_electra_stub(
             by_module["electra"], catalog, class_names
         ),

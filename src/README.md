@@ -10,7 +10,8 @@ only while a schema lowerer runs. The C ownership wrapper destroys their source
 copy before the opaque SSZ object reaches Python. JSON and SSZ therefore create
 the same retained graph layout.
 
-Fork-owned modules live under `deneb/`, `electra/`, and `fulu/`; the root
+Electra and Fulu codecs live under `electra/` and `fulu/`. Shared block
+lowering primitives currently live under `deneb/`; the root
 contains only shared runtime and build infrastructure. Schema IDs come from
 `spy_ssz/schemas.yaml`; validation limits come from canonical
 `spy_ssz/presets/<preset>/*.yaml` files. The build regenerates `metadata.spy`

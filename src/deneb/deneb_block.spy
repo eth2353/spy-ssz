@@ -9,15 +9,7 @@ from json_parser import (
     JsonDocument,
     array_get,
     array_length,
-    decode_json,
     object_get,
-)
-from metadata import (
-    FORK_DENEB,
-    OBJECT_ATTESTATION,
-    OBJECT_SIGNED_BEACON_BLOCK,
-    SCHEMA_DENEB_ATTESTATION,
-    SCHEMA_DENEB_SIGNED_BEACON_BLOCK,
 )
 from ssz_object import (
     KIND_CONTAINER,
@@ -30,7 +22,6 @@ from ssz_object import (
     add_uint_node,
     alloc_data,
     alloc_zeroed_data,
-    new_object,
     reserve_edges,
     set_edge,
 )
@@ -428,39 +419,3 @@ def signed_beacon_block(
     set_edge(obj, first, 0, beacon_block(document, object_get(document, value, b"message"), obj))
     set_edge(obj, first, 1, json_fixed_bytes(document, object_get(document, value, b"signature"), obj, 96))
     return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
-
-
-def decode_deneb_signed_block(source: bytes) -> DenebDecodeResult:
-    document = decode_json(source)
-    capacity = document.token_count + 256
-    obj = new_object(
-        FORK_DENEB,
-        OBJECT_SIGNED_BEACON_BLOCK,
-        SCHEMA_DENEB_SIGNED_BEACON_BLOCK,
-        capacity,
-        capacity,
-        document.json_length * 2 + 4096,
-    )
-    envelope: i32 = 0
-    value = object_get(document, envelope, b"data")
-    obj.root_node = signed_beacon_block(document, value, obj)
-    if document.valid == 0:
-        obj.valid = 0
-    return DenebDecodeResult(obj, document)
-
-
-def decode_deneb_attestation(source: bytes) -> DenebDecodeResult:
-    document = decode_json(source)
-    capacity = document.token_count + 32
-    obj = new_object(
-        FORK_DENEB,
-        OBJECT_ATTESTATION,
-        SCHEMA_DENEB_ATTESTATION,
-        capacity,
-        capacity,
-        document.json_length * 2 + 1024,
-    )
-    obj.root_node = attestation(document, 0, obj)
-    if document.valid == 0:
-        obj.valid = 0
-    return DenebDecodeResult(obj, document)

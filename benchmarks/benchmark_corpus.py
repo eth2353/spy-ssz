@@ -289,11 +289,9 @@ def benchmark_case(
         elapsed_ns(case.value.encode_bytes, warmup, rounds),
     )
 
-    if spy and case.fork in {"deneb", "electra", "fulu"}:
+    if spy and case.fork in {"electra", "fulu"}:
         try:
-            if case.fork == "deneb":
-                from spy_ssz.deneb import DenebSignedBeaconBlock as SpyBlock
-            elif case.fork == "electra":
+            if case.fork == "electra":
                 from spy_ssz.electra import ElectraSignedBeaconBlock as SpyBlock
             else:
                 from spy_ssz.fulu import FuluSignedBeaconBlock as SpyBlock

@@ -193,8 +193,6 @@ All concrete objects inherit from `SszObject` and expose:
 
 | Fork/object | JSON decode | SSZ decode | JSON encode | SSZ encode |
 | --- | ---: | ---: | ---: | ---: |
-| Deneb `SignedBeaconBlock` | yes | yes | no | no |
-| Deneb `Attestation` | yes | yes | no | no |
 | Electra `SignedBeaconBlock` | yes | yes | yes | yes |
 | Fulu `SignedBeaconBlock` | yes | yes | yes | yes |
 | Electra signing objects | yes | yes | yes | yes |
@@ -260,8 +258,8 @@ uv run python -m benchmarks.benchmark_corpus \
 ```
 
 Use `--csv timings.csv` for per-block results, `--limit` for a quick sample,
-`--fork deneb` when a standalone file's fork cannot be inferred, or `--no-spy`
-to measure only the consensus-spec codecs.
+`--fork electra` or `--fork fulu` when a standalone file's fork cannot be
+inferred, or `--no-spy` to measure only the consensus-spec codecs.
 
 On a 592-block Fulu corpus, representative p50 results were 0.901 ms for SPy
 JSON decode, 0.451 ms for SPy JSON encode, 0.269 ms for SPy SSZ decode, and

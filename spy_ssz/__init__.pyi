@@ -22,13 +22,6 @@ from .ssz import (
     decode_ssz as decode_ssz,
 )
 
-from .deneb import (
-    DenebSignedBeaconBlock as DenebSignedBeaconBlock,
-    DenebSignedBeaconBlockMainnet as DenebSignedBeaconBlockMainnet,
-    DenebAttestation as DenebAttestation,
-    DenebAttestationMainnet as DenebAttestationMainnet,
-)
-
 from .electra import (
     ElectraSignedBeaconBlock as ElectraSignedBeaconBlock,
     ElectraSignedBeaconBlockMainnet as ElectraSignedBeaconBlockMainnet,

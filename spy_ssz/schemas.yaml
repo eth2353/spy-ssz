@@ -32,30 +32,12 @@ object_kinds:
   PROPOSER_SLASHING: 20
 
 codecs:
-  deneb_block: deneb
-  deneb_attestation: deneb
   electra_block: electra
   fulu_block: fulu
   signing: signing
   block_containers: electra
 
 schemas:
-  - name: DENEB_SIGNED_BEACON_BLOCK
-    id: 401
-    fork: DENEB
-    kind: SIGNED_BEACON_BLOCK
-    consensus_type: SignedBeaconBlock
-    codec: deneb_block
-    python_type: DenebSignedBeaconBlock
-    presets: [mainnet]
-  - name: DENEB_ATTESTATION
-    id: 403
-    fork: DENEB
-    kind: ATTESTATION
-    consensus_type: Attestation
-    codec: deneb_attestation
-    python_type: DenebAttestation
-    presets: [mainnet]
   - name: ELECTRA_SIGNED_BEACON_BLOCK
     id: 501
     fork: ELECTRA

@@ -155,11 +155,6 @@ def build(spy_root: Path) -> Path:
         } spy_BytesObject;
         typedef struct { void *p; } spy_raw_ssz_ptr;
 
-        spy_raw_ssz_ptr spy_schema_deneb_decode_owned(spy_BytesObject *source);
-        spy_raw_ssz_ptr spy_schema_deneb_decode_ssz_owned(
-            spy_BytesObject *source);
-        spy_raw_ssz_ptr spy_schema_deneb_decode_attestation_ssz_owned(
-            spy_BytesObject *source);
         spy_raw_ssz_ptr spy_schema_electra_decode_owned(spy_BytesObject *source);
         spy_raw_ssz_ptr spy_schema_electra_decode_preset_owned(
             spy_BytesObject *source, int32_t preset);
@@ -172,8 +167,6 @@ def build(spy_root: Path) -> Path:
         spy_raw_ssz_ptr spy_schema_fulu_decode_ssz_owned(spy_BytesObject *source);
         spy_raw_ssz_ptr spy_schema_fulu_decode_ssz_preset_owned(
             spy_BytesObject *source, int32_t preset);
-        spy_raw_ssz_ptr spy_schema_deneb_decode_attestation_owned(
-            spy_BytesObject *source);
         spy_raw_ssz_ptr spy_schema_signing_decode_json_owned(
             spy_BytesObject *source, int32_t kind, int32_t schema,
             int32_t preset);

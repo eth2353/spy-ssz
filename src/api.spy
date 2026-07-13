@@ -1,7 +1,5 @@
 """Compilation root for all registered SPy SSZ schemas."""
 
-from deneb_block import decode_deneb_attestation, decode_deneb_signed_block
-from deneb_block_ssz import decode_deneb_attestation_ssz, decode_deneb_signed_block_ssz
 from electra_block import (
     decode_electra_signed_block,
     decode_electra_signed_block_preset,

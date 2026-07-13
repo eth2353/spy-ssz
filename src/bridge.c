@@ -37,36 +37,6 @@ static void spy_ssz_document_destroy(spy_raw_ssz_document_ptr opaque) {
     free(document);
 }
 
-spy_raw_ssz_ptr spy_schema_deneb_decode_owned(spy_BytesObject *source) {
-    spy_deneb_block$DenebDecodeResult result =
-        spy_deneb_block$decode_deneb_signed_block(source);
-    spy_json_document_destroy(result.temporary);
-    return result.object;
-}
-
-spy_raw_ssz_ptr spy_schema_deneb_decode_ssz_owned(spy_BytesObject *source) {
-    spy_deneb_block_ssz$DenebSszDecodeResult result =
-        spy_deneb_block_ssz$decode_deneb_signed_block_ssz(source);
-    spy_ssz_document_destroy(result.temporary);
-    return result.object;
-}
-
-spy_raw_ssz_ptr spy_schema_deneb_decode_attestation_owned(
-    spy_BytesObject *source) {
-    spy_deneb_block$DenebDecodeResult result =
-        spy_deneb_block$decode_deneb_attestation(source);
-    spy_json_document_destroy(result.temporary);
-    return result.object;
-}
-
-spy_raw_ssz_ptr spy_schema_deneb_decode_attestation_ssz_owned(
-    spy_BytesObject *source) {
-    spy_deneb_block_ssz$DenebSszDecodeResult result =
-        spy_deneb_block_ssz$decode_deneb_attestation_ssz(source);
-    spy_ssz_document_destroy(result.temporary);
-    return result.object;
-}
-
 spy_raw_ssz_ptr spy_schema_electra_decode_owned(spy_BytesObject *source) {
     spy_deneb_block$DenebDecodeResult result =
         spy_electra_block$decode_electra_signed_block(source);
