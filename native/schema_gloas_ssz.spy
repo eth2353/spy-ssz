@@ -1,6 +1,7 @@
 """SSZ-byte lowering for implemented Gloas progressive types."""
 
 from unsafe import raw_ptr
+from metadata import FORK_GLOAS, OBJECT_ATTESTATION, SCHEMA_GLOAS_ATTESTATION
 from schema_deneb_ssz import (
     DenebSszDecodeResult,
     attestation_data,
@@ -9,9 +10,7 @@ from schema_deneb_ssz import (
 )
 from ssz_reader import SszDocument, decode_ssz, variable_offset
 from ssz_object import (
-    FORK_GLOAS,
     KIND_PROGRESSIVE_CONTAINER,
-    OBJECT_ATTESTATION,
     NativeSszObject,
     add_composite_node,
     add_progressive_bitlist_node,
@@ -20,9 +19,6 @@ from ssz_object import (
     reserve_edges,
     set_edge,
 )
-
-
-SCHEMA_GLOAS_ATTESTATION: i32 = 401
 
 
 def progressive_bitlist(

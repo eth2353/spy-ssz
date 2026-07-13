@@ -2,6 +2,13 @@
 
 from unsafe import raw_ptr
 from json_parser import JsonDocument, array_get, array_length, decode_json, object_get
+from metadata import (
+    FORK_ELECTRA,
+    FORK_FULU,
+    OBJECT_SIGNED_BEACON_BLOCK,
+    SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK,
+    SCHEMA_FULU_SIGNED_BEACON_BLOCK,
+)
 from schema_deneb import (
     DenebDecodeResult,
     attestation_data,
@@ -16,7 +23,6 @@ from schema_deneb import (
 from ssz_object import (
     KIND_CONTAINER,
     KIND_LIST,
-    OBJECT_SIGNED_BEACON_BLOCK,
     NativeSszObject,
     add_basic_list_node,
     add_composite_node,
@@ -25,10 +31,6 @@ from ssz_object import (
     reserve_edges,
     set_edge,
 )
-
-
-SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK: i32 = 201
-SCHEMA_FULU_SIGNED_BEACON_BLOCK: i32 = 301
 
 
 def json_uint_data(
@@ -432,3 +434,13 @@ def decode_signed_block(source: bytes, fork: i32, schema_id: i32) -> DenebDecode
     if document.valid == 0:
         obj.valid = 0
     return DenebDecodeResult(obj, document)
+
+
+def decode_electra_signed_block(source: bytes) -> DenebDecodeResult:
+    return decode_signed_block(
+        source, FORK_ELECTRA, SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK
+    )
+
+
+def decode_fulu_signed_block(source: bytes) -> DenebDecodeResult:
+    return decode_signed_block(source, FORK_FULU, SCHEMA_FULU_SIGNED_BEACON_BLOCK)

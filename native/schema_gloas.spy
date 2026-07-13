@@ -2,6 +2,7 @@
 
 from unsafe import raw_ptr
 from json_parser import JsonDocument, decode_json, object_get
+from metadata import FORK_GLOAS, OBJECT_ATTESTATION, SCHEMA_GLOAS_ATTESTATION
 from schema_deneb import (
     DenebDecodeResult,
     attestation_data,
@@ -9,9 +10,7 @@ from schema_deneb import (
     json_fixed_bytes,
 )
 from ssz_object import (
-    FORK_GLOAS,
     KIND_PROGRESSIVE_CONTAINER,
-    OBJECT_ATTESTATION,
     NativeSszObject,
     add_composite_node,
     add_progressive_bitlist_node,
@@ -20,9 +19,6 @@ from ssz_object import (
     reserve_edges,
     set_edge,
 )
-
-
-SCHEMA_GLOAS_ATTESTATION: i32 = 401
 
 
 def progressive_bitlist(

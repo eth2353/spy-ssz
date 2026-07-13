@@ -1,6 +1,13 @@
 """Shared Electra/Fulu SSZ-byte block schema."""
 
 from unsafe import raw_ptr
+from metadata import (
+    FORK_ELECTRA,
+    FORK_FULU,
+    OBJECT_SIGNED_BEACON_BLOCK,
+    SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK,
+    SCHEMA_FULU_SIGNED_BEACON_BLOCK,
+)
 from schema_deneb_ssz import (
     DenebSszDecodeResult,
     attestation_data,
@@ -18,7 +25,6 @@ from ssz_reader import SszDocument, decode_ssz, read_u32, require_range, variabl
 from ssz_object import (
     KIND_CONTAINER,
     KIND_LIST,
-    OBJECT_SIGNED_BEACON_BLOCK,
     NativeSszObject,
     add_basic_list_node,
     add_composite_node,
@@ -494,3 +500,15 @@ def decode_signed_block_ssz(
     if document.valid == 0:
         obj.valid = 0
     return DenebSszDecodeResult(obj, document)
+
+
+def decode_electra_signed_block_ssz(source: bytes) -> DenebSszDecodeResult:
+    return decode_signed_block_ssz(
+        source, FORK_ELECTRA, SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK
+    )
+
+
+def decode_fulu_signed_block_ssz(source: bytes) -> DenebSszDecodeResult:
+    return decode_signed_block_ssz(
+        source, FORK_FULU, SCHEMA_FULU_SIGNED_BEACON_BLOCK
+    )

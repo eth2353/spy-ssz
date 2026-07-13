@@ -7,7 +7,7 @@ from .native_object import (
     Fork,
     NativeSszObject,
     ObjectKind,
-    register_decoder,
+    register_json_decoder,
     register_ssz_decoder,
 )
 
@@ -26,7 +26,7 @@ class NativeDenebAttestation(NativeSszObject):
     expected_kind = ObjectKind.ATTESTATION
 
 
-register_decoder(
+register_json_decoder(
     Fork.DENEB,
     ObjectKind.SIGNED_BEACON_BLOCK,
     _native.lib.spy_schema_deneb_decode_owned,
@@ -36,7 +36,7 @@ register_ssz_decoder(
     ObjectKind.SIGNED_BEACON_BLOCK,
     _native.lib.spy_schema_deneb_decode_ssz_owned,
 )
-register_decoder(
+register_json_decoder(
     Fork.DENEB,
     ObjectKind.ATTESTATION,
     _native.lib.spy_schema_deneb_decode_attestation_owned,

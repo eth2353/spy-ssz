@@ -9,11 +9,17 @@ from . import _native
 
 
 class Fork(IntEnum):
-    DENEB = 1
-    ELECTRA = 2
-    FULU = 3
-    GLOAS = 4
-    HEZE = 5
+    """Chronological consensus-fork identifiers; keep in sync with metadata.spy."""
+
+    PHASE0 = 0
+    ALTAIR = 1
+    BELLATRIX = 2
+    CAPELLA = 3
+    DENEB = 4
+    ELECTRA = 5
+    FULU = 6
+    GLOAS = 7
+    HEZE = 8
 
 
 class ObjectKind(IntEnum):
@@ -40,39 +46,42 @@ _SSZ_ENCODERS: dict[tuple[Fork, ObjectKind], tuple[Sizer, Encoder]] = {}
 _JSON_ENCODERS: dict[tuple[Fork, ObjectKind], tuple[Sizer, Encoder]] = {}
 
 
-def register_decoder(fork: Fork, kind: ObjectKind, decoder: Decoder) -> None:
+def _register(
+    registry: dict[Any, Any],
+    key: tuple[Fork, ObjectKind],
+    value: Any,
+    encoding: str,
+) -> None:
+    if key in registry:
+        fork, kind = key
+        raise ValueError(
+            f"{encoding} codec already registered for {fork.name}/{kind.name}"
+        )
+    registry[key] = value
+
+
+def register_json_decoder(fork: Fork, kind: ObjectKind, decoder: Decoder) -> None:
     key = (fork, kind)
-    if key in _JSON_DECODERS:
-        raise ValueError(f"decoder already registered for {fork.name}/{kind.name}")
-    _JSON_DECODERS[key] = decoder
+    _register(_JSON_DECODERS, key, decoder, "JSON")
 
 
 def register_ssz_decoder(fork: Fork, kind: ObjectKind, decoder: Decoder) -> None:
-    key = (fork, kind)
-    if key in _SSZ_DECODERS:
-        raise ValueError(f"SSZ decoder already registered for {fork.name}/{kind.name}")
-    _SSZ_DECODERS[key] = decoder
+    _register(_SSZ_DECODERS, (fork, kind), decoder, "SSZ")
 
 
 def register_ssz_encoder(
     fork: Fork, kind: ObjectKind, sizer: Sizer, encoder: Encoder
 ) -> None:
-    key = (fork, kind)
-    if key in _SSZ_ENCODERS:
-        raise ValueError(f"SSZ encoder already registered for {fork.name}/{kind.name}")
-    _SSZ_ENCODERS[key] = (sizer, encoder)
+    _register(_SSZ_ENCODERS, (fork, kind), (sizer, encoder), "SSZ")
 
 
 def register_json_encoder(
     fork: Fork, kind: ObjectKind, sizer: Sizer, encoder: Encoder
 ) -> None:
-    key = (fork, kind)
-    if key in _JSON_ENCODERS:
-        raise ValueError(f"JSON encoder already registered for {fork.name}/{kind.name}")
-    _JSON_ENCODERS[key] = (sizer, encoder)
+    _register(_JSON_ENCODERS, (fork, kind), (sizer, encoder), "JSON")
 
 
-def _load_builtin_decoder(fork: Fork) -> None:
+def _load_builtin_codecs(fork: Fork) -> None:
     if fork is Fork.DENEB:
         from . import native_deneb  # noqa: F401
     elif fork is Fork.ELECTRA:
@@ -120,7 +129,7 @@ class NativeSszObject:
         key = (cls.expected_fork, cls.expected_kind)
         decoder = decoders.get(key)
         if decoder is None:
-            _load_builtin_decoder(cls.expected_fork)
+            _load_builtin_codecs(cls.expected_fork)
             decoder = decoders.get(key)
         if decoder is None:
             raise NotImplementedError(
@@ -148,7 +157,7 @@ class NativeSszObject:
         return _native.lib.spy_ssz_object_schema(self._require_handle())
 
     @property
-    def _node_count(self) -> int:
+    def node_count(self) -> int:
         return _native.lib.spy_ssz_object_node_count(self._require_handle())
 
     def _require_handle(self) -> Any:
@@ -182,7 +191,7 @@ class NativeSszObject:
         key = (self.fork, self.object_kind)
         codec = encoders.get(key)
         if codec is None:
-            _load_builtin_decoder(self.fork)
+            _load_builtin_codecs(self.fork)
             codec = encoders.get(key)
         if codec is None:
             raise NotImplementedError(

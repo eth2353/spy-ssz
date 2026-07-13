@@ -52,6 +52,7 @@ def test_electra_json_and_ssz_cover_every_block_operation_family() -> None:
 
     with NativeElectraBlock.from_json(raw_json) as decoded:
         assert decoded.fork is Fork.ELECTRA
+        assert decoded.schema_id == 501
         assert decoded.hash_tree_root() == expected
         assert decoded.to_ssz() == raw_ssz
         assert decoded.encode_bytes() == raw_ssz
@@ -81,6 +82,7 @@ def test_fulu_reuses_the_electra_block_codec_with_fulu_metadata() -> None:
 
     with NativeFuluBlock.from_json(raw_json) as decoded:
         assert decoded.fork is Fork.FULU
+        assert decoded.schema_id == 601
         assert decoded.hash_tree_root() == expected
         assert decoded.to_ssz() == raw_ssz
         roundtrip = fulu.SignedBeaconBlock.from_obj(

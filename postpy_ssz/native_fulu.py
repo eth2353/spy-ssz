@@ -5,7 +5,7 @@ from .native_object import (
     Fork,
     NativeSszObject,
     ObjectKind,
-    register_decoder,
+    register_json_decoder,
     register_json_encoder,
     register_ssz_decoder,
     register_ssz_encoder,
@@ -19,7 +19,7 @@ class NativeFuluBlock(NativeSszObject):
     expected_kind = ObjectKind.SIGNED_BEACON_BLOCK
 
 
-register_decoder(
+register_json_decoder(
     Fork.FULU,
     ObjectKind.SIGNED_BEACON_BLOCK,
     _native.lib.spy_schema_fulu_decode_owned,

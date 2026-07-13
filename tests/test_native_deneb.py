@@ -17,7 +17,8 @@ def test_spy_decodes_json_into_owned_native_object() -> None:
     try:
         assert block.fork is Fork.DENEB
         assert block.object_kind is ObjectKind.SIGNED_BEACON_BLOCK
-        assert block._node_count > 1_000
+        assert block.schema_id == 401
+        assert block.node_count > 1_000
         assert block.hash_tree_root().hex() == SIGNED_ROOT
     finally:
         block.close()
@@ -38,7 +39,7 @@ def test_spy_decodes_ssz_into_the_same_native_object_shape() -> None:
         with NativeDenebBlock.from_ssz(SSZ_SAMPLE.read_bytes()) as from_ssz:
             assert from_ssz.fork is Fork.DENEB
             assert from_ssz.object_kind is ObjectKind.SIGNED_BEACON_BLOCK
-            assert from_ssz._node_count == from_json._node_count
+            assert from_ssz.node_count == from_json.node_count
             assert from_ssz.hash_tree_root() == from_json.hash_tree_root()
 
     with NativeDenebBlock.decode_bytes(SSZ_SAMPLE.read_bytes()) as decoded:

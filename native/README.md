@@ -15,8 +15,14 @@ field layouts and validation limits. New block, attestation, or fork schemas
 reuse the same node constructors and generic hasher.
 
 `schema_electra.spy` and `schema_electra_ssz.spy` are shared by Electra and
-Fulu signed blocks; wrappers supply the fork and schema ids. They cover every
-block operation family and execution-request list.
+Fulu signed blocks. Named SPy entry points supply the correct fork and schema
+ids before values cross the C bridge. They cover every block operation family
+and execution-request list. `schema_electra_encode.spy` provides their shared
+JSON and SSZ output path.
+
+`bridge.c` is deliberately small and contains only ownership transfer, object
+destruction, metadata accessors, and CFFI-visible function aliases. Codec and
+hashing logic stays in SPy.
 
 Progressive nodes implement progressive Merkleization and active-field/length
 mix-ins. The Gloas attestation test exercises a progressive container and a

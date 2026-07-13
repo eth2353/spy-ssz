@@ -12,12 +12,16 @@ from json_parser import (
     decode_json,
     object_get,
 )
-from ssz_object import (
+from metadata import (
     FORK_DENEB,
+    OBJECT_ATTESTATION,
+    OBJECT_SIGNED_BEACON_BLOCK,
+    SCHEMA_DENEB_ATTESTATION,
+    SCHEMA_DENEB_SIGNED_BEACON_BLOCK,
+)
+from ssz_object import (
     KIND_CONTAINER,
     KIND_LIST,
-    OBJECT_SIGNED_BEACON_BLOCK,
-    OBJECT_ATTESTATION,
     NativeSszObject,
     add_bitlist_node,
     add_byte_list_node,
@@ -29,9 +33,6 @@ from ssz_object import (
     reserve_edges,
     set_edge,
 )
-
-
-SCHEMA_DENEB_SIGNED_BEACON_BLOCK: i32 = 1
 
 
 @struct
@@ -398,7 +399,7 @@ def decode_deneb_attestation(source: bytes) -> DenebDecodeResult:
     obj = new_object(
         FORK_DENEB,
         OBJECT_ATTESTATION,
-        2,
+        SCHEMA_DENEB_ATTESTATION,
         capacity,
         capacity,
         document.json_length * 2 + 1024,

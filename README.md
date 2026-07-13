@@ -1,4 +1,4 @@
-# SPy SSZ proof of concept
+# postpy-ssz
 
 This repository explores a compiled SPy backend for Ethereum SSZ. The native
 path decodes Beacon API JSON or canonical SSZ bytes directly into a typed,
@@ -32,7 +32,8 @@ version.
 - `native/ssz_reader.spy`: bounds-checked native SSZ input
 - `native/ssz_object.spy`: typed nodes, native storage, SSZ hashing, root cache
 - `native/native_writer.spy`: allocation-free JSON and SSZ output primitives
-- `native/schema_*.spy`: fork/object-specific JSON/SSZ-to-object lowering
+- `native/schema_*.spy`: fork/object-specific codecs
+- `native/bridge.c`: narrow ownership and CFFI bridge
 - `postpy_ssz/native_object.py`: opaque ownership and `(fork, kind)` registry
 - `postpy_ssz/consensus_types.json`: generated Electra-through-Heze definitions
 - `postpy_ssz/native_*.py`: concrete public types and decoder registration
@@ -43,7 +44,11 @@ can populate SPy-owned structs. The native tokenizer is isolated specifically
 so it can later be replaced by a supported msgspec C API (or another parser)
 without changing the SSZ representation.
 
-## Native decoding API
+Fork identifiers follow consensus chronology: Phase0 is `0`, Altair is `1`,
+Bellatrix is `2`, Capella is `3`, Deneb is `4`, and subsequent forks continue
+in order.
+
+## Native API
 
 ```python
 from postpy_ssz.native_electra import NativeElectraBlock
@@ -82,7 +87,6 @@ in `postpy_ssz/`.
 
 ```bash
 uv run python -m pytest -q
-uv run python -m benchmarks.benchmark_deneb
 uv run python -m benchmarks.benchmark_corpus \
   /Users/luca/Downloads/eth-blocks/beacon_blocks
 ```
@@ -96,21 +100,10 @@ metadata, path, or slot. Available native Deneb, Electra, and Fulu decode
 timings are included, along with native Electra/Fulu JSON and SSZ encode timings;
 pass `--no-native` to measure only the consensus-spec codecs.
 
-On Apple arm64 with `block-sample-3642900.json` (123,066 bytes), a representative
-run produced:
-
-- native JSON decode to typed object: 0.516 ms
-- native SSZ decode to typed object: 0.122 ms
-- native cold `hash_tree_root`: 2.952 ms
-- native JSON decode plus root: 3.454 ms
-- native SSZ decode plus root: 3.074 ms
-- cached root call: 0.001 ms
-- `eth-consensus-specs` reference decode plus root: 7.666 ms
-
-The native end-to-end path was 2.15x faster than the generic reference. The
-schema-specialized `msgspec`/`hashlib` Python comparison remains faster at
-2.702 ms because msgspec's decoder and the platform SHA-256 implementation are
-more optimized than the current SPy equivalents.
+On a 592-block Fulu corpus, representative p50 results were 0.901 ms for native
+JSON decode, 0.451 ms for native JSON encode, 0.269 ms for native SSZ decode,
+and 0.491 ms for native SSZ encode. The corresponding consensus-spec codec
+operations took 7.696, 15.067, 7.885, and 17.085 ms.
 
 The sample roots match the official consensus types:
 

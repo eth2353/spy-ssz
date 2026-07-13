@@ -12,6 +12,21 @@ from postpy_ssz.native_object import Fork, ObjectKind, decode_native_json
 SAMPLE = Path(__file__).parents[1] / "block-sample-3642900.json"
 
 
+def test_fork_ids_follow_consensus_chronology() -> None:
+    assert list(Fork) == [
+        Fork.PHASE0,
+        Fork.ALTAIR,
+        Fork.BELLATRIX,
+        Fork.CAPELLA,
+        Fork.DENEB,
+        Fork.ELECTRA,
+        Fork.FULU,
+        Fork.GLOAS,
+        Fork.HEZE,
+    ]
+    assert [fork.value for fork in Fork] == list(range(9))
+
+
 def test_deneb_attestation_is_an_independent_native_schema() -> None:
     value = msgspec.json.decode(SAMPLE.read_bytes())["data"]["message"]["body"][
         "attestations"
@@ -20,6 +35,7 @@ def test_deneb_attestation_is_an_independent_native_schema() -> None:
     with NativeDenebAttestation.from_json(msgspec.json.encode(value)) as native:
         assert native.fork is Fork.DENEB
         assert native.object_kind is ObjectKind.ATTESTATION
+        assert native.schema_id == 403
         assert native.hash_tree_root() == reference.hash_tree_root()
     with NativeDenebAttestation.from_ssz(reference.encode_bytes()) as native:
         assert native.hash_tree_root() == reference.hash_tree_root()
@@ -51,6 +67,7 @@ def test_gloas_progressive_attestation_matches_consensus_spec() -> None:
     with NativeGloasAttestation.from_json(raw) as native:
         assert native.fork is Fork.GLOAS
         assert native.object_kind is ObjectKind.ATTESTATION
+        assert native.schema_id == 703
         assert native.hash_tree_root() == reference.hash_tree_root()
     with NativeGloasAttestation.from_ssz(reference.encode_bytes()) as native:
         assert native.hash_tree_root() == reference.hash_tree_root()
