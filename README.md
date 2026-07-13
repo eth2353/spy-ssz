@@ -205,6 +205,10 @@ do not yet have executable codecs.
 
 Generalized-index views and mutation APIs are also not implemented yet.
 
+JSON and SSZ inputs are limited to 2,147,483,647 bytes. The compiled decoder
+uses signed 32-bit positions and arena offsets; larger inputs are rejected at
+the Python boundary before native decoding.
+
 ## Architecture and sources of truth
 
 - `spy_ssz/schemas.yaml` defines fork IDs, object-kind IDs, schema IDs, codec

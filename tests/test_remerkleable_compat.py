@@ -37,6 +37,24 @@ from spy_ssz.ssz import Bitfield, SszObject
 ReferenceFactory = Callable[[], Any]
 
 
+@pytest.mark.parametrize(
+    ("method", "encoding"),
+    [(AttestationData.from_json, "JSON"), (AttestationData.from_ssz, "SSZ")],
+)
+def test_decode_rejects_inputs_over_native_size_limit(
+    monkeypatch: pytest.MonkeyPatch,
+    method: Callable[[bytes], SszObject],
+    encoding: str,
+) -> None:
+    monkeypatch.setattr("spy_ssz.ssz._MAX_NATIVE_INPUT_LENGTH", 10)
+
+    with pytest.raises(
+        ValueError,
+        match=rf"^{encoding} input exceeds the 10-byte implementation limit$",
+    ):
+        method(b"xxxxxxxxxxx")
+
+
 def _root(byte: int) -> bytes:
     return bytes([byte]) * 32
 

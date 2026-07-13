@@ -27,6 +27,7 @@ Sizer = Callable[[Any], int]
 Encoder = Callable[[Any, Any], int]
 CodecKey = tuple[Fork, ObjectKind, Preset]
 Codec = TypeVar("Codec")
+_MAX_NATIVE_INPUT_LENGTH = (1 << 31) - 1
 _JSON_DECODERS: dict[CodecKey, Decoder] = {}
 _SSZ_DECODERS: dict[CodecKey, Decoder] = {}
 _SSZ_ENCODERS: dict[CodecKey, tuple[Sizer, Encoder]] = {}
@@ -199,6 +200,11 @@ class SszObject:
     ) -> Self:
         if cls.expected_fork is None or cls.expected_kind is None:
             raise TypeError("use a registered concrete SPy SSZ class")
+        if len(data) > _MAX_NATIVE_INPUT_LENGTH:
+            raise ValueError(
+                f"{encoding} input exceeds the {_MAX_NATIVE_INPUT_LENGTH}-byte "
+                "implementation limit"
+            )
         source = bytes(data)
         source_obj, source_view = _spy_bytes(source)
         key = (cls.expected_fork, cls.expected_kind, cls.expected_preset)
