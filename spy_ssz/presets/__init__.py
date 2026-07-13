@@ -10,12 +10,7 @@ from typing import Any
 import yaml
 
 
-# These identifiers are spy-ssz ABI metadata, not part of the canonical files.
-PRESET_IDS = {
-    "mainnet": 0,
-    "minimal": 1,
-    "gnosis": 2,
-}
+PRESET_NAMES = ("mainnet", "minimal", "gnosis")
 
 # Values currently consumed by the compiled codecs. Their values always come
 # from the canonical YAML resources.
@@ -74,7 +69,7 @@ def preset_sources() -> dict[str, dict[str, Any]]:
     """Load and merge the canonical fork files for every supported preset."""
     directory = files(__package__)
     result = {
-        name.upper(): _load_directory(directory.joinpath(name)) for name in PRESET_IDS
+        name.upper(): _load_directory(directory.joinpath(name)) for name in PRESET_NAMES
     }
     for name, values in result.items():
         missing = set(SSZ_LIMIT_KEYS).difference(values)

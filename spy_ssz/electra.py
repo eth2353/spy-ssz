@@ -3,6 +3,7 @@
 from . import _spy
 from .ssz import (
     SszObject,
+    bind_decoder,
     register_json_decoder,
     register_json_encoder,
     register_ssz_decoder,
@@ -32,17 +33,13 @@ for _preset_name in _DEFINITION.presets:
     register_json_decoder(
         _DEFINITION.fork,
         _DEFINITION.kind,
-        lambda source, preset=_preset: _spy.lib.spy_schema_electra_decode_preset_owned(
-            source, preset
-        ),
+        bind_decoder(_spy.lib.spy_schema_electra_decode_preset_owned, _preset),
         _preset,
     )
     register_ssz_decoder(
         _DEFINITION.fork,
         _DEFINITION.kind,
-        lambda source, preset=_preset: (
-            _spy.lib.spy_schema_electra_decode_ssz_preset_owned(source, preset)
-        ),
+        bind_decoder(_spy.lib.spy_schema_electra_decode_ssz_preset_owned, _preset),
         _preset,
     )
     register_ssz_encoder(

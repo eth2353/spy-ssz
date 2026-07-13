@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT))
 SCHEMAS = ROOT / "spy_ssz" / "schemas.yaml"
 METADATA = ROOT / "src" / "metadata.spy"
 METADATA_HEADER = ROOT / "src" / "metadata_constants.h"
+PYTHON_ENUMS = ROOT / "spy_ssz" / "_schema_enums.py"
 PRESET_CONFIG = ROOT / "src" / "preset_config.spy"
 
 
@@ -54,7 +55,24 @@ def render_metadata_header() -> str:
     for name, value in source["object_kinds"].items():
         lines.append(f"#define SPY_SSZ_OBJECT_{name} {int(value)}")
     lines.extend(["", "#endif", ""])
-    return "\n".join(lines)
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def render_python_enums() -> str:
+    source = _load(SCHEMAS)
+    lines = [
+        '"""Generated from spy_ssz/schemas.yaml; do not edit."""',
+        "",
+        "from enum import IntEnum",
+        "",
+        "",
+    ]
+    for class_name, key in (("Fork", "forks"), ("ObjectKind", "object_kinds")):
+        lines.append(f"class {class_name}(IntEnum):")
+        for name, value in source[key].items():
+            lines.append(f"    {name} = {int(value)}")
+        lines.extend(["", ""])
+    return "\n".join(lines).rstrip() + "\n"
 
 
 def render_preset_config() -> str:
@@ -87,6 +105,7 @@ def generate(*, check: bool = False) -> None:
     outputs = {
         METADATA: render_metadata(),
         METADATA_HEADER: render_metadata_header(),
+        PYTHON_ENUMS: render_python_enums(),
         PRESET_CONFIG: render_preset_config(),
     }
     stale = [

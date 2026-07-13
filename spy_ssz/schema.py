@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import IntEnum
 from functools import lru_cache
 from importlib.resources import files
 from typing import Any
 
 import yaml
+
+from ._schema_enums import Fork, ObjectKind
 
 
 @lru_cache(maxsize=1)
@@ -18,10 +19,6 @@ def _source() -> dict[str, Any]:
     if value.get("format") != 1:
         raise ValueError("unsupported schema metadata format")
     return value
-
-
-Fork = IntEnum("Fork", _source()["forks"], module=__name__)
-ObjectKind = IntEnum("ObjectKind", _source()["object_kinds"], module=__name__)
 
 
 @dataclass(frozen=True, slots=True)

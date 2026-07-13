@@ -3,6 +3,7 @@
 from . import _spy
 from .ssz import (
     SszObject,
+    bind_decoder,
     register_json_decoder,
     register_json_encoder,
     register_ssz_decoder,
@@ -41,20 +42,22 @@ for _kind, _definition in _SCHEMAS.items():
         register_json_decoder(
             _definition.fork,
             _kind,
-            lambda source, kind=_kind, schema=_definition.schema_id, preset=_preset: (
-                _spy.lib.spy_schema_signing_decode_json_owned(
-                    source, kind, schema, preset
-                )
+            bind_decoder(
+                _spy.lib.spy_schema_signing_decode_json_owned,
+                _kind,
+                _definition.schema_id,
+                _preset,
             ),
             _preset,
         )
         register_ssz_decoder(
             _definition.fork,
             _kind,
-            lambda source, kind=_kind, schema=_definition.schema_id, preset=_preset: (
-                _spy.lib.spy_schema_signing_decode_ssz_owned(
-                    source, kind, schema, preset
-                )
+            bind_decoder(
+                _spy.lib.spy_schema_signing_decode_ssz_owned,
+                _kind,
+                _definition.schema_id,
+                _preset,
             ),
             _preset,
         )

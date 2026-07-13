@@ -5,6 +5,7 @@ from .ssz import (
     Fork,
     SszObject,
     ObjectKind,
+    bind_decoder,
     register_json_decoder,
     register_json_encoder,
     register_ssz_decoder,
@@ -153,20 +154,20 @@ for _definition in schemas_for("block_containers"):
         register_json_decoder(
             _definition.fork,
             _kind,
-            lambda source, kind=_kind, preset=_preset: (
-                _spy.lib.spy_schema_block_containers_decode_json_owned(
-                    source, kind, preset
-                )
+            bind_decoder(
+                _spy.lib.spy_schema_block_containers_decode_json_owned,
+                _kind,
+                _preset,
             ),
             _preset,
         )
         register_ssz_decoder(
             _definition.fork,
             _kind,
-            lambda source, kind=_kind, preset=_preset: (
-                _spy.lib.spy_schema_block_containers_decode_ssz_owned(
-                    source, kind, preset
-                )
+            bind_decoder(
+                _spy.lib.spy_schema_block_containers_decode_ssz_owned,
+                _kind,
+                _preset,
             ),
             _preset,
         )

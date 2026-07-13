@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from importlib import import_module
-from typing import Any, Callable, ClassVar, TypeVar
+from typing import Any, Callable, ClassVar, Self, TypeVar
 
 import msgspec
 
@@ -30,6 +30,15 @@ _JSON_DECODERS: dict[CodecKey, Decoder] = {}
 _SSZ_DECODERS: dict[CodecKey, Decoder] = {}
 _SSZ_ENCODERS: dict[CodecKey, tuple[Sizer, Encoder]] = {}
 _JSON_ENCODERS: dict[CodecKey, tuple[Sizer, Encoder]] = {}
+
+
+def bind_decoder(decoder: Callable[..., Any], *arguments: int) -> Decoder:
+    """Bind integer schema metadata after a compiled decoder's source argument."""
+
+    def bound(source: Any) -> Any:
+        return decoder(source, *arguments)
+
+    return bound
 
 
 def _register(
@@ -110,6 +119,8 @@ class SszObject:
     """An opaque Python owner for a typed SPy SSZ value graph."""
 
     __slots__ = ("_handle", "_obj_cache")
+    _handle: Any
+    _obj_cache: Any
     expected_fork: ClassVar[Fork | None] = None
     expected_kind: ClassVar[ObjectKind | None] = None
     expected_preset: ClassVar[Preset] = Preset.MAINNET
@@ -130,7 +141,7 @@ class SszObject:
             self._handle = handle
 
     @classmethod
-    def from_obj(cls, value: Any) -> "SszObject":
+    def from_obj(cls, value: Any) -> Self:
         value = _json_compatible(value)
         if cls.json_input_envelope_key is not None:
             value = {cls.json_input_envelope_key: value}
@@ -158,15 +169,15 @@ class SszObject:
         raise AttributeError(name)
 
     @classmethod
-    def from_json(cls, data: bytes | bytearray | memoryview) -> "SszObject":
+    def from_json(cls, data: bytes | bytearray | memoryview) -> Self:
         return cls._decode(data, _JSON_DECODERS, "JSON")
 
     @classmethod
-    def from_ssz(cls, data: bytes | bytearray | memoryview) -> "SszObject":
+    def from_ssz(cls, data: bytes | bytearray | memoryview) -> Self:
         return cls._decode(data, _SSZ_DECODERS, "SSZ")
 
     @classmethod
-    def decode_bytes(cls, data: bytes | bytearray | memoryview) -> "SszObject":
+    def decode_bytes(cls, data: bytes | bytearray | memoryview) -> Self:
         """Compatibility alias for the eth-remerkleable SSZ decoder name."""
         return cls.from_ssz(data)
 
@@ -176,7 +187,7 @@ class SszObject:
         data: bytes | bytearray | memoryview,
         decoders: dict[CodecKey, Decoder],
         encoding: str,
-    ) -> "SszObject":
+    ) -> Self:
         if cls.expected_fork is None or cls.expected_kind is None:
             raise TypeError("use a registered concrete SPy SSZ class")
         source = bytes(data)
@@ -277,7 +288,7 @@ class SszObject:
             self._obj_cache = None
             _spy.lib.spy_ssz_object_destroy(handle)
 
-    def __enter__(self) -> "SszObject":
+    def __enter__(self) -> Self:
         self._require_handle()
         return self
 

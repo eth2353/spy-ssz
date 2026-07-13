@@ -5,14 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import IntEnum
 
-from .presets import PRESET_IDS, SSZ_LIMIT_KEYS, preset_sources
+from .presets import SSZ_LIMIT_KEYS, preset_sources
 
 
-Preset = IntEnum(
-    "Preset",
-    {name.upper(): identifier for name, identifier in PRESET_IDS.items()},
-    module=__name__,
-)
+class Preset(IntEnum):
+    MAINNET = 0
+    MINIMAL = 1
+    GNOSIS = 2
 
 
 @dataclass(frozen=True, slots=True)
