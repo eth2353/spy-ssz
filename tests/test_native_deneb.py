@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from postpy_ssz.native_deneb import NativeDenebBlock
-from postpy_ssz.native_object import Fork, ObjectKind
+from spy_ssz.native_deneb import NativeDenebBlock
+from spy_ssz.native_object import Fork, ObjectKind
 
 
 SAMPLE = Path(__file__).parents[1] / "block-sample-3642900.json"

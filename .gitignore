@@ -3,6 +3,6 @@ __pycache__/
 .pytest_cache/
 .deps/
 native/build/
-postpy_ssz/_native.c
-postpy_ssz/_native.*.so
+spy_ssz/_native.c
+spy_ssz/_native.*.so
 *.pyc

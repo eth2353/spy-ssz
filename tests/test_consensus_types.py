@@ -1,9 +1,9 @@
-from postpy_ssz.consensus_types import (
+from spy_ssz.consensus_types import (
     get_type_definition,
     get_type_shape,
     iter_type_definitions,
 )
-from postpy_ssz.native_object import Fork
+from spy_ssz.native_object import Fork
 
 
 def test_all_electra_plus_named_ssz_types_are_cataloged() -> None:

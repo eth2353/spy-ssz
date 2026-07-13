@@ -107,7 +107,7 @@ def build(spy_root: Path) -> Path:
         """
     )
     ffi.set_source(
-        "postpy_ssz._native",
+        "spy_ssz._native",
         '#include "bridge.c"',
         sources=[str(path) for path in sources],
         include_dirs=[str(NATIVE), str(BUILD / "src"), str(libspy / "include")],
@@ -128,7 +128,7 @@ def build(spy_root: Path) -> Path:
     compiled = Path(
         ffi.compile(tmpdir=str(BUILD / "extension"), verbose=True)
     ).resolve()
-    artifact = ROOT / "postpy_ssz" / compiled.name
+    artifact = ROOT / "spy_ssz" / compiled.name
     shutil.copy2(compiled, artifact)
     print(artifact)
     return artifact

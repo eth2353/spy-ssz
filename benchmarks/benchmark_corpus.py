@@ -307,11 +307,11 @@ def benchmark_case(
     if native and case.fork in {"deneb", "electra", "fulu"}:
         try:
             if case.fork == "deneb":
-                from postpy_ssz.native_deneb import NativeDenebBlock as NativeBlock
+                from spy_ssz.native_deneb import NativeDenebBlock as NativeBlock
             elif case.fork == "electra":
-                from postpy_ssz.native_electra import NativeElectraBlock as NativeBlock
+                from spy_ssz.native_electra import NativeElectraBlock as NativeBlock
             else:
-                from postpy_ssz.native_fulu import NativeFuluBlock as NativeBlock
+                from spy_ssz.native_fulu import NativeFuluBlock as NativeBlock
         except (ImportError, AttributeError):
             return
 
@@ -428,7 +428,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--no-native",
         action="store_true",
-        help="skip available postpy-ssz native codec measurements",
+        help="skip available spy-ssz native codec measurements",
     )
     return parser.parse_args()
 

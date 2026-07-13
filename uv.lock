@@ -312,7 +312,7 @@ wheels = [
 ]
 
 [[package]]
-name = "postpy-ssz"
+name = "spy-ssz"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

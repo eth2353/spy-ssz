@@ -1,5 +1,5 @@
 [project]
-name = "postpy-ssz"
+name = "spy-ssz"
 version = "0.1.0"
 description = "Native SPy-backed Ethereum SSZ codecs"
 readme = "README.md"
@@ -15,7 +15,7 @@ dependencies = [
 spylang = { git = "https://github.com/spylang/spy.git", rev = "012ae501eb6a0adc3baff261c97ec9b56c80c2d1" }
 
 [tool.setuptools.package-data]
-postpy_ssz = ["consensus_types.json"]
+spy_ssz = ["consensus_types.json"]
 
 [dependency-groups]
 dev = [

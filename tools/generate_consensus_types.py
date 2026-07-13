@@ -23,7 +23,7 @@ from remerkleable.union import Union
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "postpy_ssz" / "consensus_types.json"
+OUTPUT = ROOT / "spy_ssz" / "consensus_types.json"
 FORK_MODULES = {
     "electra": "eth_consensus_specs.electra.mainnet",
     "fulu": "eth_consensus_specs.fulu.mainnet",

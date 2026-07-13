@@ -4,9 +4,9 @@ import msgspec
 from eth_consensus_specs.deneb import mainnet as deneb
 from eth_consensus_specs.gloas import mainnet as gloas
 
-from postpy_ssz.native_deneb import NativeDenebAttestation
-from postpy_ssz.native_gloas import NativeGloasAttestation
-from postpy_ssz.native_object import Fork, ObjectKind, decode_native_json
+from spy_ssz.native_deneb import NativeDenebAttestation
+from spy_ssz.native_gloas import NativeGloasAttestation
+from spy_ssz.native_object import Fork, ObjectKind, decode_native_json
 
 
 SAMPLE = Path(__file__).parents[1] / "block-sample-3642900.json"

@@ -2,9 +2,9 @@ import msgspec
 from eth_consensus_specs.electra import mainnet as electra
 from eth_consensus_specs.fulu import mainnet as fulu
 
-from postpy_ssz.native_electra import NativeElectraBlock
-from postpy_ssz.native_fulu import NativeFuluBlock
-from postpy_ssz.native_object import Fork
+from spy_ssz.native_electra import NativeElectraBlock
+from spy_ssz.native_fulu import NativeFuluBlock
+from spy_ssz.native_object import Fork
 
 
 def populated_electra_block() -> electra.SignedBeaconBlock:

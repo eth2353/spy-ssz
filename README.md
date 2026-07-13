@@ -1,4 +1,4 @@
-# postpy-ssz
+# spy-ssz
 
 This repository explores a compiled SPy backend for Ethereum SSZ. The native
 path decodes Beacon API JSON or canonical SSZ bytes directly into a typed,
@@ -34,9 +34,9 @@ version.
 - `native/native_writer.spy`: allocation-free JSON and SSZ output primitives
 - `native/schema_*.spy`: fork/object-specific codecs
 - `native/bridge.c`: narrow ownership and CFFI bridge
-- `postpy_ssz/native_object.py`: opaque ownership and `(fork, kind)` registry
-- `postpy_ssz/consensus_types.json`: generated Electra-through-Heze definitions
-- `postpy_ssz/native_*.py`: concrete public types and decoder registration
+- `spy_ssz/native_object.py`: opaque ownership and `(fork, kind)` registry
+- `spy_ssz/consensus_types.json`: generated Electra-through-Heze definitions
+- `spy_ssz/native_*.py`: concrete public types and decoder registration
 
 `msgspec` remains the Python comparison decoder. Its public JSON API constructs
 Python objects, and it does not currently publish a stable C decoder API that
@@ -51,7 +51,7 @@ in order.
 ## Native API
 
 ```python
-from postpy_ssz.native_electra import NativeElectraBlock
+from spy_ssz.native_electra import NativeElectraBlock
 
 block_from_json = NativeElectraBlock.from_json(json_bytes)
 block_from_ssz = NativeElectraBlock.from_ssz(ssz_bytes)
@@ -81,7 +81,7 @@ uv run python tools/build_native.py --spy-root .deps/spy
 ```
 
 The build compiles the optimized SPy runtime and emits a narrow CFFI extension
-in `postpy_ssz/`.
+in `spy_ssz/`.
 
 ## Verify and benchmark
 
