@@ -222,18 +222,22 @@ class SszObject:
         decoder = _lookup_codec(decoders, key, f"{encoding} decoder")
         handle = decoder(source_obj)
         assert source_view
-        status = (
-            _DecodeStatus(_spy.lib.spy_ssz_object_decode_status(handle))
+        raw_status = (
+            int(_spy.lib.spy_ssz_object_decode_status(handle))
             if handle.p
-            else _DecodeStatus.MALFORMED_INPUT
+            else int(_DecodeStatus.MALFORMED_INPUT)
         )
-        if status is not _DecodeStatus.VALID:
+        if raw_status != _DecodeStatus.VALID:
             error_start = (
                 _spy.lib.spy_ssz_object_error_start(handle) if handle.p else -1
             )
             error_end = _spy.lib.spy_ssz_object_error_end(handle) if handle.p else -1
             if handle.p:
                 _spy.lib.spy_ssz_object_destroy(handle)
+            try:
+                status = _DecodeStatus(raw_status)
+            except ValueError:
+                raise ValueError(f"unknown native decode status {raw_status}") from None
             if (
                 encoding == "JSON"
                 and status is _DecodeStatus.UNRECOGNIZED_FIELD
@@ -242,7 +246,11 @@ class SszObject:
                 field = msgspec.json.decode(source[error_start - 1 : error_end + 1])
                 raise ValueError(f"unrecognized JSON object field {field!r}")
             raise ValueError(f"invalid {encoding} object")
-        return cls(handle)
+        try:
+            return cls(handle)
+        except BaseException:
+            _spy.lib.spy_ssz_object_destroy(handle)
+            raise
 
     @property
     def fork(self) -> Fork:
