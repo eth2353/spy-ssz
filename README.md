@@ -263,22 +263,56 @@ inferred, or `--no-spy` to measure only the consensus-spec codecs.
 
 ### Performance
 
-The following median timings were measured on an Apple M1 machine using 296
-realistic Fulu beacon blocks (50.52 MiB of SSZ data). File I/O was excluded;
-each operation used one warmup followed by five measured runs. Rust
-implementations were compiled in release mode.
+The following results use 100 consecutive canonical Ethereum mainnet Fulu
+signed beacon blocks, covering every slot from **14,762,749 through
+14,762,848**, inclusive. The corpus contains 35.56 MiB of Beacon API JSON and
+17.75 MiB of SSZ data.
+
+The benchmark ran on an Apple M1 with macOS 13.2.1 (`arm64`), Python 3.12.9,
+and Rust 1.92.0. `spy-ssz` was compiled with Clang 19 using `-O3` and LTO;
+the Rust implementations were compiled in release mode. Implementations ran
+sequentially to avoid contention. The measured revisions were `spy-ssz`
+`0d75e27`, Grandine `94e8ad1` (the pre-Zisk revision used by the harness),
+`libssz` `f4d682b`, and Lighthouse `120c3c6`.
+
+For each block and operation, the harness performed one unmeasured warmup and
+five measured runs, then retained the median. The table reports the median
+(p50) and 95th percentile (p95) across those 100 per-block medians. File reads
+and initial corpus preparation were outside the timed region. Decode timings
+include construction of the typed block; encode timings start with an already
+decoded block and include producing the output byte buffer. JSON measurements
+include the Beacon API `{"data": ...}` wrapper.
+
+Hash-tree-root measurements were cold: roots were recomputed without using a
+previously populated object-root cache. Before timing, the harnesses checked
+exact SSZ byte round trips. `spy-ssz` roots were also checked against the
+consensus-spec implementation for all 100 blocks, and the JSON-capable Rust
+harnesses checked that JSON and SSZ decoding produced the same root.
+
+Times below are **p50 ms (p95 ms)**.
 
 | Implementation | SSZ decode | SSZ encode | Cold hash-tree root |
 | --- | ---: | ---: | ---: |
-| `spy-ssz` | 0.017 ms | 0.025 ms | 2.981 ms |
-| Grandine SSZ | 0.024 ms | 0.015 ms | 4.640 ms |
-| `libssz` | 0.026 ms | 0.011 ms | 5.500 ms |
-| Lighthouse `ethereum_ssz` | 0.230 ms | 0.116 ms | 2.787 ms |
+| `spy-ssz` | **0.020 (0.041)** | 0.023 (0.049) | 3.282 (7.673) |
+| Grandine SSZ | 0.026 (0.059) | 0.015 (0.031) | 5.013 (11.577) |
+| `libssz` | 0.029 (0.066) | **0.008 (0.021)** | 6.214 (13.770) |
+| Lighthouse `ethereum_ssz` | 0.218 (0.327) | 0.113 (0.231) | **3.048 (5.895)** |
 
-For this block corpus, `spy-ssz`, Grandine, and `libssz` have SSZ codec
-performance in the same general range. `spy-ssz` decoded and encoded SSZ faster
-than Lighthouse's `ethereum_ssz`, while its cold hash-tree-root time was close
-to Lighthouse and lower than the measured Grandine and `libssz` times.
+| Implementation | JSON decode | JSON encode |
+| --- | ---: | ---: |
+| `spy-ssz` | 0.608 (1.114) | 0.331 (0.477) |
+| Grandine SSZ | **0.121 (0.206)** | **0.161 (0.336)** |
+| Lighthouse | 1.306 (2.112) | 0.881 (1.655) |
+
+`libssz` is omitted from the JSON table because the benchmark consensus types
+do not implement Ethereum JSON serde. Lodestar-z is not included because its
+public bindings do not expose a standalone signed-beacon-block codec and root
+operation.
+
+For this corpus, `spy-ssz`, Grandine, and `libssz` have SSZ codec performance
+in the same general range. `spy-ssz` decoded and encoded SSZ faster than
+Lighthouse's `ethereum_ssz`; their cold hash-tree-root measurements were
+similar, with Lighthouse slightly faster in this run.
 
 These numbers describe this corpus and machine rather than every SSZ schema or
 workload. In particular, list sizes, execution-payload contents, allocator
