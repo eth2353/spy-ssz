@@ -1,5 +1,7 @@
 """Electra block contents and blinded block types."""
 
+from typing import TypeVar
+
 from . import _spy
 from .ssz import (
     Fork,
@@ -20,6 +22,7 @@ _CONTENTS = get_schema(Fork.ELECTRA, ObjectKind.BEACON_BLOCK_CONTENTS)
 _SIGNED_CONTENTS = get_schema(Fork.ELECTRA, ObjectKind.SIGNED_BEACON_BLOCK_CONTENTS)
 _BLINDED = get_schema(Fork.ELECTRA, ObjectKind.BLINDED_BEACON_BLOCK)
 _SIGNED_BLINDED = get_schema(Fork.ELECTRA, ObjectKind.SIGNED_BLINDED_BEACON_BLOCK)
+_SignedObject = TypeVar("_SignedObject", bound=SszObject)
 
 
 def _signature_bytes(signature: str | bytes) -> bytes:
@@ -58,9 +61,9 @@ class _BlockProjection(SszObject):
     def _sign(
         self,
         signature: str | bytes,
-        signed_type: type[SszObject],
+        signed_type: type[_SignedObject],
         signed_schema: int,
-    ) -> SszObject:
+    ) -> _SignedObject:
         signature_bytes = _signature_bytes(signature)
         signature_obj, signature_view = _spy_bytes(signature_bytes)
         handle = _spy.lib.spy_ssz_object_clone_and_sign_block(
@@ -90,9 +93,7 @@ class ElectraBeaconBlockContents(_BlockProjection):
     expected_kind = _CONTENTS.kind
 
     def sign(self, signature: str | bytes) -> "ElectraSignedBeaconBlockContents":
-        return self._sign(  # type: ignore[return-value]
-            signature, self.signed_type(), _SIGNED_CONTENTS.schema_id
-        )
+        return self._sign(signature, self.signed_type(), _SIGNED_CONTENTS.schema_id)
 
     @classmethod
     def signed_type(cls) -> type["ElectraSignedBeaconBlockContents"]:
@@ -111,9 +112,7 @@ class ElectraBlindedBeaconBlock(_BlockProjection):
     expected_kind = _BLINDED.kind
 
     def sign(self, signature: str | bytes) -> "ElectraSignedBlindedBeaconBlock":
-        return self._sign(  # type: ignore[return-value]
-            signature, self.signed_type(), _SIGNED_BLINDED.schema_id
-        )
+        return self._sign(signature, self.signed_type(), _SIGNED_BLINDED.schema_id)
 
     @classmethod
     def signed_type(cls) -> type["ElectraSignedBlindedBeaconBlock"]:
