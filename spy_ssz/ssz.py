@@ -8,6 +8,7 @@ from typing import Any, Callable, ClassVar, Self, TypeVar
 import msgspec
 
 from . import _spy
+from ._repr import format_container
 from .preset import Preset
 from .schema import Fork, ObjectKind, get_schema, module_for_codec, schema_definitions
 
@@ -247,6 +248,23 @@ class SszObject:
             )
         return self._value_key_cache
 
+    def __repr__(self) -> str:
+        definition = get_schema(self.fork, self.object_kind)
+        if definition.consensus_type is not None:
+            from .consensus_types import get_type_definition
+
+            consensus_type = get_type_definition(self.fork, definition.consensus_type)
+            names = (name for name, _ in consensus_type.descriptor["fields"])
+            return format_container(
+                type(self).__name__,
+                ((name, getattr(self, name)) for name in names),
+            )
+        value = self.to_obj()
+        values = value.items() if isinstance(value, dict) else (("value", value),)
+        return format_container(type(self).__name__, values)
+
+    __str__ = __repr__
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SszObject):
             return NotImplemented
@@ -327,6 +345,14 @@ class Bitfield:
     def __init__(self, data: bytes, length: int):
         self._data = data
         self._length = length
+
+    def __repr__(self) -> str:
+        return format_container(
+            type(self).__name__,
+            (("length", self._length), ("data", self._data)),
+        )
+
+    __str__ = __repr__
 
     @classmethod
     def from_hex(cls, value: str, *, bitlist: bool) -> "Bitfield":

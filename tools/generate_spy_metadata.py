@@ -190,6 +190,14 @@ def _python_annotation(
 def _render_projection_base() -> list[str]:
     return [
         "class Projection:",
+        "    def __repr__(self) -> str:",
+        "        return format_container(",
+        "            type(self).__name__,",
+        "            ((field.name, getattr(self, field.name)) for field in fields(self)),",
+        "        )",
+        "",
+        "    __str__ = __repr__",
+        "",
         "    def to_obj(self) -> dict[str, Any]:",
         "        return {",
         "            field.name: _json_value(getattr(self, field.name)) for field in fields(self)",
@@ -234,6 +242,7 @@ def render_projections(
         "from typing import Any",
         "",
         "from .consensus_types import get_type_definition, get_type_shape",
+        "from ._repr import format_container",
         "from ._schema_enums import Fork",
         "",
         "",
@@ -259,6 +268,8 @@ def render_projections(
         "from ._schema_enums import Fork",
         "",
         "class Projection:",
+        "    def __repr__(self) -> str: ...",
+        "    def __str__(self) -> str: ...",
         "    def to_obj(self) -> dict[str, Any]: ...",
         "",
         "def project_value(fork: Fork, type_id: int, value: Any) -> Any: ...",
@@ -283,7 +294,7 @@ def render_projections(
             [
                 "",
                 "",
-                "@dataclass(frozen=True, slots=True)",
+                "@dataclass(frozen=True, slots=True, repr=False)",
                 f"class {name}(Projection):",
             ]
         )

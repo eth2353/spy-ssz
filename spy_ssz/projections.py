@@ -6,6 +6,7 @@ from dataclasses import dataclass, fields
 from typing import Any
 
 from .consensus_types import get_type_definition, get_type_shape
+from ._repr import format_container
 from ._schema_enums import Fork
 
 
@@ -22,6 +23,14 @@ _SEQUENCE_KINDS = {"list", "progressive_list", "vector"}
 
 
 class Projection:
+    def __repr__(self) -> str:
+        return format_container(
+            type(self).__name__,
+            ((field.name, getattr(self, field.name)) for field in fields(self)),
+        )
+
+    __str__ = __repr__
+
     def to_obj(self) -> dict[str, Any]:
         return {
             field.name: _json_value(getattr(self, field.name)) for field in fields(self)
@@ -48,14 +57,14 @@ def _hex_bytes(value: Any) -> bytes:
     return bytes.fromhex(value[2:])
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class AggregateAndProof(Projection):
     aggregator_index: int
     aggregate: ElectraAttestation
     selection_proof: bytes
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class AttestationData(Projection):
     slot: int
     index: int
@@ -64,20 +73,20 @@ class AttestationData(Projection):
     target: Checkpoint
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class AttesterSlashing(Projection):
     attestation_1: IndexedAttestation
     attestation_2: IndexedAttestation
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class BLSToExecutionChange(Projection):
     validator_index: int
     from_bls_pubkey: bytes
     to_execution_address: bytes
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class BeaconBlock(Projection):
     slot: int
     proposer_index: int
@@ -86,7 +95,7 @@ class BeaconBlock(Projection):
     body: BeaconBlockBody
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class BeaconBlockBody(Projection):
     randao_reveal: bytes
     eth1_data: Eth1Data
@@ -103,7 +112,7 @@ class BeaconBlockBody(Projection):
     execution_requests: ExecutionRequests
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class BeaconBlockHeader(Projection):
     slot: int
     proposer_index: int
@@ -112,33 +121,33 @@ class BeaconBlockHeader(Projection):
     body_root: bytes
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class Checkpoint(Projection):
     epoch: int
     root: bytes
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class ConsolidationRequest(Projection):
     source_address: bytes
     source_pubkey: bytes
     target_pubkey: bytes
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class ContributionAndProof(Projection):
     aggregator_index: int
     contribution: SyncCommitteeContribution
     selection_proof: bytes
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class Deposit(Projection):
     proof: tuple[bytes, ...]
     data: DepositData
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class DepositData(Projection):
     pubkey: bytes
     withdrawal_credentials: bytes
@@ -146,7 +155,7 @@ class DepositData(Projection):
     signature: bytes
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class DepositRequest(Projection):
     pubkey: bytes
     withdrawal_credentials: bytes
@@ -155,7 +164,7 @@ class DepositRequest(Projection):
     index: int
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class ElectraAttestation(Projection):
     aggregation_bits: bytes
     data: AttestationData
@@ -163,14 +172,14 @@ class ElectraAttestation(Projection):
     committee_bits: bytes
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class Eth1Data(Projection):
     deposit_root: bytes
     deposit_count: int
     block_hash: bytes
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class ExecutionPayload(Projection):
     parent_hash: bytes
     fee_recipient: bytes
@@ -191,14 +200,14 @@ class ExecutionPayload(Projection):
     excess_blob_gas: int
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class ExecutionRequests(Projection):
     deposits: tuple[DepositRequest, ...]
     withdrawals: tuple[WithdrawalRequest, ...]
     consolidations: tuple[ConsolidationRequest, ...]
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class FuluAttestation(Projection):
     aggregation_bits: bytes
     data: AttestationData
@@ -206,7 +215,7 @@ class FuluAttestation(Projection):
     committee_bits: bytes
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class GloasAttestation(Projection):
     aggregation_bits: bytes
     data: AttestationData
@@ -214,56 +223,56 @@ class GloasAttestation(Projection):
     committee_bits: bytes
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class IndexedAttestation(Projection):
     attesting_indices: tuple[int, ...]
     data: AttestationData
     signature: bytes
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class ProposerSlashing(Projection):
     signed_header_1: SignedBeaconBlockHeader
     signed_header_2: SignedBeaconBlockHeader
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class SignedAggregateAndProof(Projection):
     message: AggregateAndProof
     signature: bytes
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class SignedBLSToExecutionChange(Projection):
     message: BLSToExecutionChange
     signature: bytes
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class SignedBeaconBlock(Projection):
     message: BeaconBlock
     signature: bytes
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class SignedBeaconBlockHeader(Projection):
     message: BeaconBlockHeader
     signature: bytes
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class SignedContributionAndProof(Projection):
     message: ContributionAndProof
     signature: bytes
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class SignedVoluntaryExit(Projection):
     message: VoluntaryExit
     signature: bytes
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class SingleAttestation(Projection):
     committee_index: int
     attester_index: int
@@ -271,13 +280,13 @@ class SingleAttestation(Projection):
     signature: bytes
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class SyncAggregate(Projection):
     sync_committee_bits: bytes
     sync_committee_signature: bytes
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class SyncCommitteeContribution(Projection):
     slot: int
     beacon_block_root: bytes
@@ -286,7 +295,7 @@ class SyncCommitteeContribution(Projection):
     signature: bytes
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class SyncCommitteeMessage(Projection):
     slot: int
     beacon_block_root: bytes
@@ -294,13 +303,13 @@ class SyncCommitteeMessage(Projection):
     signature: bytes
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class VoluntaryExit(Projection):
     epoch: int
     validator_index: int
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class Withdrawal(Projection):
     index: int
     validator_index: int
@@ -308,7 +317,7 @@ class Withdrawal(Projection):
     amount: int
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class WithdrawalRequest(Projection):
     source_address: bytes
     validator_pubkey: bytes
