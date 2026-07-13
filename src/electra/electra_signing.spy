@@ -17,11 +17,11 @@ from metadata import (
     SCHEMA_ELECTRA_SYNC_COMMITTEE_CONTRIBUTION,
 )
 from writer import child, json_hex_node, json_key, put, put_u32, ssz_fixed_bytes, write_json_uint, write_ssz_uint
-from schema_deneb import DenebDecodeResult, attestation_data, decode_json_uint, json_fixed_bytes
-from schema_deneb_ssz import DenebSszDecodeResult, decode_ssz_attestation_data, decode_ssz_fixed_bytes, decode_ssz_uint
-from schema_electra import attestation
-from schema_electra_encode import json_attestation, json_attestation_data, ssz_attestation, ssz_attestation_data
-from schema_electra_ssz import decode_electra_attestation
+from deneb_block import DenebDecodeResult, attestation_data, decode_json_uint, json_fixed_bytes
+from deneb_block_ssz import DenebSszDecodeResult, decode_ssz_attestation_data, decode_ssz_fixed_bytes, decode_ssz_uint
+from electra_block import attestation
+from electra_block_encode import json_attestation, json_attestation_data, ssz_attestation, ssz_attestation_data
+from electra_block_ssz import decode_electra_attestation
 from ssz_reader import SszDocument, decode_ssz, variable_offset
 from ssz_object import KIND_CONTAINER, SszObject, add_composite_node, configure_preset, new_object, reserve_edges, set_edge
 

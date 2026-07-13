@@ -2,7 +2,7 @@
 
 from unsafe import raw_ptr
 from metadata import FORK_GLOAS, OBJECT_ATTESTATION, SCHEMA_GLOAS_ATTESTATION
-from schema_deneb_ssz import (
+from deneb_block_ssz import (
     DenebSszDecodeResult,
     attestation_data,
     copy_data,

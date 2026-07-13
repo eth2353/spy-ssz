@@ -3,7 +3,7 @@
 from unsafe import raw_ptr
 from json_parser import JsonDocument, decode_json, object_get
 from metadata import FORK_GLOAS, OBJECT_ATTESTATION, SCHEMA_GLOAS_ATTESTATION
-from schema_deneb import (
+from deneb_block import (
     DenebDecodeResult,
     attestation_data,
     decode_hex,

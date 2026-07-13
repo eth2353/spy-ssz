@@ -36,6 +36,24 @@ def generate_metadata() -> None:
     generator.generate()
 
 
+def stage_spy_sources() -> Path:
+    """Flatten SPy modules for a compiler revision without package support."""
+    modules = [path for path in SOURCE.rglob("*.spy") if BUILD not in path.parents]
+    by_name: dict[str, Path] = {}
+    for module in modules:
+        previous = by_name.setdefault(module.name, module)
+        if previous != module:
+            raise RuntimeError(
+                f"SPy module basename collision: {previous} and {module}"
+            )
+
+    staging = BUILD / "input"
+    staging.mkdir(parents=True)
+    for name, module in by_name.items():
+        shutil.copy2(module, staging / name)
+    return staging
+
+
 def resolve_spy_root(value: str | Path | None = None) -> Path:
     candidates = [Path(value)] if value else []
     candidates.append(ROOT / ".deps" / "spy")
@@ -82,6 +100,7 @@ def build(spy_root: Path) -> Path:
     # graph.  A clean directory prevents stale schema/parser C files from
     # being compiled into the extension.
     shutil.rmtree(BUILD, ignore_errors=True)
+    staging = stage_spy_sources()
     spy_executable = shutil.which("spy", path=env["PATH"])
     if spy_executable is None:
         raise RuntimeError("cannot find the SPy compiler in the build environment")
@@ -97,7 +116,9 @@ def build(spy_root: Path) -> Path:
             "none",
             "-O",
             "3",
-            str(SOURCE / "api.spy"),
+            "--build-dir",
+            str(BUILD),
+            str(staging / "api.spy"),
         ],
         env=env,
     )

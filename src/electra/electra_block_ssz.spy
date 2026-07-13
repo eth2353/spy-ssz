@@ -8,7 +8,7 @@ from metadata import (
     SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK,
     SCHEMA_FULU_SIGNED_BEACON_BLOCK,
 )
-from schema_deneb_ssz import (
+from deneb_block_ssz import (
     DenebSszDecodeResult,
     attestation_data,
     copy_data,

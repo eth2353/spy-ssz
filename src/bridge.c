@@ -3,17 +3,17 @@
 #include "json_parser.h"
 #include "metadata.h"
 #include "metadata_constants.h"
-#include "schema_deneb.h"
-#include "schema_deneb_ssz.h"
-#include "schema_electra.h"
-#include "schema_electra_encode.h"
-#include "schema_electra_ssz.h"
-#include "schema_gloas.h"
-#include "schema_gloas_ssz.h"
-#include "schema_signing.h"
-#include "schema_block_containers.h"
-#include "schema_block_containers_encode.h"
-#include "schema_block_containers_ssz.h"
+#include "deneb_block.h"
+#include "deneb_block_ssz.h"
+#include "electra_block.h"
+#include "electra_block_encode.h"
+#include "electra_block_ssz.h"
+#include "gloas_attestation.h"
+#include "gloas_attestation_ssz.h"
+#include "electra_signing.h"
+#include "electra_block_containers.h"
+#include "electra_block_containers_encode.h"
+#include "electra_block_containers_ssz.h"
 #include "ssz_object.h"
 #include "ssz_reader.h"
 
@@ -37,92 +37,92 @@ static void spy_ssz_document_destroy(spy_raw_ssz_document_ptr opaque) {
 }
 
 spy_raw_ssz_ptr spy_schema_deneb_decode_owned(spy_BytesObject *source) {
-    spy_schema_deneb$DenebDecodeResult result =
-        spy_schema_deneb$decode_deneb_signed_block(source);
+    spy_deneb_block$DenebDecodeResult result =
+        spy_deneb_block$decode_deneb_signed_block(source);
     spy_json_document_destroy(result.temporary);
     return result.object;
 }
 
 spy_raw_ssz_ptr spy_schema_deneb_decode_ssz_owned(spy_BytesObject *source) {
-    spy_schema_deneb_ssz$DenebSszDecodeResult result =
-        spy_schema_deneb_ssz$decode_deneb_signed_block_ssz(source);
+    spy_deneb_block_ssz$DenebSszDecodeResult result =
+        spy_deneb_block_ssz$decode_deneb_signed_block_ssz(source);
     spy_ssz_document_destroy(result.temporary);
     return result.object;
 }
 
 spy_raw_ssz_ptr spy_schema_deneb_decode_attestation_owned(
     spy_BytesObject *source) {
-    spy_schema_deneb$DenebDecodeResult result =
-        spy_schema_deneb$decode_deneb_attestation(source);
+    spy_deneb_block$DenebDecodeResult result =
+        spy_deneb_block$decode_deneb_attestation(source);
     spy_json_document_destroy(result.temporary);
     return result.object;
 }
 
 spy_raw_ssz_ptr spy_schema_deneb_decode_attestation_ssz_owned(
     spy_BytesObject *source) {
-    spy_schema_deneb_ssz$DenebSszDecodeResult result =
-        spy_schema_deneb_ssz$decode_deneb_attestation_ssz(source);
+    spy_deneb_block_ssz$DenebSszDecodeResult result =
+        spy_deneb_block_ssz$decode_deneb_attestation_ssz(source);
     spy_ssz_document_destroy(result.temporary);
     return result.object;
 }
 
 spy_raw_ssz_ptr spy_schema_electra_decode_owned(spy_BytesObject *source) {
-    spy_schema_deneb$DenebDecodeResult result =
-        spy_schema_electra$decode_electra_signed_block(source);
+    spy_deneb_block$DenebDecodeResult result =
+        spy_electra_block$decode_electra_signed_block(source);
     spy_json_document_destroy(result.temporary);
     return result.object;
 }
 
 spy_raw_ssz_ptr spy_schema_electra_decode_preset_owned(
     spy_BytesObject *source, int32_t preset) {
-    spy_schema_deneb$DenebDecodeResult result =
-        spy_schema_electra$decode_electra_signed_block_preset(source, preset);
+    spy_deneb_block$DenebDecodeResult result =
+        spy_electra_block$decode_electra_signed_block_preset(source, preset);
     spy_json_document_destroy(result.temporary);
     return result.object;
 }
 
 spy_raw_ssz_ptr spy_schema_electra_decode_ssz_owned(spy_BytesObject *source) {
-    spy_schema_deneb_ssz$DenebSszDecodeResult result =
-        spy_schema_electra_ssz$decode_electra_signed_block_ssz(source);
+    spy_deneb_block_ssz$DenebSszDecodeResult result =
+        spy_electra_block_ssz$decode_electra_signed_block_ssz(source);
     spy_ssz_document_destroy(result.temporary);
     return result.object;
 }
 
 spy_raw_ssz_ptr spy_schema_electra_decode_ssz_preset_owned(
     spy_BytesObject *source, int32_t preset) {
-    spy_schema_deneb_ssz$DenebSszDecodeResult result =
-        spy_schema_electra_ssz$decode_electra_signed_block_ssz_preset(
+    spy_deneb_block_ssz$DenebSszDecodeResult result =
+        spy_electra_block_ssz$decode_electra_signed_block_ssz_preset(
             source, preset);
     spy_ssz_document_destroy(result.temporary);
     return result.object;
 }
 
 spy_raw_ssz_ptr spy_schema_fulu_decode_owned(spy_BytesObject *source) {
-    spy_schema_deneb$DenebDecodeResult result =
-        spy_schema_electra$decode_fulu_signed_block(source);
+    spy_deneb_block$DenebDecodeResult result =
+        spy_electra_block$decode_fulu_signed_block(source);
     spy_json_document_destroy(result.temporary);
     return result.object;
 }
 
 spy_raw_ssz_ptr spy_schema_fulu_decode_preset_owned(
     spy_BytesObject *source, int32_t preset) {
-    spy_schema_deneb$DenebDecodeResult result =
-        spy_schema_electra$decode_fulu_signed_block_preset(source, preset);
+    spy_deneb_block$DenebDecodeResult result =
+        spy_electra_block$decode_fulu_signed_block_preset(source, preset);
     spy_json_document_destroy(result.temporary);
     return result.object;
 }
 
 spy_raw_ssz_ptr spy_schema_fulu_decode_ssz_owned(spy_BytesObject *source) {
-    spy_schema_deneb_ssz$DenebSszDecodeResult result =
-        spy_schema_electra_ssz$decode_fulu_signed_block_ssz(source);
+    spy_deneb_block_ssz$DenebSszDecodeResult result =
+        spy_electra_block_ssz$decode_fulu_signed_block_ssz(source);
     spy_ssz_document_destroy(result.temporary);
     return result.object;
 }
 
 spy_raw_ssz_ptr spy_schema_fulu_decode_ssz_preset_owned(
     spy_BytesObject *source, int32_t preset) {
-    spy_schema_deneb_ssz$DenebSszDecodeResult result =
-        spy_schema_electra_ssz$decode_fulu_signed_block_ssz_preset(
+    spy_deneb_block_ssz$DenebSszDecodeResult result =
+        spy_electra_block_ssz$decode_fulu_signed_block_ssz_preset(
             source, preset);
     spy_ssz_document_destroy(result.temporary);
     return result.object;
@@ -130,67 +130,67 @@ spy_raw_ssz_ptr spy_schema_fulu_decode_ssz_preset_owned(
 
 spy_raw_ssz_ptr spy_schema_gloas_decode_attestation_owned(
     spy_BytesObject *source) {
-    spy_schema_deneb$DenebDecodeResult result =
-        spy_schema_gloas$decode_gloas_attestation(source);
+    spy_deneb_block$DenebDecodeResult result =
+        spy_gloas_attestation$decode_gloas_attestation(source);
     spy_json_document_destroy(result.temporary);
     return result.object;
 }
 
 spy_raw_ssz_ptr spy_schema_gloas_decode_attestation_ssz_owned(
     spy_BytesObject *source) {
-    spy_schema_deneb_ssz$DenebSszDecodeResult result =
-        spy_schema_gloas_ssz$decode_gloas_attestation_ssz(source);
+    spy_deneb_block_ssz$DenebSszDecodeResult result =
+        spy_gloas_attestation_ssz$decode_gloas_attestation_ssz(source);
     spy_ssz_document_destroy(result.temporary);
     return result.object;
 }
 
 spy_raw_ssz_ptr spy_schema_signing_decode_json_owned(
     spy_BytesObject *source, int32_t kind, int32_t schema, int32_t preset) {
-    spy_schema_deneb$DenebDecodeResult result =
-        spy_schema_signing$decode_signing_json(source, kind, schema, preset);
+    spy_deneb_block$DenebDecodeResult result =
+        spy_electra_signing$decode_signing_json(source, kind, schema, preset);
     spy_json_document_destroy(result.temporary);
     return result.object;
 }
 
 spy_raw_ssz_ptr spy_schema_signing_decode_ssz_owned(
     spy_BytesObject *source, int32_t kind, int32_t schema, int32_t preset) {
-    spy_schema_deneb_ssz$DenebSszDecodeResult result =
-        spy_schema_signing$decode_signing_ssz(source, kind, schema, preset);
+    spy_deneb_block_ssz$DenebSszDecodeResult result =
+        spy_electra_signing$decode_signing_ssz(source, kind, schema, preset);
     spy_ssz_document_destroy(result.temporary);
     return result.object;
 }
 
 spy_raw_ssz_ptr spy_schema_block_containers_decode_json_owned(
     spy_BytesObject *source, int32_t kind, int32_t preset) {
-    spy_schema_deneb$DenebDecodeResult result =
-        spy_schema_block_containers$decode_block_container_json(source, kind, preset);
+    spy_deneb_block$DenebDecodeResult result =
+        spy_electra_block_containers$decode_block_container_json(source, kind, preset);
     spy_json_document_destroy(result.temporary);
     return result.object;
 }
 
 spy_raw_ssz_ptr spy_schema_block_containers_decode_ssz_owned(
     spy_BytesObject *source, int32_t kind, int32_t preset) {
-    spy_schema_deneb_ssz$DenebSszDecodeResult result =
-        spy_schema_block_containers_ssz$decode_block_container_ssz(source, kind, preset);
+    spy_deneb_block_ssz$DenebSszDecodeResult result =
+        spy_electra_block_containers_ssz$decode_block_container_ssz(source, kind, preset);
     spy_ssz_document_destroy(result.temporary);
     return result.object;
 }
 
 #define spy_ssz_object_hash_tree_root spy_ssz_object$object_hash_tree_root
 #define spy_schema_electra_ssz_size \
-    spy_schema_electra_encode$electra_ssz_size
+    spy_electra_block_encode$electra_ssz_size
 #define spy_schema_electra_encode_ssz \
-    spy_schema_electra_encode$electra_encode_ssz
+    spy_electra_block_encode$electra_encode_ssz
 #define spy_schema_electra_json_size \
-    spy_schema_electra_encode$electra_json_size
+    spy_electra_block_encode$electra_json_size
 #define spy_schema_electra_encode_json \
-    spy_schema_electra_encode$electra_encode_json
-#define spy_schema_signing_ssz_size spy_schema_signing$signing_ssz_size
-#define spy_schema_signing_encode_ssz spy_schema_signing$signing_encode_ssz
-#define spy_schema_signing_json_size spy_schema_signing$signing_json_size
-#define spy_schema_signing_encode_json spy_schema_signing$signing_encode_json
-#define spy_schema_block_containers_json_size spy_schema_block_containers_encode$block_container_json_size
-#define spy_schema_block_containers_encode_json spy_schema_block_containers_encode$block_container_encode_json
+    spy_electra_block_encode$electra_encode_json
+#define spy_schema_signing_ssz_size spy_electra_signing$signing_ssz_size
+#define spy_schema_signing_encode_ssz spy_electra_signing$signing_encode_ssz
+#define spy_schema_signing_json_size spy_electra_signing$signing_json_size
+#define spy_schema_signing_encode_json spy_electra_signing$signing_encode_json
+#define spy_schema_block_containers_json_size spy_electra_block_containers_encode$block_container_json_size
+#define spy_schema_block_containers_encode_json spy_electra_block_containers_encode$block_container_encode_json
 #define spy_ssz_object_clone_and_sign_block spy_ssz_object$clone_and_sign_block
 
 static int32_t spy_ssz_child(spy_ssz_object$SszObject *obj,
@@ -213,14 +213,14 @@ static int32_t spy_ssz_fixed_list_size(spy_ssz_object$SszObject *obj,
 int32_t spy_schema_block_containers_ssz_size(spy_raw_ssz_ptr opaque) {
     spy_ssz_object$SszObject *obj = opaque.p;
     if (obj->object_kind != SPY_SSZ_OBJECT_SIGNED_BEACON_BLOCK_CONTENTS)
-        return spy_schema_block_containers_encode$block_container_ssz_size(opaque);
+        return spy_electra_block_containers_encode$block_container_ssz_size(opaque);
     int32_t contents = obj->root_node;
     int32_t signed_block = spy_ssz_child(obj, contents, 0);
     int32_t proofs = spy_ssz_child(obj, contents, 1);
     int32_t blobs = spy_ssz_child(obj, contents, 2);
     int32_t saved_root = obj->root_node;
     obj->root_node = signed_block;
-    int32_t block_size = spy_schema_electra_encode$electra_ssz_size(opaque);
+    int32_t block_size = spy_electra_block_encode$electra_ssz_size(opaque);
     obj->root_node = saved_root;
     return 12 + block_size + spy_ssz_fixed_list_size(obj, proofs)
         + spy_ssz_fixed_list_size(obj, blobs);
@@ -230,7 +230,7 @@ int32_t spy_schema_block_containers_encode_ssz(spy_raw_ssz_ptr opaque,
                                    spy_BytesObject *output) {
     spy_ssz_object$SszObject *obj = opaque.p;
     if (obj->object_kind != SPY_SSZ_OBJECT_SIGNED_BEACON_BLOCK_CONTENTS)
-        return spy_schema_block_containers_encode$block_container_encode_ssz(opaque, output);
+        return spy_electra_block_containers_encode$block_container_encode_ssz(opaque, output);
     int32_t contents = obj->root_node;
     int32_t signed_block = spy_ssz_child(obj, contents, 0);
     int32_t proofs = spy_ssz_child(obj, contents, 1);
@@ -238,7 +238,7 @@ int32_t spy_schema_block_containers_encode_ssz(spy_raw_ssz_ptr opaque,
     int32_t proof_size = spy_ssz_fixed_list_size(obj, proofs);
     int32_t saved_root = obj->root_node;
     obj->root_node = signed_block;
-    int32_t block_size = spy_schema_electra_encode$electra_ssz_size(opaque);
+    int32_t block_size = spy_electra_block_encode$electra_ssz_size(opaque);
     uint32_t offsets[3] = {12, 12 + block_size,
                            12 + block_size + proof_size};
     memcpy(output->data.p, offsets, sizeof(offsets));
@@ -247,7 +247,7 @@ int32_t spy_schema_block_containers_encode_ssz(spy_raw_ssz_ptr opaque,
         .hash = 0,
         .data = {.p = output->data.p + 12},
     };
-    spy_schema_electra_encode$electra_encode_ssz(opaque, &block_output);
+    spy_electra_block_encode$electra_encode_ssz(opaque, &block_output);
     obj->root_node = saved_root;
     int32_t position = 12 + block_size;
     int32_t lists[2] = {proofs, blobs};

@@ -13,8 +13,8 @@ from metadata import (
     SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK_CONTENTS,
     SCHEMA_ELECTRA_SIGNED_BLINDED_BEACON_BLOCK,
 )
-from schema_deneb import DenebDecodeResult, eth1_data, fixed_bytes_list, json_byte_list, json_fixed_bytes, json_uint, sync_aggregate
-from schema_electra import (
+from deneb_block import DenebDecodeResult, eth1_data, fixed_bytes_list, json_byte_list, json_fixed_bytes, json_uint, sync_aggregate
+from electra_block import (
     attestation_list,
     attester_slashing_list,
     beacon_block,

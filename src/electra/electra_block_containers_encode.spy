@@ -4,7 +4,7 @@ from _bytes import BytesObject
 from unsafe import gc_ptr, raw_ptr
 from metadata import OBJECT_BEACON_BLOCK_CONTENTS, OBJECT_BLINDED_BEACON_BLOCK, OBJECT_SIGNED_BEACON_BLOCK_CONTENTS
 from writer import child, json_hex_node, json_key, json_uint, put, put_literal, put_u32, ssz_byte_list, ssz_fixed_bytes, ssz_uint
-from schema_electra_encode import (
+from electra_block_encode import (
     json_attestations,
     json_attester_slashings,
     json_beacon_block,

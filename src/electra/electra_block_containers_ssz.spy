@@ -12,8 +12,8 @@ from metadata import (
     SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK_CONTENTS,
     SCHEMA_ELECTRA_SIGNED_BLINDED_BEACON_BLOCK,
 )
-from schema_deneb_ssz import DenebSszDecodeResult, eth1_data, fixed_bytes_list, sync_aggregate, ssz_byte_list, ssz_fixed_bytes, ssz_uint
-from schema_electra_ssz import (
+from deneb_block_ssz import DenebSszDecodeResult, eth1_data, fixed_bytes_list, sync_aggregate, ssz_byte_list, ssz_fixed_bytes, ssz_uint
+from electra_block_ssz import (
     attestation_list,
     attester_slashing_list,
     beacon_block,

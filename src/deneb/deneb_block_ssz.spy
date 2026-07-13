@@ -1,4 +1,4 @@
-"""SSZ-byte lowering for the Deneb types implemented by schema_deneb."""
+"""SSZ-byte lowering for the Deneb types implemented by deneb_block."""
 
 from unsafe import raw_ptr
 from metadata import (
