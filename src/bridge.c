@@ -16,6 +16,7 @@
 #include "electra_block_containers_ssz.h"
 #include "ssz_object.h"
 #include "ssz_reader.h"
+#include "merkle.c"
 
 typedef spy_unsafe$raw_ptr__json_parser$JsonDocument spy_raw_json_ptr;
 typedef spy_unsafe$raw_ptr__ssz_reader$SszDocument spy_raw_ssz_document_ptr;
@@ -176,7 +177,10 @@ spy_raw_ssz_ptr spy_schema_block_containers_decode_ssz_owned(
     return result.object;
 }
 
-#define spy_ssz_object_hash_tree_root spy_ssz_object$object_hash_tree_root
+int32_t spy_ssz_object_hash_tree_root(
+    spy_raw_ssz_ptr object, spy_BytesObject *output) {
+    return spy_ssz_fast_object_hash_tree_root(object, output);
+}
 #define spy_schema_electra_ssz_size \
     spy_electra_block_encode$electra_ssz_size
 #define spy_schema_electra_encode_ssz \
@@ -303,7 +307,7 @@ int32_t spy_ssz_object_hash_tree_root_path(
         if (second < 0 || second >= current.child_count) return 0;
         node = obj->edges.p[current.first_edge + second];
     }
-    return spy_ssz_object$object_node_hash_tree_root(opaque, node, output);
+    return spy_ssz_fast_node_hash_tree_root(opaque, node, output);
 }
 
 int32_t spy_ssz_object_block_header(
@@ -341,7 +345,7 @@ int32_t spy_ssz_object_block_header(
         .hash = 0,
         .data = {.p = output->data.p + 80},
     };
-    return spy_ssz_object$object_node_hash_tree_root(opaque, body, &body_root);
+    return spy_ssz_fast_node_hash_tree_root(opaque, body, &body_root);
 }
 
 void spy_ssz_object_destroy(spy_raw_ssz_ptr opaque) {
@@ -355,5 +359,7 @@ void spy_ssz_object_destroy(spy_raw_ssz_ptr opaque) {
     free(obj->state.p);
     free(obj->schedule.p);
     free(obj->root.p);
+    free(obj->node_roots.p);
+    free(obj->node_root_valid.p);
     free(obj);
 }

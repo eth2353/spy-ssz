@@ -127,6 +127,23 @@ def build(spy_root: Path) -> Path:
     if not sources:
         raise SystemExit("SPy did not generate C sources")
 
+    # SPy cannot declare an externally implemented function yet. Keep its
+    # generated implementation as a fallback symbol and route all generated
+    # callers through the optimized fixed-size pair kernel below.
+    kernels_source = BUILD / "src" / "ssz_kernels.c"
+    generated = kernels_source.read_text()
+    signature = "void spy_ssz_kernels$hash_pair_into("
+    if generated.count(signature) != 1:
+        raise RuntimeError("unexpected generated hash_pair_into definition")
+    kernels_source.write_text(
+        generated.replace(
+            signature,
+            "static void spy_ssz_kernels$hash_pair_into_spy(",
+            1,
+        )
+    )
+    sources.append(SOURCE / "sha256_pair.c")
+
     ffi = FFI()
     ffi.cdef(
         """
@@ -214,7 +231,7 @@ def build(spy_root: Path) -> Path:
         sources=[str(path) for path in sources],
         include_dirs=[str(SOURCE), str(BUILD / "src"), str(libspy / "include")],
         library_dirs=[str(libspy / "build" / "native" / "release")],
-        libraries=["spy", "m"],
+        libraries=["spy", "m", *(["dl"] if sys.platform.startswith("linux") else [])],
         extra_compile_args=[
             "-fPIC",
             "-DSPY_GC_NONE",

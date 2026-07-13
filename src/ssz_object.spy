@@ -93,6 +93,9 @@ class SszObject:
     schedule: gc_ptr[BytesObject]
     root: gc_ptr[BytesObject]
     root_valid: i32
+    node_roots: raw_ptr[u8]
+    node_root_valid: raw_ptr[u8]
+    node_cache_initialized: i32
 
 
 def new_bytes(length: i32, clear: bool) -> gc_ptr[BytesObject]:
@@ -144,6 +147,9 @@ def new_object(
     obj.schedule = new_bytes(256, False)
     obj.root = new_bytes(32, False)
     obj.root_valid = 0
+    obj.node_roots = raw_alloc[u8](node_capacity * 32)
+    obj.node_root_valid = raw_alloc[u8](node_capacity)
+    obj.node_cache_initialized = 0
 
     return obj
 
