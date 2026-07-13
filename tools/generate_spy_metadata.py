@@ -58,9 +58,10 @@ def render_metadata_header() -> str:
 
 
 def render_preset_config() -> str:
-    from spy_ssz.preset import Preset, SSZ_LIMIT_KEYS, _sources
+    from spy_ssz.preset import Preset
+    from spy_ssz.presets import SSZ_LIMIT_KEYS, preset_sources
 
-    sources = _sources()
+    sources = preset_sources()
     presets = [(preset.name.lower(), sources[preset.name]) for preset in Preset]
 
     lines = [
