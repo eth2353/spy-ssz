@@ -1,7 +1,7 @@
 [project]
 name = "spy-ssz"
 version = "0.1.0"
-description = "Native SPy-backed Ethereum SSZ codecs"
+description = "Compiled SPy-backed Ethereum SSZ codecs"
 readme = "README.md"
 requires-python = "~=3.12.0"
 dependencies = [
@@ -13,6 +13,7 @@ dependencies = [
 [build-system]
 requires = [
     "cffi>=2.1.0",
+    "pyyaml>=6.0.2",
     "setuptools>=83.0.0",
     "spylang @ git+https://github.com/spylang/spy.git@012ae501eb6a0adc3baff261c97ec9b56c80c2d1",
     "wheel",
@@ -20,7 +21,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.package-data]
-spy_ssz = ["consensus_types.json", "presets/*.yaml"]
+spy_ssz = ["consensus_types.json", "schemas.yaml", "presets/*.yaml"]
 
 [tool.setuptools]
 packages = ["spy_ssz", "spy_ssz.presets"]

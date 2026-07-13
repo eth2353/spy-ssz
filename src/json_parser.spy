@@ -1,0 +1,170 @@
+"""Temporary SPy JSON tokenization used by fork schema lowerers."""
+
+from _bytes import BytesObject
+from unsafe import raw_alloc, raw_ptr
+
+
+TOKEN_OBJECT: i32 = 1
+TOKEN_ARRAY: i32 = 2
+TOKEN_STRING: i32 = 3
+TOKEN_PRIMITIVE: i32 = 4
+
+
+@struct
+class JsonToken:
+    kind: i32
+    start: i32
+    end: i32
+    parent: i32
+    children: i32
+
+
+@struct
+class JsonDocument:
+    json: raw_ptr[u8]
+    json_length: i32
+    tokens: raw_ptr[JsonToken]
+    token_count: i32
+    token_capacity: i32
+    valid: i32
+
+
+def is_space(ch: u8) -> bool:
+    return ch == u8(32) or ch == u8(9) or ch == u8(10) or ch == u8(13)
+
+
+def add_token(
+    document: raw_ptr[JsonDocument],
+    kind: i32,
+    start: i32,
+    end: i32,
+    parent: i32,
+) -> i32:
+    index = document.token_count
+    if index >= document.token_capacity:
+        document.valid = 0
+        return -1
+    token = document.tokens[index]
+    token.kind = kind
+    token.start = start
+    token.end = end
+    token.parent = parent
+    token.children = 0
+    if parent >= 0:
+        document.tokens[parent].children = document.tokens[parent].children + 1
+    document.token_count = index + 1
+    return index
+
+
+def decode_json(source: bytes) -> raw_ptr[JsonDocument]:
+    src = BytesObject.from_bytes(source)
+    length: i32 = src.length
+    document = raw_alloc[JsonDocument](1)
+    document.json = raw_alloc[u8](length)
+    document.json_length = length
+    document.token_capacity = length // 2 + 16
+    document.tokens = raw_alloc[JsonToken](document.token_capacity)
+    document.token_count = 0
+    document.valid = 1
+
+    i: i32 = 0
+    while i < length:
+        document.json[i] = src.data[i]
+        i = i + 1
+
+    parent: i32 = -1
+    i = 0
+    while i < length and document.valid == 1:
+        ch = document.json[i]
+        if is_space(ch) or ch == u8(44) or ch == u8(58):
+            i = i + 1
+        elif ch == u8(123):
+            parent = add_token(document, TOKEN_OBJECT, i, -1, parent)
+            i = i + 1
+        elif ch == u8(91):
+            parent = add_token(document, TOKEN_ARRAY, i, -1, parent)
+            i = i + 1
+        elif ch == u8(125) or ch == u8(93):
+            if parent < 0:
+                document.valid = 0
+            else:
+                document.tokens[parent].end = i + 1
+                parent = document.tokens[parent].parent
+            i = i + 1
+        elif ch == u8(34):
+            start = i + 1
+            i = start
+            escaped = False
+            while i < length and (document.json[i] != u8(34) or escaped):
+                if document.json[i] == u8(92) and not escaped:
+                    escaped = True
+                else:
+                    escaped = False
+                i = i + 1
+            if i >= length:
+                document.valid = 0
+            else:
+                add_token(document, TOKEN_STRING, start, i, parent)
+                i = i + 1
+        else:
+            start = i
+            while (
+                i < length
+                and not is_space(document.json[i])
+                and document.json[i] != u8(44)
+                and document.json[i] != u8(93)
+                and document.json[i] != u8(125)
+            ):
+                i = i + 1
+            add_token(document, TOKEN_PRIMITIVE, start, i, parent)
+
+    if parent != -1:
+        document.valid = 0
+    return document
+
+
+def token_equals(document: raw_ptr[JsonDocument], index: i32, value: bytes) -> bool:
+    token = document.tokens[index]
+    expected = BytesObject.from_bytes(value)
+    length = token.end - token.start
+    if length != expected.length:
+        return False
+    i: i32 = 0
+    while i < length:
+        if document.json[token.start + i] != expected.data[i]:
+            return False
+        i = i + 1
+    return True
+
+
+def object_get(document: raw_ptr[JsonDocument], obj: i32, key: bytes) -> i32:
+    i = obj + 1
+    end = document.tokens[obj].end
+    while i < document.token_count and document.tokens[i].start < end:
+        if (
+            document.tokens[i].parent == obj
+            and document.tokens[i].kind == TOKEN_STRING
+            and token_equals(document, i, key)
+        ):
+            return i + 1
+        i = i + 1
+    document.valid = 0
+    return -1
+
+
+def array_get(document: raw_ptr[JsonDocument], array: i32, wanted: i32) -> i32:
+    i = array + 1
+    seen: i32 = 0
+    end = document.tokens[array].end
+    while i < document.token_count and document.tokens[i].start < end:
+        if document.tokens[i].parent == array:
+            if seen == wanted:
+                return i
+            seen = seen + 1
+        i = i + 1
+    document.valid = 0
+    return -1
+
+
+def array_length(document: raw_ptr[JsonDocument], array: i32) -> i32:
+    return document.tokens[array].children

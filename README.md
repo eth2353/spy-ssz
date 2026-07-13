@@ -1,6 +1,6 @@
 # spy-ssz
 
-This repository explores a compiled SPy backend for Ethereum SSZ. The native
+This repository explores a compiled SPy backend for Ethereum SSZ. The SPy
 path decodes Beacon API JSON or canonical SSZ bytes directly into a typed,
 heap-owned C object graph;
 Python receives only an opaque owner with metadata and `hash_tree_root()`.
@@ -30,21 +30,30 @@ Nested anonymous list/vector shapes are normalized and referenced by type id.
 Run `tools/generate_consensus_types.py` after changing the consensus-specs
 version.
 
+`spy_ssz/schemas.yaml` is the authoritative runtime schema registry. It owns
+fork IDs, object-kind IDs, schema IDs, codec modules, supported presets, and
+public type names. The files under `spy_ssz/presets/` are the sole source for
+preset IDs and preset-dependent consensus limits. Python reads these YAML files
+directly; `tools/generate_spy_metadata.py` generates the SPy constants consumed
+by compiled codecs and is run automatically during builds.
+
 ## Architecture
 
-- `native/json_parser.spy`: temporary, replaceable JSON tokenizer
-- `native/ssz_reader.spy`: bounds-checked native SSZ input
-- `native/ssz_object.spy`: typed nodes, native storage, SSZ hashing, root cache
-- `native/native_writer.spy`: allocation-free JSON and SSZ output primitives
-- `native/schema_*.spy`: fork/object-specific codecs
-- `native/bridge.c`: narrow ownership and CFFI bridge
-- `spy_ssz/native_object.py`: opaque ownership and `(fork, kind, preset)` registry
+- `src/json_parser.spy`: temporary, replaceable JSON tokenizer
+- `src/ssz_reader.spy`: bounds-checked SSZ input
+- `src/ssz_object.spy`: typed nodes, SPy storage, SSZ hashing, root cache
+- `src/writer.spy`: allocation-free JSON and SSZ output primitives
+- `src/schema_*.spy`: fork/object-specific codecs
+- `src/bridge.c`: narrow ownership and CFFI bridge
+- `spy_ssz/ssz.py`: opaque ownership and `(fork, kind, preset)` registry
+- `spy_ssz/schemas.yaml`: authoritative runtime schema and public API registry
+- `spy_ssz/presets/*.yaml`: authoritative preset definitions
 - `spy_ssz/consensus_types.json`: generated Electra-through-Heze definitions
-- `spy_ssz/native_*.py`: concrete public types and decoder registration
+- `spy_ssz/{deneb,electra,fulu,gloas,blocks,signing}.py`: public types and codecs
 
 `msgspec` remains the Python comparison decoder. Its public JSON API constructs
 Python objects, and it does not currently publish a stable C decoder API that
-can populate SPy-owned structs. The native tokenizer is isolated specifically
+can populate SPy-owned structs. The SPy tokenizer is isolated specifically
 so it can later be replaced by a supported msgspec C API (or another parser)
 without changing the SSZ representation.
 
@@ -52,13 +61,13 @@ Fork identifiers follow consensus chronology: Phase0 is `0`, Altair is `1`,
 Bellatrix is `2`, Capella is `3`, Deneb is `4`, and subsequent forks continue
 in order.
 
-## Native API
+## SPy API
 
 ```python
-from spy_ssz.native_electra import NativeElectraBlock
+from spy_ssz.electra import ElectraSignedBeaconBlock
 
-block_from_json = NativeElectraBlock.from_json(json_bytes)
-block_from_ssz = NativeElectraBlock.from_ssz(ssz_bytes)
+block_from_json = ElectraSignedBeaconBlock.from_json(json_bytes)
+block_from_ssz = ElectraSignedBeaconBlock.from_ssz(ssz_bytes)
 
 assert block_from_json.hash_tree_root() == block_from_ssz.hash_tree_root()
 assert block_from_json.to_ssz() == ssz_bytes
@@ -67,8 +76,8 @@ block_from_json.close()
 block_from_ssz.close()
 ```
 
-The generic entry points are `decode_native_json(data, fork, kind)` and
-`decode_native_ssz(data, fork, kind)`. Native JSON and SSZ output encoding is
+The generic entry points are `decode_json(data, fork, kind)` and
+`decode_ssz(data, fork, kind)`. SPy JSON and SSZ output encoding is
 available for Electra and Fulu signed blocks; Fulu reuses the unchanged Electra
 block schema.
 
@@ -86,9 +95,10 @@ wire_bytes = signed.to_ssz()
 ```
 
 Mainnet, minimal, and Gnosis variants are available. Checked-in preset YAML is
-loaded through `load_preset`; the selected limits are also attached to every
-native object, so fixed SSZ layouts (including committee and sync vectors) are
-preset-aware.
+loaded through `load_preset` and generates the compiled preset table; the
+selected limits are attached to every SPy object, so fixed SSZ layouts
+(including committee and sync vectors) are preset-aware without parallel
+hardcoded definitions.
 
 ## Build
 
@@ -116,13 +126,13 @@ and `.ssz_snappy` blocks, measures JSON/SSZ encode and decode separately, and
 prints all-fork and per-fork p50, p95, total time, and throughput. Use
 `--csv timings.csv` for per-block results, `--limit` for a quick sample, or
 `--fork deneb` when a synthetic/standalone file cannot be identified from its
-metadata, path, or slot. Available native Deneb, Electra, and Fulu decode
-timings are included, along with native Electra/Fulu JSON and SSZ encode timings;
-pass `--no-native` to measure only the consensus-spec codecs.
+metadata, path, or slot. Available SPy Deneb, Electra, and Fulu decode
+timings are included, along with SPy Electra/Fulu JSON and SSZ encode timings;
+pass `--no-spy` to measure only the consensus-spec codecs.
 
-On a 592-block Fulu corpus, representative p50 results were 0.901 ms for native
-JSON decode, 0.451 ms for native JSON encode, 0.269 ms for native SSZ decode,
-and 0.491 ms for native SSZ encode. The corresponding consensus-spec codec
+On a 592-block Fulu corpus, representative p50 results were 0.901 ms for SPy
+JSON decode, 0.451 ms for SPy JSON encode, 0.269 ms for SPy SSZ decode,
+and 0.491 ms for SPy SSZ encode. The corresponding consensus-spec codec
 operations took 7.696, 15.067, 7.885, and 17.085 ms.
 
 The sample roots match the official consensus types:
@@ -131,6 +141,6 @@ The sample roots match the official consensus types:
 - signed block: `0x036ead785909b45549a62c13f1617a3d84e686a0db3dc29e3b0b9a2a410a0821`
 
 This is still a proof of concept, not a complete `eth-remerkleable`
-replacement. Electra+ definitions are complete, but executable native codecs
+replacement. Electra+ definitions are complete, but executable SPy codecs
 must still be connected for the remaining non-block cataloged types.
 Generalized-index views and mutation APIs also remain to be implemented.

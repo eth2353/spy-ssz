@@ -1,0 +1,144 @@
+format: 1
+
+forks:
+  PHASE0: 0
+  ALTAIR: 1
+  BELLATRIX: 2
+  CAPELLA: 3
+  DENEB: 4
+  ELECTRA: 5
+  FULU: 6
+  GLOAS: 7
+  HEZE: 8
+
+object_kinds:
+  SIGNED_BEACON_BLOCK: 1
+  BEACON_BLOCK: 2
+  ATTESTATION: 3
+  ATTESTATION_DATA: 4
+  AGGREGATE_AND_PROOF: 5
+  SYNC_COMMITTEE_CONTRIBUTION: 6
+  CONTRIBUTION_AND_PROOF: 7
+  BEACON_BLOCK_CONTENTS: 8
+  SIGNED_BEACON_BLOCK_CONTENTS: 9
+  BLINDED_BEACON_BLOCK: 10
+  SIGNED_BLINDED_BEACON_BLOCK: 11
+
+codecs:
+  deneb_block: deneb
+  deneb_attestation: deneb
+  electra_block: electra
+  fulu_block: fulu
+  gloas_attestation: gloas
+  signing: signing
+  block_containers: blocks
+
+schemas:
+  - name: DENEB_SIGNED_BEACON_BLOCK
+    id: 401
+    fork: DENEB
+    kind: SIGNED_BEACON_BLOCK
+    consensus_type: SignedBeaconBlock
+    codec: deneb_block
+    python_type: DenebSignedBeaconBlock
+    presets: [mainnet]
+  - name: DENEB_ATTESTATION
+    id: 403
+    fork: DENEB
+    kind: ATTESTATION
+    consensus_type: Attestation
+    codec: deneb_attestation
+    python_type: DenebAttestation
+    presets: [mainnet]
+  - name: ELECTRA_SIGNED_BEACON_BLOCK
+    id: 501
+    fork: ELECTRA
+    kind: SIGNED_BEACON_BLOCK
+    consensus_type: SignedBeaconBlock
+    codec: electra_block
+    python_type: ElectraSignedBeaconBlock
+    presets: [mainnet, minimal, gnosis]
+  - name: ELECTRA_ATTESTATION
+    id: 503
+    fork: ELECTRA
+    kind: ATTESTATION
+    consensus_type: Attestation
+    codec: signing
+    python_type: Attestation
+    presets: [mainnet, minimal, gnosis]
+  - name: ELECTRA_ATTESTATION_DATA
+    id: 504
+    fork: ELECTRA
+    kind: ATTESTATION_DATA
+    consensus_type: AttestationData
+    codec: signing
+    python_type: AttestationData
+    presets: [mainnet, minimal, gnosis]
+  - name: ELECTRA_AGGREGATE_AND_PROOF
+    id: 505
+    fork: ELECTRA
+    kind: AGGREGATE_AND_PROOF
+    consensus_type: AggregateAndProof
+    codec: signing
+    python_type: AggregateAndProof
+    presets: [mainnet, minimal, gnosis]
+  - name: ELECTRA_SYNC_COMMITTEE_CONTRIBUTION
+    id: 506
+    fork: ELECTRA
+    kind: SYNC_COMMITTEE_CONTRIBUTION
+    consensus_type: SyncCommitteeContribution
+    codec: signing
+    python_type: SyncCommitteeContribution
+    presets: [mainnet, minimal, gnosis]
+  - name: ELECTRA_CONTRIBUTION_AND_PROOF
+    id: 507
+    fork: ELECTRA
+    kind: CONTRIBUTION_AND_PROOF
+    consensus_type: ContributionAndProof
+    codec: signing
+    python_type: ContributionAndProof
+    presets: [mainnet, minimal, gnosis]
+  - name: ELECTRA_BEACON_BLOCK_CONTENTS
+    id: 508
+    fork: ELECTRA
+    kind: BEACON_BLOCK_CONTENTS
+    codec: block_containers
+    python_type: ElectraBeaconBlockContents
+    presets: [mainnet, minimal, gnosis]
+  - name: ELECTRA_SIGNED_BEACON_BLOCK_CONTENTS
+    id: 509
+    fork: ELECTRA
+    kind: SIGNED_BEACON_BLOCK_CONTENTS
+    codec: block_containers
+    python_type: ElectraSignedBeaconBlockContents
+    presets: [mainnet, minimal, gnosis]
+  - name: ELECTRA_BLINDED_BEACON_BLOCK
+    id: 510
+    fork: ELECTRA
+    kind: BLINDED_BEACON_BLOCK
+    codec: block_containers
+    python_type: ElectraBlindedBeaconBlock
+    presets: [mainnet, minimal, gnosis]
+  - name: ELECTRA_SIGNED_BLINDED_BEACON_BLOCK
+    id: 511
+    fork: ELECTRA
+    kind: SIGNED_BLINDED_BEACON_BLOCK
+    codec: block_containers
+    python_type: ElectraSignedBlindedBeaconBlock
+    presets: [mainnet, minimal, gnosis]
+  - name: FULU_SIGNED_BEACON_BLOCK
+    id: 601
+    fork: FULU
+    kind: SIGNED_BEACON_BLOCK
+    consensus_type: SignedBeaconBlock
+    codec: fulu_block
+    python_type: FuluSignedBeaconBlock
+    presets: [mainnet, minimal, gnosis]
+  - name: GLOAS_ATTESTATION
+    id: 703
+    fork: GLOAS
+    kind: ATTESTATION
+    consensus_type: Attestation
+    codec: gloas_attestation
+    python_type: GloasAttestation
+    presets: [mainnet]

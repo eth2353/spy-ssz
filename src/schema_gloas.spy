@@ -1,0 +1,109 @@
+"""Initial Gloas schemas exercising progressive SSZ containers and bitlists."""
+
+from unsafe import raw_ptr
+from json_parser import JsonDocument, decode_json, object_get
+from metadata import FORK_GLOAS, OBJECT_ATTESTATION, SCHEMA_GLOAS_ATTESTATION
+from schema_deneb import (
+    DenebDecodeResult,
+    attestation_data,
+    decode_hex,
+    json_fixed_bytes,
+)
+from ssz_object import (
+    KIND_PROGRESSIVE_CONTAINER,
+    SszObject,
+    add_composite_node,
+    add_progressive_bitlist_node,
+    alloc_data,
+    new_object,
+    reserve_edges,
+    set_edge,
+)
+
+
+def progressive_bitlist(
+    document: raw_ptr[JsonDocument],
+    token_index: i32,
+    obj: raw_ptr[SszObject],
+) -> i32:
+    token = document.tokens[token_index]
+    encoded_length = (token.end - token.start - 2) // 2
+    offset = decode_hex(document, token_index, obj)
+    if encoded_length == 0:
+        obj.valid = 0
+        return add_progressive_bitlist_node(obj, offset, 0)
+    last = i32(obj.arena[offset + encoded_length - 1])
+    delimiter: i32 = 7
+    while delimiter > 0 and (last & (1 << delimiter)) == 0:
+        delimiter = delimiter - 1
+    if last == 0:
+        obj.valid = 0
+    bit_length = (encoded_length - 1) * 8 + delimiter
+    obj.arena[offset + encoded_length - 1] = u8(last ^ (1 << delimiter))
+    return add_progressive_bitlist_node(obj, offset, bit_length)
+
+
+def gloas_attestation(
+    document: raw_ptr[JsonDocument],
+    value: i32,
+    obj: raw_ptr[SszObject],
+) -> i32:
+    first = reserve_edges(obj, 4)
+    set_edge(
+        obj,
+        first,
+        0,
+        progressive_bitlist(
+            document, object_get(document, value, b"aggregation_bits"), obj
+        ),
+    )
+    set_edge(
+        obj,
+        first,
+        1,
+        attestation_data(document, object_get(document, value, b"data"), obj),
+    )
+    set_edge(
+        obj,
+        first,
+        2,
+        json_fixed_bytes(
+            document, object_get(document, value, b"signature"), obj, 96
+        ),
+    )
+    set_edge(
+        obj,
+        first,
+        3,
+        json_fixed_bytes(
+            document, object_get(document, value, b"committee_bits"), obj, 8
+        ),
+    )
+    active_offset = alloc_data(obj, 1)
+    obj.arena[active_offset] = u8(15)
+    return add_composite_node(
+        obj,
+        KIND_PROGRESSIVE_CONTAINER,
+        first,
+        4,
+        0,
+        active_offset,
+        4,
+    )
+
+
+def decode_gloas_attestation(source: bytes) -> DenebDecodeResult:
+    document = decode_json(source)
+    capacity = document.token_count + 32
+    obj = new_object(
+        FORK_GLOAS,
+        OBJECT_ATTESTATION,
+        SCHEMA_GLOAS_ATTESTATION,
+        capacity,
+        capacity,
+        document.json_length * 2 + 1024,
+    )
+    obj.root_node = gloas_attestation(document, 0, obj)
+    if document.valid == 0:
+        obj.valid = 0
+    return DenebDecodeResult(obj, document)

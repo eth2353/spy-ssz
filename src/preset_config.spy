@@ -1,0 +1,176 @@
+"""Generated from spy_ssz/presets/*.yaml; do not edit."""
+
+PRESET_MAINNET: i32 = 0
+PRESET_MINIMAL: i32 = 1
+PRESET_GNOSIS: i32 = 2
+
+def preset_max_committees_per_slot(preset: i32) -> i32:
+    if preset == PRESET_MAINNET:
+        return 64
+    elif preset == PRESET_MINIMAL:
+        return 4
+    elif preset == PRESET_GNOSIS:
+        return 64
+    return 0
+
+def preset_max_validators_per_committee(preset: i32) -> i32:
+    if preset == PRESET_MAINNET:
+        return 2048
+    elif preset == PRESET_MINIMAL:
+        return 2048
+    elif preset == PRESET_GNOSIS:
+        return 2048
+    return 0
+
+def preset_sync_committee_size(preset: i32) -> i32:
+    if preset == PRESET_MAINNET:
+        return 512
+    elif preset == PRESET_MINIMAL:
+        return 32
+    elif preset == PRESET_GNOSIS:
+        return 512
+    return 0
+
+def preset_max_proposer_slashings(preset: i32) -> i32:
+    if preset == PRESET_MAINNET:
+        return 16
+    elif preset == PRESET_MINIMAL:
+        return 16
+    elif preset == PRESET_GNOSIS:
+        return 16
+    return 0
+
+def preset_max_attester_slashings(preset: i32) -> i32:
+    if preset == PRESET_MAINNET:
+        return 2
+    elif preset == PRESET_MINIMAL:
+        return 2
+    elif preset == PRESET_GNOSIS:
+        return 2
+    return 0
+
+def preset_max_attester_slashings_electra(preset: i32) -> i32:
+    if preset == PRESET_MAINNET:
+        return 1
+    elif preset == PRESET_MINIMAL:
+        return 1
+    elif preset == PRESET_GNOSIS:
+        return 1
+    return 0
+
+def preset_max_attestations(preset: i32) -> i32:
+    if preset == PRESET_MAINNET:
+        return 128
+    elif preset == PRESET_MINIMAL:
+        return 128
+    elif preset == PRESET_GNOSIS:
+        return 128
+    return 0
+
+def preset_max_attestations_electra(preset: i32) -> i32:
+    if preset == PRESET_MAINNET:
+        return 8
+    elif preset == PRESET_MINIMAL:
+        return 8
+    elif preset == PRESET_GNOSIS:
+        return 8
+    return 0
+
+def preset_max_deposits(preset: i32) -> i32:
+    if preset == PRESET_MAINNET:
+        return 16
+    elif preset == PRESET_MINIMAL:
+        return 16
+    elif preset == PRESET_GNOSIS:
+        return 16
+    return 0
+
+def preset_max_voluntary_exits(preset: i32) -> i32:
+    if preset == PRESET_MAINNET:
+        return 16
+    elif preset == PRESET_MINIMAL:
+        return 16
+    elif preset == PRESET_GNOSIS:
+        return 16
+    return 0
+
+def preset_max_withdrawals_per_payload(preset: i32) -> i32:
+    if preset == PRESET_MAINNET:
+        return 16
+    elif preset == PRESET_MINIMAL:
+        return 4
+    elif preset == PRESET_GNOSIS:
+        return 8
+    return 0
+
+def preset_max_bls_to_execution_changes(preset: i32) -> i32:
+    if preset == PRESET_MAINNET:
+        return 16
+    elif preset == PRESET_MINIMAL:
+        return 16
+    elif preset == PRESET_GNOSIS:
+        return 16
+    return 0
+
+def preset_max_blob_commitments_per_block(preset: i32) -> i32:
+    if preset == PRESET_MAINNET:
+        return 4096
+    elif preset == PRESET_MINIMAL:
+        return 4096
+    elif preset == PRESET_GNOSIS:
+        return 4096
+    return 0
+
+def preset_field_elements_per_blob(preset: i32) -> i32:
+    if preset == PRESET_MAINNET:
+        return 4096
+    elif preset == PRESET_MINIMAL:
+        return 4096
+    elif preset == PRESET_GNOSIS:
+        return 4096
+    return 0
+
+def preset_max_transactions_per_payload(preset: i32) -> i32:
+    if preset == PRESET_MAINNET:
+        return 1048576
+    elif preset == PRESET_MINIMAL:
+        return 1048576
+    elif preset == PRESET_GNOSIS:
+        return 1048576
+    return 0
+
+def preset_max_bytes_per_transaction(preset: i32) -> i32:
+    if preset == PRESET_MAINNET:
+        return 1073741824
+    elif preset == PRESET_MINIMAL:
+        return 1073741824
+    elif preset == PRESET_GNOSIS:
+        return 1073741824
+    return 0
+
+def preset_max_deposit_requests_per_payload(preset: i32) -> i32:
+    if preset == PRESET_MAINNET:
+        return 8192
+    elif preset == PRESET_MINIMAL:
+        return 8192
+    elif preset == PRESET_GNOSIS:
+        return 8192
+    return 0
+
+def preset_max_withdrawal_requests_per_payload(preset: i32) -> i32:
+    if preset == PRESET_MAINNET:
+        return 16
+    elif preset == PRESET_MINIMAL:
+        return 16
+    elif preset == PRESET_GNOSIS:
+        return 16
+    return 0
+
+def preset_max_consolidation_requests_per_payload(preset: i32) -> i32:
+    if preset == PRESET_MAINNET:
+        return 2
+    elif preset == PRESET_MINIMAL:
+        return 2
+    elif preset == PRESET_GNOSIS:
+        return 2
+    return 0

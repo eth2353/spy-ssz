@@ -1,0 +1,457 @@
+"""SSZ-byte lowering for the Deneb types implemented by schema_deneb."""
+
+from unsafe import raw_ptr
+from metadata import (
+    FORK_DENEB,
+    OBJECT_ATTESTATION,
+    OBJECT_SIGNED_BEACON_BLOCK,
+    SCHEMA_DENEB_ATTESTATION,
+    SCHEMA_DENEB_SIGNED_BEACON_BLOCK,
+)
+from ssz_reader import SszDocument, decode_ssz, read_u32, require_range, variable_offset
+from ssz_object import (
+    KIND_CONTAINER,
+    KIND_LIST,
+    SszObject,
+    add_bitlist_node,
+    add_byte_list_node,
+    add_composite_node,
+    add_fixed_bytes_node,
+    add_uint_node,
+    alloc_data,
+    new_object,
+    reserve_edges,
+    set_edge,
+)
+
+
+@struct
+class DenebSszDecodeResult:
+    object: raw_ptr[SszObject]
+    temporary: raw_ptr[SszDocument]
+
+
+def copy_data(
+    document: raw_ptr[SszDocument],
+    start: i32,
+    length: i32,
+    obj: raw_ptr[SszObject],
+) -> i32:
+    offset = alloc_data(obj, length)
+    if not require_range(document, start, start + length):
+        obj.valid = 0
+        return offset
+    i: i32 = 0
+    while i < length:
+        obj.arena[offset + i] = document.data[start + i]
+        i = i + 1
+    return offset
+
+
+def ssz_uint(
+    document: raw_ptr[SszDocument],
+    start: i32,
+    size: i32,
+    obj: raw_ptr[SszObject],
+) -> i32:
+    offset = alloc_data(obj, 32)
+    if not require_range(document, start, start + size):
+        obj.valid = 0
+        return add_uint_node(obj, offset)
+    i: i32 = 0
+    while i < size:
+        obj.arena[offset + i] = document.data[start + i]
+        i = i + 1
+    return add_uint_node(obj, offset)
+
+
+def ssz_fixed_bytes(
+    document: raw_ptr[SszDocument],
+    start: i32,
+    size: i32,
+    obj: raw_ptr[SszObject],
+) -> i32:
+    return add_fixed_bytes_node(obj, copy_data(document, start, size, obj), size)
+
+
+def decode_ssz_uint(
+    document: raw_ptr[SszDocument], start: i32, size: i32,
+    obj: raw_ptr[SszObject]
+) -> i32:
+    return ssz_uint(document, start, size, obj)
+
+
+def decode_ssz_fixed_bytes(
+    document: raw_ptr[SszDocument], start: i32, size: i32,
+    obj: raw_ptr[SszObject]
+) -> i32:
+    return ssz_fixed_bytes(document, start, size, obj)
+
+
+def decode_ssz_attestation_data(
+    document: raw_ptr[SszDocument], start: i32,
+    obj: raw_ptr[SszObject]
+) -> i32:
+    return attestation_data(document, start, obj)
+
+
+def ssz_byte_list(
+    document: raw_ptr[SszDocument],
+    start: i32,
+    end: i32,
+    limit: i32,
+    obj: raw_ptr[SszObject],
+) -> i32:
+    length = end - start
+    if length < 0 or length > limit:
+        obj.valid = 0
+        length = 0
+    return add_byte_list_node(obj, copy_data(document, start, length, obj), length, limit)
+
+
+def ssz_bitlist(
+    document: raw_ptr[SszDocument],
+    start: i32,
+    end: i32,
+    limit: i32,
+    obj: raw_ptr[SszObject],
+) -> i32:
+    encoded_length = end - start
+    offset = copy_data(document, start, encoded_length, obj)
+    if encoded_length <= 0:
+        obj.valid = 0
+        return add_bitlist_node(obj, offset, 0, limit)
+    last = i32(obj.arena[offset + encoded_length - 1])
+    delimiter: i32 = 7
+    while delimiter > 0 and (last & (1 << delimiter)) == 0:
+        delimiter = delimiter - 1
+    if last == 0:
+        obj.valid = 0
+    bit_length = (encoded_length - 1) * 8 + delimiter
+    obj.arena[offset + encoded_length - 1] = u8(last ^ (1 << delimiter))
+    if bit_length > limit:
+        obj.valid = 0
+    return add_bitlist_node(obj, offset, bit_length, limit)
+
+
+def empty_list(obj: raw_ptr[SszObject], limit: i32) -> i32:
+    first = reserve_edges(obj, 0)
+    return add_composite_node(obj, KIND_LIST, first, 0, limit, 0, 0)
+
+
+def require_empty_list(
+    document: raw_ptr[SszDocument],
+    start: i32,
+    end: i32,
+    limit: i32,
+    obj: raw_ptr[SszObject],
+) -> i32:
+    if start != end:
+        obj.valid = 0
+    return empty_list(obj, limit)
+
+
+def checkpoint(
+    document: raw_ptr[SszDocument], start: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    first = reserve_edges(obj, 2)
+    set_edge(obj, first, 0, ssz_uint(document, start, 8, obj))
+    set_edge(obj, first, 1, ssz_fixed_bytes(document, start + 8, 32, obj))
+    return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
+
+
+def attestation_data(
+    document: raw_ptr[SszDocument], start: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    first = reserve_edges(obj, 5)
+    set_edge(obj, first, 0, ssz_uint(document, start, 8, obj))
+    set_edge(obj, first, 1, ssz_uint(document, start + 8, 8, obj))
+    set_edge(obj, first, 2, ssz_fixed_bytes(document, start + 16, 32, obj))
+    set_edge(obj, first, 3, checkpoint(document, start + 48, obj))
+    set_edge(obj, first, 4, checkpoint(document, start + 88, obj))
+    return add_composite_node(obj, KIND_CONTAINER, first, 5, 5, 0, 0)
+
+
+def attestation(
+    document: raw_ptr[SszDocument],
+    start: i32,
+    end: i32,
+    obj: raw_ptr[SszObject],
+) -> i32:
+    if not require_range(document, start, end) or end - start < 228:
+        obj.valid = 0
+    bits = variable_offset(document, start, end, 0, 228)
+    first = reserve_edges(obj, 3)
+    set_edge(obj, first, 0, ssz_bitlist(document, bits, end, obj.max_validators_per_committee, obj))
+    set_edge(obj, first, 1, attestation_data(document, start + 4, obj))
+    set_edge(obj, first, 2, ssz_fixed_bytes(document, start + 132, 96, obj))
+    return add_composite_node(obj, KIND_CONTAINER, first, 3, 3, 0, 0)
+
+
+def attestation_list(
+    document: raw_ptr[SszDocument],
+    start: i32,
+    end: i32,
+    obj: raw_ptr[SszObject],
+) -> i32:
+    if start == end:
+        return empty_list(obj, obj.max_attestations)
+    first_offset = read_u32(document, start)
+    if first_offset <= 0 or first_offset % 4 != 0:
+        obj.valid = 0
+        return empty_list(obj, obj.max_attestations)
+    count = first_offset // 4
+    if count > obj.max_attestations or start + first_offset > end:
+        obj.valid = 0
+        return empty_list(obj, obj.max_attestations)
+    first = reserve_edges(obj, count)
+    i: i32 = 0
+    while i < count:
+        item_start = start + read_u32(document, start + i * 4)
+        item_end = end
+        if i + 1 < count:
+            item_end = start + read_u32(document, start + (i + 1) * 4)
+        if item_start < start + first_offset or item_end < item_start or item_end > end:
+            obj.valid = 0
+        set_edge(obj, first, i, attestation(document, item_start, item_end, obj))
+        i = i + 1
+    return add_composite_node(obj, KIND_LIST, first, count, obj.max_attestations, 0, 0)
+
+
+def withdrawal(
+    document: raw_ptr[SszDocument], start: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    first = reserve_edges(obj, 4)
+    set_edge(obj, first, 0, ssz_uint(document, start, 8, obj))
+    set_edge(obj, first, 1, ssz_uint(document, start + 8, 8, obj))
+    set_edge(obj, first, 2, ssz_fixed_bytes(document, start + 16, 20, obj))
+    set_edge(obj, first, 3, ssz_uint(document, start + 36, 8, obj))
+    return add_composite_node(obj, KIND_CONTAINER, first, 4, 4, 0, 0)
+
+
+def withdrawal_list(
+    document: raw_ptr[SszDocument],
+    start: i32,
+    end: i32,
+    obj: raw_ptr[SszObject],
+) -> i32:
+    length = end - start
+    if length < 0 or length % 44 != 0:
+        obj.valid = 0
+        return empty_list(obj, obj.max_withdrawals_per_payload)
+    count = length // 44
+    if count > obj.max_withdrawals_per_payload:
+        obj.valid = 0
+    first = reserve_edges(obj, count)
+    i: i32 = 0
+    while i < count:
+        set_edge(obj, first, i, withdrawal(document, start + i * 44, obj))
+        i = i + 1
+    return add_composite_node(obj, KIND_LIST, first, count, obj.max_withdrawals_per_payload, 0, 0)
+
+
+def transaction_list(
+    document: raw_ptr[SszDocument],
+    start: i32,
+    end: i32,
+    obj: raw_ptr[SszObject],
+) -> i32:
+    if start == end:
+        return empty_list(obj, obj.max_transactions_per_payload)
+    first_offset = read_u32(document, start)
+    if first_offset <= 0 or first_offset % 4 != 0:
+        obj.valid = 0
+        return empty_list(obj, obj.max_transactions_per_payload)
+    count = first_offset // 4
+    if count > obj.max_transactions_per_payload or start + first_offset > end:
+        obj.valid = 0
+        return empty_list(obj, obj.max_transactions_per_payload)
+    first = reserve_edges(obj, count)
+    i: i32 = 0
+    while i < count:
+        item_start = start + read_u32(document, start + i * 4)
+        item_end = end
+        if i + 1 < count:
+            item_end = start + read_u32(document, start + (i + 1) * 4)
+        if item_start < start + first_offset or item_end < item_start or item_end > end:
+            obj.valid = 0
+        set_edge(obj, first, i, ssz_byte_list(document, item_start, item_end, obj.max_bytes_per_transaction, obj))
+        i = i + 1
+    return add_composite_node(obj, KIND_LIST, first, count, obj.max_transactions_per_payload, 0, 0)
+
+
+def execution_payload(
+    document: raw_ptr[SszDocument],
+    start: i32,
+    end: i32,
+    obj: raw_ptr[SszObject],
+) -> i32:
+    if end - start < 528:
+        obj.valid = 0
+    extra = variable_offset(document, start, end, 436, 528)
+    transactions = variable_offset(document, start, end, 504, 528)
+    withdrawals = variable_offset(document, start, end, 508, 528)
+    if transactions < extra or withdrawals < transactions:
+        obj.valid = 0
+    first = reserve_edges(obj, 17)
+    set_edge(obj, first, 0, ssz_fixed_bytes(document, start, 32, obj))
+    set_edge(obj, first, 1, ssz_fixed_bytes(document, start + 32, 20, obj))
+    set_edge(obj, first, 2, ssz_fixed_bytes(document, start + 52, 32, obj))
+    set_edge(obj, first, 3, ssz_fixed_bytes(document, start + 84, 32, obj))
+    set_edge(obj, first, 4, ssz_fixed_bytes(document, start + 116, 256, obj))
+    set_edge(obj, first, 5, ssz_fixed_bytes(document, start + 372, 32, obj))
+    set_edge(obj, first, 6, ssz_uint(document, start + 404, 8, obj))
+    set_edge(obj, first, 7, ssz_uint(document, start + 412, 8, obj))
+    set_edge(obj, first, 8, ssz_uint(document, start + 420, 8, obj))
+    set_edge(obj, first, 9, ssz_uint(document, start + 428, 8, obj))
+    set_edge(obj, first, 10, ssz_byte_list(document, extra, transactions, 32, obj))
+    set_edge(obj, first, 11, ssz_uint(document, start + 440, 32, obj))
+    set_edge(obj, first, 12, ssz_fixed_bytes(document, start + 472, 32, obj))
+    set_edge(obj, first, 13, transaction_list(document, transactions, withdrawals, obj))
+    set_edge(obj, first, 14, withdrawal_list(document, withdrawals, end, obj))
+    set_edge(obj, first, 15, ssz_uint(document, start + 512, 8, obj))
+    set_edge(obj, first, 16, ssz_uint(document, start + 520, 8, obj))
+    return add_composite_node(obj, KIND_CONTAINER, first, 17, 17, 0, 0)
+
+
+def fixed_bytes_list(
+    document: raw_ptr[SszDocument],
+    start: i32,
+    end: i32,
+    limit: i32,
+    size: i32,
+    obj: raw_ptr[SszObject],
+) -> i32:
+    length = end - start
+    if length < 0 or length % size != 0:
+        obj.valid = 0
+        return empty_list(obj, limit)
+    count = length // size
+    if count > limit:
+        obj.valid = 0
+    first = reserve_edges(obj, count)
+    i: i32 = 0
+    while i < count:
+        set_edge(obj, first, i, ssz_fixed_bytes(document, start + i * size, size, obj))
+        i = i + 1
+    return add_composite_node(obj, KIND_LIST, first, count, limit, 0, 0)
+
+
+def eth1_data(
+    document: raw_ptr[SszDocument], start: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    first = reserve_edges(obj, 3)
+    set_edge(obj, first, 0, ssz_fixed_bytes(document, start, 32, obj))
+    set_edge(obj, first, 1, ssz_uint(document, start + 32, 8, obj))
+    set_edge(obj, first, 2, ssz_fixed_bytes(document, start + 40, 32, obj))
+    return add_composite_node(obj, KIND_CONTAINER, first, 3, 3, 0, 0)
+
+
+def sync_aggregate(
+    document: raw_ptr[SszDocument], start: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    first = reserve_edges(obj, 2)
+    bits_size = obj.sync_committee_size // 8
+    set_edge(obj, first, 0, ssz_fixed_bytes(document, start, bits_size, obj))
+    set_edge(obj, first, 1, ssz_fixed_bytes(document, start + bits_size, 96, obj))
+    return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
+
+
+def block_body(
+    document: raw_ptr[SszDocument],
+    start: i32,
+    end: i32,
+    obj: raw_ptr[SszObject],
+) -> i32:
+    if end - start < 392:
+        obj.valid = 0
+    proposer = variable_offset(document, start, end, 200, 392)
+    attester = variable_offset(document, start, end, 204, 392)
+    attestations = variable_offset(document, start, end, 208, 392)
+    deposits = variable_offset(document, start, end, 212, 392)
+    exits = variable_offset(document, start, end, 216, 392)
+    payload = variable_offset(document, start, end, 380, 392)
+    changes = variable_offset(document, start, end, 384, 392)
+    commitments = variable_offset(document, start, end, 388, 392)
+    if attester < proposer or attestations < attester or deposits < attestations:
+        obj.valid = 0
+    if exits < deposits or payload < exits or changes < payload or commitments < changes:
+        obj.valid = 0
+    first = reserve_edges(obj, 12)
+    set_edge(obj, first, 0, ssz_fixed_bytes(document, start, 96, obj))
+    set_edge(obj, first, 1, eth1_data(document, start + 96, obj))
+    set_edge(obj, first, 2, ssz_fixed_bytes(document, start + 168, 32, obj))
+    set_edge(obj, first, 3, require_empty_list(document, proposer, attester, obj.max_proposer_slashings, obj))
+    set_edge(obj, first, 4, require_empty_list(document, attester, attestations, obj.max_attester_slashings, obj))
+    set_edge(obj, first, 5, attestation_list(document, attestations, deposits, obj))
+    set_edge(obj, first, 6, require_empty_list(document, deposits, exits, obj.max_deposits, obj))
+    set_edge(obj, first, 7, require_empty_list(document, exits, payload, obj.max_voluntary_exits, obj))
+    set_edge(obj, first, 8, sync_aggregate(document, start + 220, obj))
+    set_edge(obj, first, 9, execution_payload(document, payload, changes, obj))
+    set_edge(obj, first, 10, require_empty_list(document, changes, commitments, obj.max_bls_to_execution_changes, obj))
+    set_edge(obj, first, 11, fixed_bytes_list(document, commitments, end, obj.max_blob_commitments_per_block, 48, obj))
+    return add_composite_node(obj, KIND_CONTAINER, first, 12, 12, 0, 0)
+
+
+def beacon_block(
+    document: raw_ptr[SszDocument],
+    start: i32,
+    end: i32,
+    obj: raw_ptr[SszObject],
+) -> i32:
+    if end - start < 84:
+        obj.valid = 0
+    body = variable_offset(document, start, end, 80, 84)
+    first = reserve_edges(obj, 5)
+    set_edge(obj, first, 0, ssz_uint(document, start, 8, obj))
+    set_edge(obj, first, 1, ssz_uint(document, start + 8, 8, obj))
+    set_edge(obj, first, 2, ssz_fixed_bytes(document, start + 16, 32, obj))
+    set_edge(obj, first, 3, ssz_fixed_bytes(document, start + 48, 32, obj))
+    set_edge(obj, first, 4, block_body(document, body, end, obj))
+    return add_composite_node(obj, KIND_CONTAINER, first, 5, 5, 0, 0)
+
+
+def signed_beacon_block(
+    document: raw_ptr[SszDocument], obj: raw_ptr[SszObject]
+) -> i32:
+    if document.length < 100:
+        obj.valid = 0
+    message = variable_offset(document, 0, document.length, 0, 100)
+    first = reserve_edges(obj, 2)
+    set_edge(obj, first, 0, beacon_block(document, message, document.length, obj))
+    set_edge(obj, first, 1, ssz_fixed_bytes(document, 4, 96, obj))
+    return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
+
+
+def decode_deneb_signed_block_ssz(source: bytes) -> DenebSszDecodeResult:
+    document = decode_ssz(source)
+    capacity = document.length // 4 + 1024
+    obj = new_object(
+        FORK_DENEB,
+        OBJECT_SIGNED_BEACON_BLOCK,
+        SCHEMA_DENEB_SIGNED_BEACON_BLOCK,
+        capacity,
+        capacity,
+        document.length * 2 + 4096,
+    )
+    obj.root_node = signed_beacon_block(document, obj)
+    if document.valid == 0:
+        obj.valid = 0
+    return DenebSszDecodeResult(obj, document)
+
+
+def decode_deneb_attestation_ssz(source: bytes) -> DenebSszDecodeResult:
+    document = decode_ssz(source)
+    capacity = document.length // 4 + 64
+    obj = new_object(
+        FORK_DENEB,
+        OBJECT_ATTESTATION,
+        SCHEMA_DENEB_ATTESTATION,
+        capacity,
+        capacity,
+        document.length * 2 + 1024,
+    )
+    obj.root_node = attestation(document, 0, document.length, obj)
+    if document.valid == 0:
+        obj.valid = 0
+    return DenebSszDecodeResult(obj, document)

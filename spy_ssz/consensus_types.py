@@ -8,7 +8,7 @@ from functools import lru_cache
 from importlib.resources import files
 from typing import Iterator
 
-from .native_object import Fork
+from .schema import Fork
 
 
 @dataclass(frozen=True, slots=True)

@@ -260,7 +260,7 @@ def benchmark_case(
     results: Results,
     warmup: int,
     rounds: int,
-    native: bool,
+    spy: bool,
 ) -> None:
     spec = case.spec
     def json_decode() -> Any:
@@ -304,59 +304,59 @@ def benchmark_case(
         elapsed_ns(case.value.encode_bytes, warmup, rounds),
     )
 
-    if native and case.fork in {"deneb", "electra", "fulu"}:
+    if spy and case.fork in {"deneb", "electra", "fulu"}:
         try:
             if case.fork == "deneb":
-                from spy_ssz.native_deneb import NativeDenebBlock as NativeBlock
+                from spy_ssz.deneb import DenebSignedBeaconBlock as SpyBlock
             elif case.fork == "electra":
-                from spy_ssz.native_electra import NativeElectraBlock as NativeBlock
+                from spy_ssz.electra import ElectraSignedBeaconBlock as SpyBlock
             else:
-                from spy_ssz.native_fulu import NativeFuluBlock as NativeBlock
+                from spy_ssz.fulu import FuluSignedBeaconBlock as SpyBlock
         except (ImportError, AttributeError):
             return
 
-        def native_json_decode() -> None:
-            block = NativeBlock.from_json(case.json_bytes)
+        def spy_json_decode() -> None:
+            block = SpyBlock.from_json(case.json_bytes)
             block.close()
 
-        def native_ssz_decode() -> None:
-            block = NativeBlock.from_ssz(case.ssz_bytes)
+        def spy_ssz_decode() -> None:
+            block = SpyBlock.from_ssz(case.ssz_bytes)
             block.close()
 
         try:
             results.add(
                 case,
-                "native_json_decode",
+                "spy_json_decode",
                 len(case.json_bytes),
-                elapsed_ns(native_json_decode, warmup, rounds),
+                elapsed_ns(spy_json_decode, warmup, rounds),
             )
             results.add(
                 case,
-                "native_ssz_decode",
+                "spy_ssz_decode",
                 len(case.ssz_bytes),
-                elapsed_ns(native_ssz_decode, warmup, rounds),
+                elapsed_ns(spy_ssz_decode, warmup, rounds),
             )
             if case.fork in {"electra", "fulu"}:
-                native_block = NativeBlock.from_ssz(case.ssz_bytes)
+                spy_block = SpyBlock.from_ssz(case.ssz_bytes)
                 try:
-                    native_json_length = len(native_block.to_json())
-                    native_ssz_length = len(native_block.to_ssz())
+                    spy_json_length = len(spy_block.to_json())
+                    spy_ssz_length = len(spy_block.to_ssz())
                     results.add(
                         case,
-                        "native_json_encode",
-                        native_json_length,
-                        elapsed_ns(native_block.to_json, warmup, rounds),
+                        "spy_json_encode",
+                        spy_json_length,
+                        elapsed_ns(spy_block.to_json, warmup, rounds),
                     )
                     results.add(
                         case,
-                        "native_ssz_encode",
-                        native_ssz_length,
-                        elapsed_ns(native_block.to_ssz, warmup, rounds),
+                        "spy_ssz_encode",
+                        spy_ssz_length,
+                        elapsed_ns(spy_block.to_ssz, warmup, rounds),
                     )
                 finally:
-                    native_block.close()
+                    spy_block.close()
         except (ValueError, NotImplementedError) as exc:
-            print(f"native metrics unavailable for {case.key}: {exc}", file=sys.stderr)
+            print(f"SPy metrics unavailable for {case.key}: {exc}", file=sys.stderr)
 
 
 def percentile(values: list[float], fraction: float) -> float:
@@ -426,9 +426,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rounds", type=int, default=5)
     parser.add_argument("--csv", type=Path, help="write per-block timings")
     parser.add_argument(
-        "--no-native",
+        "--no-spy",
         action="store_true",
-        help="skip available spy-ssz native codec measurements",
+        help="skip available spy-ssz SPy codec measurements",
     )
     return parser.parse_args()
 
@@ -458,7 +458,7 @@ def main() -> None:
         try:
             case = prepare_case(source, args.fork)
             benchmark_case(
-                case, results, args.warmup, args.rounds, not args.no_native
+                case, results, args.warmup, args.rounds, not args.no_spy
             )
             print(
                 f"[{index:>5}/{len(sources)}] {case.fork:<7} {case.key}",

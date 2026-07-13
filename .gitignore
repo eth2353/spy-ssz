@@ -2,10 +2,10 @@
 __pycache__/
 .pytest_cache/
 .deps/
-native/build/
+src/build/
 build/
 dist/
 *.egg-info/
-spy_ssz/_native.c
-spy_ssz/_native.*.so
+spy_ssz/_spy.c
+spy_ssz/_spy.*.so
 *.pyc

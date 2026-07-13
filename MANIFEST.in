@@ -1,2 +1,3 @@
-include tools/build_native.py
-recursive-include native *.c *.spy
+include tools/build_extension.py
+include tools/generate_spy_metadata.py
+recursive-include src *.c *.spy
