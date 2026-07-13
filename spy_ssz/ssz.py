@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from enum import IntEnum
 from importlib import import_module
 from typing import Any, Callable, ClassVar, Self, TypeVar
@@ -162,7 +163,7 @@ class SszObject:
             value = {cls.json_input_envelope_key: value}
         return cls.from_json(msgspec.json.encode(value))
 
-    def to_obj(self) -> Any:
+    def _decoded_obj(self) -> Any:
         if self._obj_cache is None:
             value = msgspec.json.decode(self.to_json())
             if self.json_output_envelope_key is not None:
@@ -170,8 +171,11 @@ class SszObject:
             self._obj_cache = value
         return self._obj_cache
 
+    def to_obj(self) -> Any:
+        return deepcopy(self._decoded_obj())
+
     def __getattr__(self, name: str) -> Any:
-        value = self.to_obj()
+        value = self._decoded_obj()
         if isinstance(value, dict) and name in value:
             raw = value[name]
             if name in {"aggregation_bits", "committee_bits"}:
@@ -300,7 +304,7 @@ class SszObject:
                 type(self).__name__,
                 ((name, getattr(self, name)) for name in names),
             )
-        value = self.to_obj()
+        value = self._decoded_obj()
         values = value.items() if isinstance(value, dict) else (("value", value),)
         return format_container(type(self).__name__, values)
 
@@ -456,7 +460,7 @@ class _FrozenView:
             raise AttributeError(name) from None
 
     def to_obj(self) -> dict[str, Any]:
-        return self._value
+        return deepcopy(self._value)
 
 
 def _json_compatible(value: Any) -> Any:
