@@ -33,7 +33,7 @@ static void spy_json_document_destroy(spy_raw_json_ptr opaque) {
 static void spy_ssz_document_destroy(spy_raw_ssz_document_ptr opaque) {
     spy_ssz_reader$SszDocument *document = opaque.p;
     if (document == NULL) return;
-    free(document->data.p);
+    /* SSZ documents borrow the caller-owned input for synchronous lowering. */
     free(document);
 }
 

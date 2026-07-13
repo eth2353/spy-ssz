@@ -1,6 +1,6 @@
 """Shared SSZ-byte-to-typed-SSZ lowering primitives."""
 
-from unsafe import raw_ptr
+from unsafe import ptr_copy_slice, raw_ptr
 from ssz_reader import SszDocument, first_variable_offset, read_u32, require_range, variable_offset
 from ssz_object import (
     KIND_CONTAINER,
@@ -34,10 +34,10 @@ def copy_data(
     if not require_range(document, start, start + length):
         obj.valid = 0
         return offset
-    i: i32 = 0
-    while i < length:
-        obj.arena[offset + i] = document.data[start + i]
-        i = i + 1
+    ptr_copy_slice(
+        obj.arena, offset, offset + length,
+        document.data, start, start + length,
+    )
     return offset
 
 
@@ -51,10 +51,10 @@ def ssz_uint(
     if not require_range(document, start, start + size):
         obj.valid = 0
         return add_uint_node(obj, offset)
-    i: i32 = 0
-    while i < size:
-        obj.arena[offset + i] = document.data[start + i]
-        i = i + 1
+    ptr_copy_slice(
+        obj.arena, offset, offset + size,
+        document.data, start, start + size,
+    )
     return add_uint_node(obj, offset)
 
 

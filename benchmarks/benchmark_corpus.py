@@ -88,7 +88,13 @@ class Results:
 
 
 def source_key(root: Path, path: Path) -> str:
-    relative = path.relative_to(root).as_posix()
+    relative_path = path.relative_to(root)
+    if len(relative_path.parts) > 1 and relative_path.parts[0].lower() in {
+        "json",
+        "ssz",
+    }:
+        relative_path = Path(*relative_path.parts[1:])
+    relative = relative_path.as_posix()
     lowered = relative.lower()
     for suffix in KNOWN_SUFFIXES:
         if lowered.endswith(suffix):
@@ -288,6 +294,12 @@ def benchmark_case(
         len(case.ssz_bytes),
         elapsed_ns(case.value.encode_bytes, warmup, rounds),
     )
+    results.add(
+        case,
+        "hash_tree_root",
+        len(case.ssz_bytes),
+        elapsed_ns(case.value.hash_tree_root, warmup, rounds),
+    )
 
     if spy and case.fork in {"electra", "fulu"}:
         try:
@@ -336,6 +348,25 @@ def benchmark_case(
                         spy_ssz_length,
                         elapsed_ns(spy_block.to_ssz, warmup, rounds),
                     )
+                    root_blocks = [
+                        SpyBlock.from_ssz(case.ssz_bytes)
+                        for _ in range(warmup + rounds)
+                    ]
+                    root_blocks_iterator = iter(root_blocks)
+                    try:
+                        results.add(
+                            case,
+                            "spy_hash_tree_root",
+                            spy_ssz_length,
+                            elapsed_ns(
+                                lambda: next(root_blocks_iterator).hash_tree_root(),
+                                warmup,
+                                rounds,
+                            ),
+                        )
+                    finally:
+                        for root_block in root_blocks:
+                            root_block.close()
                 finally:
                     spy_block.close()
         except (ValueError, NotImplementedError) as exc:

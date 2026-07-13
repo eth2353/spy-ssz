@@ -261,7 +261,27 @@ Use `--csv timings.csv` for per-block results, `--limit` for a quick sample,
 `--fork electra` or `--fork fulu` when a standalone file's fork cannot be
 inferred, or `--no-spy` to measure only the consensus-spec codecs.
 
-On a 592-block Fulu corpus, representative p50 results were 0.901 ms for SPy
-JSON decode, 0.451 ms for SPy JSON encode, 0.269 ms for SPy SSZ decode, and
-0.491 ms for SPy SSZ encode. The corresponding consensus-spec operations took
-7.696, 15.067, 7.885, and 17.085 ms.
+### Performance
+
+The following median timings were measured on an Apple M1 machine using 296
+realistic Fulu beacon blocks (50.52 MiB of SSZ data). File I/O was excluded;
+each operation used one warmup followed by five measured runs. Rust
+implementations were compiled in release mode.
+
+| Implementation | SSZ decode | SSZ encode | Cold hash-tree root |
+| --- | ---: | ---: | ---: |
+| `spy-ssz` | 0.017 ms | 0.025 ms | 2.981 ms |
+| Grandine SSZ | 0.024 ms | 0.015 ms | 4.640 ms |
+| `libssz` | 0.026 ms | 0.011 ms | 5.500 ms |
+| Lighthouse `ethereum_ssz` | 0.230 ms | 0.116 ms | 2.787 ms |
+
+For this block corpus, `spy-ssz`, Grandine, and `libssz` have SSZ codec
+performance in the same general range. `spy-ssz` decoded and encoded SSZ faster
+than Lighthouse's `ethereum_ssz`, while its cold hash-tree-root time was close
+to Lighthouse and lower than the measured Grandine and `libssz` times.
+
+These numbers describe this corpus and machine rather than every SSZ schema or
+workload. In particular, list sizes, execution-payload contents, allocator
+behavior, and compiler settings can materially change the result. The corpus
+benchmark above can be used to reproduce the same methodology on another
+machine or dataset.

@@ -1,12 +1,12 @@
 """Bounds-checked temporary SSZ byte input."""
 
 from _bytes import BytesObject
-from unsafe import raw_alloc, raw_ptr
+from unsafe import gc_ptr, raw_alloc, raw_ptr
 
 
 @struct
 class SszDocument:
-    data: raw_ptr[u8]
+    data: gc_ptr[u8]
     length: i32
     valid: i32
 
@@ -14,13 +14,12 @@ class SszDocument:
 def decode_ssz(source: bytes) -> raw_ptr[SszDocument]:
     src = BytesObject.from_bytes(source)
     document = raw_alloc[SszDocument](1)
-    document.data = raw_alloc[u8](src.length)
+    # SSZ lowering is synchronous and only reads the input.  The Python/CFFI
+    # owner keeps it alive until lowering returns, so borrowing avoids copying
+    # the complete document before copying its decoded leaves into the arena.
+    document.data = src.data
     document.length = src.length
     document.valid = 1
-    i: i32 = 0
-    while i < src.length:
-        document.data[i] = src.data[i]
-        i = i + 1
     return document
 
 

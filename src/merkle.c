@@ -216,7 +216,23 @@ static int spy_fast_hash_node(
 
     if (node_index < 0 || node_index >= object->node_count) return 0;
     if (object->node_cache_initialized == 0) {
-        memset(object->node_root_valid.p, 0, (size_t)object->node_capacity);
+        uint8_t *node_roots = realloc(
+            object->node_roots.p, (size_t)object->node_count * 32
+        );
+        if (node_roots == NULL) {
+            object->valid = 0;
+            return 0;
+        }
+        object->node_roots.p = node_roots;
+        uint8_t *node_root_valid = realloc(
+            object->node_root_valid.p, (size_t)object->node_count
+        );
+        if (node_root_valid == NULL) {
+            object->valid = 0;
+            return 0;
+        }
+        object->node_root_valid.p = node_root_valid;
+        memset(object->node_root_valid.p, 0, (size_t)object->node_count);
         object->node_cache_initialized = 1;
     }
     if (object->node_root_valid.p[node_index] != 0) {

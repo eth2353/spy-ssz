@@ -133,15 +133,11 @@ def build(spy_root: Path) -> Path:
     kernels_source = BUILD / "src" / "ssz_kernels.c"
     generated = kernels_source.read_text()
     signature = "void spy_ssz_kernels$hash_pair_into("
-    if generated.count(signature) != 1:
+    fallback_signature = "static void spy_ssz_kernels$hash_pair_into_spy("
+    if generated.count(signature) == 1:
+        kernels_source.write_text(generated.replace(signature, fallback_signature, 1))
+    elif generated.count(fallback_signature) != 1:
         raise RuntimeError("unexpected generated hash_pair_into definition")
-    kernels_source.write_text(
-        generated.replace(
-            signature,
-            "static void spy_ssz_kernels$hash_pair_into_spy(",
-            1,
-        )
-    )
     sources.append(SOURCE / "sha256_pair.c")
 
     ffi = FFI()
