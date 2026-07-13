@@ -1,7 +1,7 @@
 """Allocation-free output primitives for SPy SSZ objects."""
 
 from _bytes import BytesObject
-from unsafe import gc_ptr, raw_ptr
+from unsafe import gc_ptr, ptr_copy_slice, raw_ptr
 from ssz_object import SszObject
 
 
@@ -24,10 +24,7 @@ def put_bytes(
         return end
     if end > capacity:
         return end
-    i: i32 = 0
-    while i < length:
-        data[position + i] = source[start + i]
-        i = i + 1
+    ptr_copy_slice(data, position, end, source, start, start + length)
     return end
 
 

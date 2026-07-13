@@ -326,16 +326,21 @@ def decode_json(source: bytes) -> raw_ptr[JsonDocument]:
             start = i + 1
             i = start
             escaped = False
+            simple_ascii = True
             while i < length and (document.json[i] != u8(34) or escaped):
-                if document.json[i] == u8(92) and not escaped:
+                value = i32(document.json[i])
+                if value < 32 or value >= 128:
+                    simple_ascii = False
+                if value == 92 and not escaped:
                     escaped = True
+                    simple_ascii = False
                 else:
                     escaped = False
                 i = i + 1
             if i >= length:
                 document.valid = 0
             else:
-                if not valid_json_string(document, start, i):
+                if not simple_ascii and not valid_json_string(document, start, i):
                     document.valid = 0
                 if (
                     parent >= 0

@@ -303,7 +303,11 @@ class SszObject:
         encoders: dict[CodecKey, tuple[Sizer, Encoder]],
         encoding: str,
     ) -> bytes:
-        key = (self.fork, self.object_kind, self.preset)
+        fork = type(self).expected_fork
+        kind = type(self).expected_kind
+        if fork is None or kind is None:
+            raise TypeError("use a registered concrete SPy SSZ class")
+        key = (fork, kind, type(self).expected_preset)
         codec = _lookup_codec(encoders, key, f"{encoding} encoder")
         sizer, encoder = codec
         handle = self._require_handle()
