@@ -118,9 +118,10 @@ def _load_builtin_codecs(fork: Fork) -> None:
 class SszObject:
     """An opaque Python owner for a typed SPy SSZ value graph."""
 
-    __slots__ = ("_handle", "_obj_cache")
+    __slots__ = ("_handle", "_obj_cache", "_value_key_cache")
     _handle: Any
     _obj_cache: Any
+    _value_key_cache: tuple[int, Preset, bytes] | None
     expected_fork: ClassVar[Fork | None] = None
     expected_kind: ClassVar[ObjectKind | None] = None
     expected_preset: ClassVar[Preset] = Preset.MAINNET
@@ -129,6 +130,7 @@ class SszObject:
 
     def __init__(self, handle: Any = None, **fields: Any):
         self._obj_cache: Any = None
+        self._value_key_cache = None
         if handle is None:
             if not fields:
                 raise TypeError("SPy SSZ containers require field values")
@@ -224,6 +226,25 @@ class SszObject:
 
     def hash_tree_root(self) -> bytes:
         return self._hash_tree_root_path(0, 0, 0)
+
+    def _value_key(self) -> tuple[int, Preset, bytes]:
+        if self._value_key_cache is None:
+            self._value_key_cache = (
+                self.schema_id,
+                self.preset,
+                self.hash_tree_root(),
+            )
+        return self._value_key_cache
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SszObject):
+            return NotImplemented
+        if self is other:
+            return True
+        return self._value_key() == other._value_key()
+
+    def __hash__(self) -> int:
+        return hash(self._value_key())
 
     def _hash_tree_root_path(self, first: int, second: int, depth: int) -> bytes:
         output = bytearray(32)
