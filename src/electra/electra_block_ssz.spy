@@ -6,8 +6,8 @@ from metadata import (
     OBJECT_SIGNED_BEACON_BLOCK,
     SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK,
 )
-from deneb_block_ssz import (
-    DenebSszDecodeResult,
+from ssz_lowering import (
+    SszDecodeResult,
     attestation_data,
     copy_data,
     empty_list,
@@ -497,7 +497,7 @@ def signed_beacon_block(
 
 def decode_signed_block_ssz(
     source: bytes, fork: i32, schema_id: i32, preset: i32
-) -> DenebSszDecodeResult:
+) -> SszDecodeResult:
     document = decode_ssz(source)
     capacity = document.length // 4 + 4096
     obj = new_object(
@@ -512,16 +512,16 @@ def decode_signed_block_ssz(
     obj.root_node = signed_beacon_block(document, obj)
     if document.valid == 0:
         obj.valid = 0
-    return DenebSszDecodeResult(obj, document)
+    return SszDecodeResult(obj, document)
 
 
-def decode_electra_signed_block_ssz(source: bytes) -> DenebSszDecodeResult:
+def decode_electra_signed_block_ssz(source: bytes) -> SszDecodeResult:
     return decode_signed_block_ssz(
         source, FORK_ELECTRA, SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK, 0
     )
 
 
-def decode_electra_signed_block_ssz_preset(source: bytes, preset: i32) -> DenebSszDecodeResult:
+def decode_electra_signed_block_ssz_preset(source: bytes, preset: i32) -> SszDecodeResult:
     return decode_signed_block_ssz(
         source, FORK_ELECTRA, SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK, preset
     )

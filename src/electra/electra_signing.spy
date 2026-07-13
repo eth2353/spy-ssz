@@ -26,8 +26,8 @@ from metadata import (
     SCHEMA_ELECTRA_SYNC_COMMITTEE_CONTRIBUTION,
 )
 from writer import child, json_hex_node, json_key, put, put_u32, ssz_fixed_bytes, write_json_uint, write_ssz_uint
-from deneb_block import DenebDecodeResult, attestation_data, decode_json_uint, json_fixed_bytes
-from deneb_block_ssz import DenebSszDecodeResult, decode_ssz_attestation_data, decode_ssz_fixed_bytes, decode_ssz_uint
+from json_lowering import JsonDecodeResult, attestation_data, decode_json_uint, json_fixed_bytes
+from ssz_lowering import SszDecodeResult, decode_ssz_attestation_data, decode_ssz_fixed_bytes, decode_ssz_uint
 from electra_block import (
     attestation,
     attester_slashing,
@@ -205,7 +205,7 @@ def signed_contribution_ssz(
     return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
 
 
-def decode_signing_json(source: bytes, kind: i32, schema: i32, preset: i32) -> DenebDecodeResult:
+def decode_signing_json(source: bytes, kind: i32, schema: i32, preset: i32) -> JsonDecodeResult:
     document = decode_json(source)
     obj = new_signing_object(FORK_ELECTRA, kind, schema, preset, document.token_count + 64, document.json_length * 2 + 1024)
     if kind == OBJECT_ATTESTATION_DATA:
@@ -236,10 +236,10 @@ def decode_signing_json(source: bytes, kind: i32, schema: i32, preset: i32) -> D
         obj.root_node = proposer_slashing(document, 0, obj)
     if document.valid == 0:
         obj.valid = 0
-    return DenebDecodeResult(obj, document)
+    return JsonDecodeResult(obj, document)
 
 
-def decode_signing_ssz(source: bytes, kind: i32, schema: i32, preset: i32) -> DenebSszDecodeResult:
+def decode_signing_ssz(source: bytes, kind: i32, schema: i32, preset: i32) -> SszDecodeResult:
     document = decode_ssz(source)
     obj = new_signing_object(FORK_ELECTRA, kind, schema, preset, document.length // 4 + 128, document.length * 3 + 1024)
     if kind == OBJECT_ATTESTATION_DATA:
@@ -292,7 +292,7 @@ def decode_signing_ssz(source: bytes, kind: i32, schema: i32, preset: i32) -> De
         obj.root_node = decode_ssz_proposer_slashing(document, 0, obj)
     if document.valid == 0:
         obj.valid = 0
-    return DenebSszDecodeResult(obj, document)
+    return SszDecodeResult(obj, document)
 
 
 def json_sync_contribution(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:

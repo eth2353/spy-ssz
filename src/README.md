@@ -10,9 +10,9 @@ only while a schema lowerer runs. The C ownership wrapper destroys their source
 copy before the opaque SSZ object reaches Python. JSON and SSZ therefore create
 the same retained graph layout.
 
-Electra and Fulu codecs live under `electra/` and `fulu/`. Shared block
-lowering primitives currently live under `deneb/`; the root
-contains only shared runtime and build infrastructure. Schema IDs come from
+Electra and Fulu codecs live under `electra/` and `fulu/`. Shared JSON and SSZ
+lowering primitives live in `json_lowering.spy` and `ssz_lowering.spy`; the root
+also contains the shared runtime and build infrastructure. Schema IDs come from
 `spy_ssz/schemas.yaml`; validation limits come from canonical
 `spy_ssz/presets/<preset>/*.yaml` files. The build regenerates `metadata.spy`
 and `preset_config.spy` from those authoritative inputs. New block,

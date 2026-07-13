@@ -1,4 +1,4 @@
-"""SSZ-byte lowering for the Deneb types implemented by deneb_block."""
+"""Shared SSZ-byte-to-typed-SSZ lowering primitives."""
 
 from unsafe import raw_ptr
 from ssz_reader import SszDocument, first_variable_offset, read_u32, require_range, variable_offset
@@ -19,7 +19,7 @@ from ssz_object import (
 
 
 @struct
-class DenebSszDecodeResult:
+class SszDecodeResult:
     object: raw_ptr[SszObject]
     temporary: raw_ptr[SszDocument]
 

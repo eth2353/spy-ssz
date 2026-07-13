@@ -7,8 +7,8 @@ from metadata import (
     OBJECT_SIGNED_BEACON_BLOCK,
     SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK,
 )
-from deneb_block import (
-    DenebDecodeResult,
+from json_lowering import (
+    JsonDecodeResult,
     attestation_data,
     eth1_data,
     execution_payload,
@@ -427,7 +427,7 @@ def signed_beacon_block(
     return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
 
 
-def decode_signed_block(source: bytes, fork: i32, schema_id: i32, preset: i32) -> DenebDecodeResult:
+def decode_signed_block(source: bytes, fork: i32, schema_id: i32, preset: i32) -> JsonDecodeResult:
     document = decode_json(source)
     capacity = document.token_count + 1024
     obj = new_object(
@@ -443,16 +443,16 @@ def decode_signed_block(source: bytes, fork: i32, schema_id: i32, preset: i32) -
     obj.root_node = signed_beacon_block(document, value, obj)
     if document.valid == 0:
         obj.valid = 0
-    return DenebDecodeResult(obj, document)
+    return JsonDecodeResult(obj, document)
 
 
-def decode_electra_signed_block(source: bytes) -> DenebDecodeResult:
+def decode_electra_signed_block(source: bytes) -> JsonDecodeResult:
     return decode_signed_block(
         source, FORK_ELECTRA, SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK, 0
     )
 
 
-def decode_electra_signed_block_preset(source: bytes, preset: i32) -> DenebDecodeResult:
+def decode_electra_signed_block_preset(source: bytes, preset: i32) -> JsonDecodeResult:
     return decode_signed_block(
         source, FORK_ELECTRA, SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK, preset
     )

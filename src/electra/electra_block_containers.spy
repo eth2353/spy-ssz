@@ -13,7 +13,7 @@ from metadata import (
     SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK_CONTENTS,
     SCHEMA_ELECTRA_SIGNED_BLINDED_BEACON_BLOCK,
 )
-from deneb_block import DenebDecodeResult, eth1_data, fixed_bytes_list, json_byte_list, json_fixed_bytes, json_uint, json_uint64, sync_aggregate
+from json_lowering import JsonDecodeResult, eth1_data, fixed_bytes_list, json_byte_list, json_fixed_bytes, json_uint, json_uint64, sync_aggregate
 from electra_block import (
     attestation_list,
     attester_slashing_list,
@@ -96,7 +96,7 @@ def block_contents(document: raw_ptr[JsonDocument], value: i32, signed: bool, ob
     return add_composite_node(obj, KIND_CONTAINER, first, 3, 3, 0, 0)
 
 
-def decode_block_container_json(source: bytes, kind: i32, preset: i32) -> DenebDecodeResult:
+def decode_block_container_json(source: bytes, kind: i32, preset: i32) -> JsonDecodeResult:
     document = decode_json(source)
     value = object_get(document, 0, b"data")
     schema: i32 = SCHEMA_ELECTRA_BEACON_BLOCK_CONTENTS
@@ -119,4 +119,4 @@ def decode_block_container_json(source: bytes, kind: i32, preset: i32) -> DenebD
         obj.root_node = signed_blinded_block(document, value, obj)
     if document.valid == 0:
         obj.valid = 0
-    return DenebDecodeResult(obj, document)
+    return JsonDecodeResult(obj, document)

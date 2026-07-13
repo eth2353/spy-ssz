@@ -12,7 +12,7 @@ from metadata import (
     SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK_CONTENTS,
     SCHEMA_ELECTRA_SIGNED_BLINDED_BEACON_BLOCK,
 )
-from deneb_block_ssz import DenebSszDecodeResult, eth1_data, fixed_bytes_list, sync_aggregate, ssz_byte_list, ssz_fixed_bytes, ssz_uint
+from ssz_lowering import SszDecodeResult, eth1_data, fixed_bytes_list, sync_aggregate, ssz_byte_list, ssz_fixed_bytes, ssz_uint
 from electra_block_ssz import (
     attestation_list,
     attester_slashing_list,
@@ -126,7 +126,7 @@ def block_contents(document: raw_ptr[SszDocument], signed: bool, obj: raw_ptr[Ss
     return add_composite_node(obj, KIND_CONTAINER, first, 3, 3, 0, 0)
 
 
-def decode_block_container_ssz(source: bytes, kind: i32, preset: i32) -> DenebSszDecodeResult:
+def decode_block_container_ssz(source: bytes, kind: i32, preset: i32) -> SszDecodeResult:
     document = decode_ssz(source)
     schema: i32 = SCHEMA_ELECTRA_BEACON_BLOCK_CONTENTS
     if kind == OBJECT_SIGNED_BEACON_BLOCK_CONTENTS:
@@ -148,4 +148,4 @@ def decode_block_container_ssz(source: bytes, kind: i32, preset: i32) -> DenebSs
         obj.root_node = signed_blinded_block(document, obj)
     if document.valid == 0:
         obj.valid = 0
-    return DenebSszDecodeResult(obj, document)
+    return SszDecodeResult(obj, document)

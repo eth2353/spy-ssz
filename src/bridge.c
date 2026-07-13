@@ -3,8 +3,8 @@
 #include "json_parser.h"
 #include "metadata.h"
 #include "metadata_constants.h"
-#include "deneb_block.h"
-#include "deneb_block_ssz.h"
+#include "json_lowering.h"
+#include "ssz_lowering.h"
 #include "electra_block.h"
 #include "electra_block_encode.h"
 #include "electra_block_ssz.h"
@@ -38,7 +38,7 @@ static void spy_ssz_document_destroy(spy_raw_ssz_document_ptr opaque) {
 }
 
 spy_raw_ssz_ptr spy_schema_electra_decode_owned(spy_BytesObject *source) {
-    spy_deneb_block$DenebDecodeResult result =
+    spy_json_lowering$JsonDecodeResult result =
         spy_electra_block$decode_electra_signed_block(source);
     spy_json_document_destroy(result.temporary);
     return result.object;
@@ -46,14 +46,14 @@ spy_raw_ssz_ptr spy_schema_electra_decode_owned(spy_BytesObject *source) {
 
 spy_raw_ssz_ptr spy_schema_electra_decode_preset_owned(
     spy_BytesObject *source, int32_t preset) {
-    spy_deneb_block$DenebDecodeResult result =
+    spy_json_lowering$JsonDecodeResult result =
         spy_electra_block$decode_electra_signed_block_preset(source, preset);
     spy_json_document_destroy(result.temporary);
     return result.object;
 }
 
 spy_raw_ssz_ptr spy_schema_electra_decode_ssz_owned(spy_BytesObject *source) {
-    spy_deneb_block_ssz$DenebSszDecodeResult result =
+    spy_ssz_lowering$SszDecodeResult result =
         spy_electra_block_ssz$decode_electra_signed_block_ssz(source);
     spy_ssz_document_destroy(result.temporary);
     return result.object;
@@ -61,7 +61,7 @@ spy_raw_ssz_ptr spy_schema_electra_decode_ssz_owned(spy_BytesObject *source) {
 
 spy_raw_ssz_ptr spy_schema_electra_decode_ssz_preset_owned(
     spy_BytesObject *source, int32_t preset) {
-    spy_deneb_block_ssz$DenebSszDecodeResult result =
+    spy_ssz_lowering$SszDecodeResult result =
         spy_electra_block_ssz$decode_electra_signed_block_ssz_preset(
             source, preset);
     spy_ssz_document_destroy(result.temporary);
@@ -69,7 +69,7 @@ spy_raw_ssz_ptr spy_schema_electra_decode_ssz_preset_owned(
 }
 
 spy_raw_ssz_ptr spy_schema_fulu_decode_owned(spy_BytesObject *source) {
-    spy_deneb_block$DenebDecodeResult result =
+    spy_json_lowering$JsonDecodeResult result =
         spy_fulu_block$decode_fulu_signed_block(source);
     spy_json_document_destroy(result.temporary);
     return result.object;
@@ -77,14 +77,14 @@ spy_raw_ssz_ptr spy_schema_fulu_decode_owned(spy_BytesObject *source) {
 
 spy_raw_ssz_ptr spy_schema_fulu_decode_preset_owned(
     spy_BytesObject *source, int32_t preset) {
-    spy_deneb_block$DenebDecodeResult result =
+    spy_json_lowering$JsonDecodeResult result =
         spy_fulu_block$decode_fulu_signed_block_preset(source, preset);
     spy_json_document_destroy(result.temporary);
     return result.object;
 }
 
 spy_raw_ssz_ptr spy_schema_fulu_decode_ssz_owned(spy_BytesObject *source) {
-    spy_deneb_block_ssz$DenebSszDecodeResult result =
+    spy_ssz_lowering$SszDecodeResult result =
         spy_fulu_block_ssz$decode_fulu_signed_block_ssz(source);
     spy_ssz_document_destroy(result.temporary);
     return result.object;
@@ -92,7 +92,7 @@ spy_raw_ssz_ptr spy_schema_fulu_decode_ssz_owned(spy_BytesObject *source) {
 
 spy_raw_ssz_ptr spy_schema_fulu_decode_ssz_preset_owned(
     spy_BytesObject *source, int32_t preset) {
-    spy_deneb_block_ssz$DenebSszDecodeResult result =
+    spy_ssz_lowering$SszDecodeResult result =
         spy_fulu_block_ssz$decode_fulu_signed_block_ssz_preset(
             source, preset);
     spy_ssz_document_destroy(result.temporary);
@@ -101,7 +101,7 @@ spy_raw_ssz_ptr spy_schema_fulu_decode_ssz_preset_owned(
 
 spy_raw_ssz_ptr spy_schema_signing_decode_json_owned(
     spy_BytesObject *source, int32_t kind, int32_t schema, int32_t preset) {
-    spy_deneb_block$DenebDecodeResult result =
+    spy_json_lowering$JsonDecodeResult result =
         spy_electra_signing$decode_signing_json(source, kind, schema, preset);
     spy_json_document_destroy(result.temporary);
     return result.object;
@@ -109,7 +109,7 @@ spy_raw_ssz_ptr spy_schema_signing_decode_json_owned(
 
 spy_raw_ssz_ptr spy_schema_signing_decode_ssz_owned(
     spy_BytesObject *source, int32_t kind, int32_t schema, int32_t preset) {
-    spy_deneb_block_ssz$DenebSszDecodeResult result =
+    spy_ssz_lowering$SszDecodeResult result =
         spy_electra_signing$decode_signing_ssz(source, kind, schema, preset);
     spy_ssz_document_destroy(result.temporary);
     return result.object;
@@ -117,7 +117,7 @@ spy_raw_ssz_ptr spy_schema_signing_decode_ssz_owned(
 
 spy_raw_ssz_ptr spy_schema_block_containers_decode_json_owned(
     spy_BytesObject *source, int32_t kind, int32_t preset) {
-    spy_deneb_block$DenebDecodeResult result =
+    spy_json_lowering$JsonDecodeResult result =
         spy_electra_block_containers$decode_block_container_json(source, kind, preset);
     spy_json_document_destroy(result.temporary);
     return result.object;
@@ -125,7 +125,7 @@ spy_raw_ssz_ptr spy_schema_block_containers_decode_json_owned(
 
 spy_raw_ssz_ptr spy_schema_block_containers_decode_ssz_owned(
     spy_BytesObject *source, int32_t kind, int32_t preset) {
-    spy_deneb_block_ssz$DenebSszDecodeResult result =
+    spy_ssz_lowering$SszDecodeResult result =
         spy_electra_block_containers_ssz$decode_block_container_ssz(source, kind, preset);
     spy_ssz_document_destroy(result.temporary);
     return result.object;

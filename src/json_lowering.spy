@@ -1,4 +1,4 @@
-"""Deneb JSON-to-typed-SSZ lowering.
+"""Shared JSON-to-typed-SSZ lowering primitives.
 
 JSON tokens are temporary. The returned object contains only typed SSZ nodes,
 decoded scalar bytes, and ordered child edges.
@@ -28,7 +28,7 @@ from ssz_object import (
 
 
 @struct
-class DenebDecodeResult:
+class JsonDecodeResult:
     object: raw_ptr[SszObject]
     temporary: raw_ptr[JsonDocument]
 
