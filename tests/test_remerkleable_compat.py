@@ -353,6 +353,22 @@ def test_json_decoder_accepts_valid_unicode_and_escaped_ignored_fields() -> None
         assert decoded.hash_tree_root() == reference.hash_tree_root()
 
 
+def test_json_decoder_rejects_duplicate_object_keys() -> None:
+    raw = msgspec.json.encode(electra.AttestationData().to_obj())
+    duplicated = raw.replace(b'"slot":0', b'"slot":1,"slot":0')
+
+    with pytest.raises(ValueError, match="invalid JSON object"):
+        AttestationData.from_json(duplicated)
+
+
+def test_ssz_decoder_rejects_extreme_variable_offsets_without_crashing() -> None:
+    encoded = bytearray(_attestation().encode_bytes())
+    encoded[:4] = b"\xff\xff\xff\x7f"
+
+    with pytest.raises(ValueError, match="invalid SSZ object"):
+        Attestation.from_ssz(encoded)
+
+
 UPSTREAM_BITFIELD_CASES = [
     ("0x01", True, []),
     ("0x2b01", True, [True, True, False, True, False, True, False, False]),

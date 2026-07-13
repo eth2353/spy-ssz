@@ -137,6 +137,10 @@ def test_block_json_accepts_remerkleable_little_endian_uint256_hex() -> None:
     reference.message.body.execution_payload.base_fee_per_gas = 0x010203
 
     with ElectraSignedBeaconBlock.from_obj(reference) as decoded:
+        assert (
+            decoded.to_obj()["message"]["body"]["execution_payload"]["base_fee_per_gas"]
+            == "66051"
+        )
         assert decoded.to_ssz() == reference.encode_bytes()
         assert decoded.hash_tree_root() == reference.hash_tree_root()
 

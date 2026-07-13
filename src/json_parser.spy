@@ -120,6 +120,101 @@ def valid_json_string(
     return True
 
 
+def token_matches_ascii(
+    document: raw_ptr[JsonDocument], start: i32, end: i32, expected: bytes
+) -> bool:
+    value = BytesObject.from_bytes(expected)
+    if end - start != value.length:
+        return False
+    i: i32 = 0
+    while i < value.length:
+        if document.json[start + i] != value.data[i]:
+            return False
+        i = i + 1
+    return True
+
+
+def is_decimal_digit(ch: u8) -> bool:
+    value = i32(ch)
+    return value >= 48 and value <= 57
+
+
+def valid_json_number(
+    document: raw_ptr[JsonDocument], start: i32, end: i32
+) -> bool:
+    i = start
+    if i < end and document.json[i] == u8(45):
+        i = i + 1
+    if i >= end:
+        return False
+    if document.json[i] == u8(48):
+        i = i + 1
+        if i < end and is_decimal_digit(document.json[i]):
+            return False
+    elif i32(document.json[i]) >= 49 and i32(document.json[i]) <= 57:
+        i = i + 1
+        while i < end and is_decimal_digit(document.json[i]):
+            i = i + 1
+    else:
+        return False
+    if i < end and document.json[i] == u8(46):
+        i = i + 1
+        if i >= end or not is_decimal_digit(document.json[i]):
+            return False
+        while i < end and is_decimal_digit(document.json[i]):
+            i = i + 1
+    if (
+        i < end
+        and (document.json[i] == u8(101) or document.json[i] == u8(69))
+    ):
+        i = i + 1
+        if (
+            i < end
+            and (document.json[i] == u8(43) or document.json[i] == u8(45))
+        ):
+            i = i + 1
+        if i >= end or not is_decimal_digit(document.json[i]):
+            return False
+        while i < end and is_decimal_digit(document.json[i]):
+            i = i + 1
+    return i == end
+
+
+def valid_json_primitive(
+    document: raw_ptr[JsonDocument], start: i32, end: i32
+) -> bool:
+    return (
+        token_matches_ascii(document, start, end, b"true")
+        or token_matches_ascii(document, start, end, b"false")
+        or token_matches_ascii(document, start, end, b"null")
+        or valid_json_number(document, start, end)
+    )
+
+
+def object_has_duplicate_key(
+    document: raw_ptr[JsonDocument], obj: i32, start: i32, end: i32
+) -> bool:
+    i: i32 = 0
+    while i < document.token_count:
+        token = document.tokens[i]
+        if (
+            token.parent == obj
+            and token.kind == TOKEN_STRING
+            and token.state == 1
+            and token.end - token.start == end - start
+        ):
+            j: i32 = 0
+            equal = True
+            while j < end - start:
+                if document.json[token.start + j] != document.json[start + j]:
+                    equal = False
+                j = j + 1
+            if equal:
+                return True
+        i = i + 1
+    return False
+
+
 def add_token(
     document: raw_ptr[JsonDocument],
     kind: i32,
@@ -252,7 +347,11 @@ def decode_json(source: bytes) -> raw_ptr[JsonDocument]:
                         or document.tokens[parent].state == 4
                     )
                 ):
-                    add_token(document, TOKEN_STRING, start, i, parent)
+                    if object_has_duplicate_key(document, parent, start, i):
+                        document.valid = 0
+                    key = add_token(document, TOKEN_STRING, start, i, parent)
+                    if key >= 0:
+                        document.tokens[key].state = 1
                     document.tokens[parent].state = 1
                 else:
                     consume_value(document, parent)
@@ -268,6 +367,8 @@ def decode_json(source: bytes) -> raw_ptr[JsonDocument]:
                 and document.json[i] != u8(125)
             ):
                 i = i + 1
+            if not valid_json_primitive(document, start, i):
+                document.valid = 0
             consume_value(document, parent)
             add_token(document, TOKEN_PRIMITIVE, start, i, parent)
 

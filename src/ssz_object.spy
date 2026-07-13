@@ -208,7 +208,7 @@ def add_node(
 
 def reserve_edges(obj: raw_ptr[SszObject], count: i32) -> i32:
     first = obj.edge_count
-    if first + count > obj.edge_capacity:
+    if count < 0 or first < 0 or first > obj.edge_capacity - count:
         obj.valid = 0
         return 0
     obj.edge_count = first + count
@@ -223,7 +223,7 @@ def set_edge(
 
 def alloc_data(obj: raw_ptr[SszObject], length: i32) -> i32:
     offset = obj.arena_cursor
-    if offset + length > obj.arena_capacity:
+    if length < 0 or offset < 0 or offset > obj.arena_capacity - length:
         obj.valid = 0
         return 0
     obj.arena_cursor = offset + length

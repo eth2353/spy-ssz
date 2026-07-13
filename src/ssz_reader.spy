@@ -32,7 +32,8 @@ def require_range(document: raw_ptr[SszDocument], start: i32, end: i32) -> bool:
 
 
 def read_u32(document: raw_ptr[SszDocument], position: i32) -> i32:
-    if not require_range(document, position, position + 4):
+    if position < 0 or position > document.length - 4:
+        document.valid = 0
         return 0
     return (
         i32(document.data[position])
@@ -49,12 +50,14 @@ def variable_offset(
     position: i32,
     fixed_size: i32,
 ) -> i32:
-    offset = read_u32(document, start + position)
-    absolute = start + offset
-    if offset < fixed_size or absolute > end:
+    if start < 0 or position < 0 or start > end or start > document.length - position:
         document.valid = 0
         return end
-    return absolute
+    offset = read_u32(document, start + position)
+    if offset < fixed_size or offset > end - start:
+        document.valid = 0
+        return end
+    return start + offset
 
 
 def first_variable_offset(
