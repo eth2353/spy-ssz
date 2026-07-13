@@ -45,7 +45,7 @@ FORK_SLOT_STARTS = (
     (74_240 * 32, "altair"),
     (0, "phase0"),
 )
-KNOWN_SUFFIXES = (".ssz_snappy", ".json", ".ssz", ".bin")
+KNOWN_SUFFIXES = (".json", ".ssz", ".bin")
 
 
 @dataclass(slots=True)
@@ -168,18 +168,6 @@ def fork_from_ssz(raw: bytes) -> str | None:
     return None
 
 
-def decompress_ssz(path: Path, raw: bytes) -> bytes:
-    if not path.name.lower().endswith(".ssz_snappy"):
-        return raw
-    try:
-        import snappy  # type: ignore[import-not-found]
-    except ImportError as exc:
-        raise RuntimeError(
-            f"{path}: python-snappy is required for .ssz_snappy files"
-        ) from exc
-    return snappy.decompress(raw)
-
-
 def decode_ssz_with_fork(raw: bytes, fork: str) -> Any:
     return SPECS[fork].SignedBeaconBlock.decode_bytes(raw)
 
@@ -193,7 +181,7 @@ def prepare_case(sources: Sources, forced_fork: str) -> BlockCase:
         supplied_json = sources.json.read_bytes()
         json_value, metadata_fork = unwrap_json(supplied_json)
     if sources.ssz is not None:
-        supplied_ssz = decompress_ssz(sources.ssz, sources.ssz.read_bytes())
+        supplied_ssz = sources.ssz.read_bytes()
 
     fork = None if forced_fork == "auto" else forced_fork
     fork = fork or metadata_fork or fork_from_path(sources.key)

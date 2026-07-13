@@ -121,8 +121,8 @@ uv run python -m benchmarks.benchmark_corpus \
   /Users/luca/Downloads/eth-blocks/beacon_blocks
 ```
 
-The corpus benchmark discovers paired or standalone `.json`, `.ssz`, `.bin`,
-and `.ssz_snappy` blocks, measures JSON/SSZ encode and decode separately, and
+The corpus benchmark discovers paired or standalone `.json`, `.ssz`, and `.bin`
+blocks, measures JSON/SSZ encode and decode separately, and
 prints all-fork and per-fork p50, p95, total time, and throughput. Use
 `--csv timings.csv` for per-block results, `--limit` for a quick sample, or
 `--fork deneb` when a synthetic/standalone file cannot be identified from its
