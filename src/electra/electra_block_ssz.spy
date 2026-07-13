@@ -15,6 +15,7 @@ from ssz_lowering import (
     execution_payload,
     fixed_bytes_list,
     ssz_bitlist,
+    ssz_bitvector,
     ssz_fixed_bytes,
     ssz_uint,
     sync_aggregate,
@@ -169,7 +170,7 @@ def attestation(
     set_edge(obj, first, 0, ssz_bitlist(document, bits, end, obj.max_validators_per_committee * obj.max_committees_per_slot, obj))
     set_edge(obj, first, 1, attestation_data(document, start + 4, obj))
     set_edge(obj, first, 2, ssz_fixed_bytes(document, start + 132, 96, obj))
-    set_edge(obj, first, 3, ssz_fixed_bytes(document, start + 228, committee_size, obj))
+    set_edge(obj, first, 3, ssz_bitvector(document, start + 228, obj.max_committees_per_slot, obj))
     return add_composite_node(obj, KIND_CONTAINER, first, 4, 4, 0, 0)
 
 

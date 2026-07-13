@@ -174,6 +174,26 @@ def json_fixed_bytes(
     return add_fixed_bytes_node(obj, offset, length)
 
 
+def json_bitvector(
+    document: raw_ptr[JsonDocument],
+    token_index: i32,
+    obj: raw_ptr[SszObject],
+    bit_length: i32,
+) -> i32:
+    byte_length = (bit_length + 7) // 8
+    node = json_fixed_bytes(document, token_index, obj, byte_length)
+    if document.valid == 0:
+        return node
+    remainder = bit_length % 8
+    if remainder != 0:
+        token = document.tokens[token_index]
+        offset = obj.nodes[node].data_offset
+        if token.end - token.start == byte_length * 2 + 2:
+            if (i32(obj.arena[offset + byte_length - 1]) >> remainder) != 0:
+                obj.valid = 0
+    return node
+
+
 def decode_json_uint(
     document: raw_ptr[JsonDocument], token_index: i32,
     obj: raw_ptr[SszObject]
@@ -376,7 +396,7 @@ def sync_aggregate(
     document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
 ) -> i32:
     first = reserve_edges(obj, 2)
-    set_edge(obj, first, 0, json_fixed_bytes(document, object_get(document, value, b"sync_committee_bits"), obj, obj.sync_committee_size // 8))
+    set_edge(obj, first, 0, json_bitvector(document, object_get(document, value, b"sync_committee_bits"), obj, obj.sync_committee_size))
     set_edge(obj, first, 1, json_fixed_bytes(document, object_get(document, value, b"sync_committee_signature"), obj, 96))
     return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
 

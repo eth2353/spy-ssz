@@ -1,10 +1,12 @@
 import msgspec
 import pytest
 from eth_consensus_specs.electra import mainnet as electra
+from eth_consensus_specs.electra import minimal as electra_minimal
 
 from spy_ssz.signing import (
     AggregateAndProof,
     Attestation,
+    AttestationMinimal,
     AttestationData,
     AttesterSlashing,
     BeaconBlockHeader,
@@ -115,6 +117,35 @@ def test_ssz_decoder_rejects_noncanonical_first_variable_offset() -> None:
     raw[108:108] = b"x"
     with pytest.raises(ValueError, match="invalid SSZ object"):
         AggregateAndProof.from_ssz(raw)
+
+
+@pytest.mark.parametrize("invalid", ["0x10", "0x80", "0xff"])
+def test_minimal_attestation_json_rejects_bitvector_padding(invalid: str) -> None:
+    value = electra_minimal.Attestation().to_obj()
+    value["committee_bits"] = invalid
+
+    with pytest.raises(ValueError, match="invalid JSON object"):
+        AttestationMinimal.from_obj(value)
+
+
+@pytest.mark.parametrize("invalid", [0x10, 0x80, 0xFF])
+def test_minimal_attestation_ssz_rejects_bitvector_padding(invalid: int) -> None:
+    raw = bytearray(electra_minimal.Attestation().encode_bytes())
+    raw[228] = invalid
+
+    with pytest.raises(ValueError, match="invalid SSZ object"):
+        AttestationMinimal.from_ssz(raw)
+
+
+def test_minimal_attestation_accepts_full_bitvector_value() -> None:
+    reference = electra_minimal.Attestation(committee_bits=[True] * 4)
+
+    with (
+        AttestationMinimal.from_obj(reference.to_obj()) as from_json,
+        AttestationMinimal.from_ssz(reference.encode_bytes()) as from_ssz,
+    ):
+        assert from_json.to_ssz() == reference.encode_bytes()
+        assert from_ssz.hash_tree_root() == reference.hash_tree_root()
 
 
 def test_generic_signing_decode_preserves_bare_json_shape() -> None:

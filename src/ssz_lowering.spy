@@ -67,6 +67,21 @@ def ssz_fixed_bytes(
     return add_fixed_bytes_node(obj, copy_data(document, start, size, obj), size)
 
 
+def ssz_bitvector(
+    document: raw_ptr[SszDocument],
+    start: i32,
+    bit_length: i32,
+    obj: raw_ptr[SszObject],
+) -> i32:
+    byte_length = (bit_length + 7) // 8
+    node = ssz_fixed_bytes(document, start, byte_length, obj)
+    remainder = bit_length % 8
+    if remainder != 0 and require_range(document, start, start + byte_length):
+        if (i32(document.data[start + byte_length - 1]) >> remainder) != 0:
+            obj.valid = 0
+    return node
+
+
 def decode_ssz_uint(
     document: raw_ptr[SszDocument], start: i32, size: i32,
     obj: raw_ptr[SszObject]
@@ -352,7 +367,7 @@ def sync_aggregate(
 ) -> i32:
     first = reserve_edges(obj, 2)
     bits_size = obj.sync_committee_size // 8
-    set_edge(obj, first, 0, ssz_fixed_bytes(document, start, bits_size, obj))
+    set_edge(obj, first, 0, ssz_bitvector(document, start, obj.sync_committee_size, obj))
     set_edge(obj, first, 1, ssz_fixed_bytes(document, start + bits_size, 96, obj))
     return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
 

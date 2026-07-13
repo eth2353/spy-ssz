@@ -26,8 +26,8 @@ from metadata import (
     SCHEMA_ELECTRA_SYNC_COMMITTEE_CONTRIBUTION,
 )
 from writer import child, json_hex_node, json_key, put, put_u32, ssz_fixed_bytes, write_json_uint, write_ssz_uint
-from json_lowering import JsonDecodeResult, attestation_data, decode_json_uint, json_fixed_bytes
-from ssz_lowering import SszDecodeResult, decode_ssz_attestation_data, decode_ssz_fixed_bytes, decode_ssz_uint
+from json_lowering import JsonDecodeResult, attestation_data, decode_json_uint, json_bitvector, json_fixed_bytes
+from ssz_lowering import SszDecodeResult, decode_ssz_attestation_data, decode_ssz_fixed_bytes, decode_ssz_uint, ssz_bitvector
 from electra_block import (
     attestation,
     attester_slashing,
@@ -75,7 +75,7 @@ def sync_contribution_json(document: raw_ptr[JsonDocument], value: i32, obj: raw
     set_edge(obj, first, 0, decode_json_uint(document, object_get(document, value, b"slot"), obj))
     set_edge(obj, first, 1, json_fixed_bytes(document, object_get(document, value, b"beacon_block_root"), obj, 32))
     set_edge(obj, first, 2, decode_json_uint(document, object_get(document, value, b"subcommittee_index"), obj))
-    set_edge(obj, first, 3, json_fixed_bytes(document, object_get(document, value, b"aggregation_bits"), obj, obj.sync_committee_size // 32))
+    set_edge(obj, first, 3, json_bitvector(document, object_get(document, value, b"aggregation_bits"), obj, obj.sync_committee_size // 4))
     set_edge(obj, first, 4, json_fixed_bytes(document, object_get(document, value, b"signature"), obj, 96))
     return add_composite_node(obj, KIND_CONTAINER, first, 5, 5, 0, 0)
 
@@ -86,7 +86,7 @@ def sync_contribution_ssz(document: raw_ptr[SszDocument], start: i32, obj: raw_p
     set_edge(obj, first, 0, decode_ssz_uint(document, start, 8, obj))
     set_edge(obj, first, 1, decode_ssz_fixed_bytes(document, start + 8, 32, obj))
     set_edge(obj, first, 2, decode_ssz_uint(document, start + 40, 8, obj))
-    set_edge(obj, first, 3, decode_ssz_fixed_bytes(document, start + 48, bits, obj))
+    set_edge(obj, first, 3, ssz_bitvector(document, start + 48, obj.sync_committee_size // 4, obj))
     set_edge(obj, first, 4, decode_ssz_fixed_bytes(document, start + 48 + bits, 96, obj))
     return add_composite_node(obj, KIND_CONTAINER, first, 5, 5, 0, 0)
 
