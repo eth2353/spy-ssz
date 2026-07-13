@@ -16,6 +16,8 @@ enum {
     SPY_KIND_PROGRESSIVE_LIST = 8,
     SPY_KIND_PROGRESSIVE_BITLIST = 9,
     SPY_KIND_BASIC_LIST = 10,
+    SPY_NODE_ROOT_NOT_CACHED = 0,
+    SPY_NODE_ROOT_CACHED = 1,
 };
 
 typedef struct {
@@ -217,7 +219,7 @@ static int spy_fast_hash_node(
     int32_t chunks;
 
     if (node_index < 0 || node_index >= object->node_count) return 0;
-    if (object->node_cache_initialized == 0) {
+    if (!object->node_cache_initialized) {
         uint8_t *node_roots = realloc(
             object->node_roots.p, (size_t)object->node_count * 32
         );
@@ -234,10 +236,11 @@ static int spy_fast_hash_node(
             return 0;
         }
         object->node_root_valid.p = node_root_valid;
-        memset(object->node_root_valid.p, 0, (size_t)object->node_count);
-        object->node_cache_initialized = 1;
+        memset(object->node_root_valid.p, SPY_NODE_ROOT_NOT_CACHED,
+               (size_t)object->node_count);
+        object->node_cache_initialized = true;
     }
-    if (object->node_root_valid.p[node_index] != 0) {
+    if (object->node_root_valid.p[node_index] == SPY_NODE_ROOT_CACHED) {
         memcpy(output, object->node_roots.p + node_index * 32, 32);
         return 1;
     }
@@ -315,7 +318,7 @@ static int spy_fast_hash_node(
             return 0;
     }
     memcpy(object->node_roots.p + node_index * 32, root, 32);
-    object->node_root_valid.p[node_index] = 1;
+    object->node_root_valid.p[node_index] = SPY_NODE_ROOT_CACHED;
     memcpy(output, root, 32);
     return 1;
 }
@@ -335,10 +338,10 @@ static int32_t spy_ssz_fast_object_hash_tree_root(
 ) {
     spy_ssz_object$SszObject *object = opaque.p;
     if (object == NULL || output->length < 32) return 0;
-    if (object->root_valid == 0) {
+    if (!object->root_valid) {
         if (!spy_fast_hash_node(object, object->root_node, object->root.p->data.p))
             return 0;
-        object->root_valid = 1;
+        object->root_valid = true;
     }
     memcpy(output->data.p, object->root.p->data.p, 32);
     return object->status;
