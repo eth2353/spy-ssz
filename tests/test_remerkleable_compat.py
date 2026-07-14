@@ -326,7 +326,9 @@ def test_json_decoder_rejects_leading_zero_in_uint64() -> None:
         b'"slot":0', b'"slot":01'
     )
 
-    with pytest.raises(ValueError, match="invalid JSON object"):
+    with pytest.raises(
+        ValueError, match=r"invalid JSON object \(status=MALFORMED_INPUT"
+    ):
         AttestationData.from_json(raw)
 
 
@@ -367,7 +369,13 @@ def test_json_decoder_rejects_valid_unrecognized_fields() -> None:
     raw = msgspec.json.encode(reference.to_obj())
     extended = raw[:-1] + b',"snowman":"\xe2\x98\x83","escaped":"\\n"}'
 
-    with pytest.raises(ValueError, match="^unrecognized JSON object field 'snowman'$"):
+    with pytest.raises(
+        ValueError,
+        match=(
+            "unrecognized JSON object field 'snowman' "
+            r"\(status=UNRECOGNIZED_FIELD, byte_range=\d+:\d+\)"
+        ),
+    ):
         AttestationData.from_json(extended)
 
 
@@ -383,7 +391,9 @@ def test_ssz_decoder_rejects_extreme_variable_offsets_without_crashing() -> None
     encoded = bytearray(_attestation().encode_bytes())
     encoded[:4] = b"\xff\xff\xff\x7f"
 
-    with pytest.raises(ValueError, match="invalid SSZ object"):
+    with pytest.raises(
+        ValueError, match=r"invalid SSZ object \(status=MALFORMED_INPUT"
+    ):
         Attestation.from_ssz(encoded)
 
 

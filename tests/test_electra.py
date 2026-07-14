@@ -158,7 +158,7 @@ def test_block_json_rejects_unrecognized_nested_field() -> None:
     value = populated_electra_block().to_obj()
     value["message"]["unknown"] = True
 
-    with pytest.raises(ValueError, match="^unrecognized JSON object field 'unknown'$"):
+    with pytest.raises(ValueError, match="unrecognized JSON object field 'unknown'"):
         ElectraSignedBeaconBlock.from_obj(value)
 
 
@@ -181,7 +181,7 @@ def test_block_json_rejects_unrecognized_response_metadata() -> None:
         {"unknown": True, "data": populated_electra_block().to_obj()}
     )
 
-    with pytest.raises(ValueError, match="^unrecognized JSON object field 'unknown'$"):
+    with pytest.raises(ValueError, match="unrecognized JSON object field 'unknown'"):
         ElectraSignedBeaconBlock.from_json(raw_json)
 
 
@@ -195,7 +195,7 @@ def test_block_json_rejects_block_production_metadata() -> None:
 
     with pytest.raises(
         ValueError,
-        match="^unrecognized JSON object field 'execution_payload_value'$",
+        match="unrecognized JSON object field 'execution_payload_value'",
     ):
         ElectraSignedBeaconBlock.from_json(raw_json)
 

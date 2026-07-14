@@ -25,6 +25,7 @@ __all__ = [
     "decode_ssz",
     "get_type_definition",
     "get_type_shape",
+    "get_ssz_type",
     "iter_type_definitions",
     "load_preset",
 ] + sorted(_SCHEMA_EXPORTS)
@@ -50,6 +51,7 @@ def __getattr__(name: str) -> Any:
         "ObjectKind",
         "decode_json",
         "decode_ssz",
+        "get_ssz_type",
     }:
         from . import ssz
 

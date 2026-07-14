@@ -246,8 +246,15 @@ class SszObject:
                 and 1 <= error_start <= error_end < len(source)
             ):
                 field = msgspec.json.decode(source[error_start - 1 : error_end + 1])
-                raise ValueError(f"unrecognized JSON object field {field!r}")
-            raise ValueError(f"invalid {encoding} object")
+                raise ValueError(
+                    f"unrecognized JSON object field {field!r} "
+                    f"(status={status.name}, "
+                    f"byte_range={error_start}:{error_end + 1})"
+                )
+            detail = f"status={status.name}"
+            if 0 <= error_start <= error_end < len(source):
+                detail += f", byte_range={error_start}:{error_end + 1}"
+            raise ValueError(f"invalid {encoding} object ({detail})")
         try:
             return cls(handle)
         except BaseException:
@@ -481,7 +488,7 @@ def decode_json(
     kind: ObjectKind,
     preset: Preset = Preset.MAINNET,
 ) -> SszObject:
-    return _concrete_type(fork, kind, preset).from_json(data)
+    return get_ssz_type(fork, kind, preset).from_json(data)
 
 
 def decode_ssz(
@@ -490,11 +497,19 @@ def decode_ssz(
     kind: ObjectKind,
     preset: Preset = Preset.MAINNET,
 ) -> SszObject:
-    return _concrete_type(fork, kind, preset).from_ssz(data)
+    return get_ssz_type(fork, kind, preset).from_ssz(data)
 
 
-def _concrete_type(fork: Fork, kind: ObjectKind, preset: Preset) -> type[SszObject]:
-    definition = get_schema(fork, kind)
+def get_ssz_type(
+    fork: Fork, kind: ObjectKind, preset: Preset = Preset.MAINNET
+) -> type[SszObject]:
+    """Resolve a registered fork/object-kind/preset to its concrete class."""
+    try:
+        definition = get_schema(fork, kind)
+    except KeyError:
+        raise NotImplementedError(
+            f"no SPy schema for {fork.name}/{kind.name}/{preset.name}"
+        ) from None
     preset_name = preset.name.lower()
     if preset_name not in definition.presets:
         raise NotImplementedError(

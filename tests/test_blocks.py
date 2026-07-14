@@ -110,9 +110,7 @@ def test_block_contents_rejects_beacon_block_response_metadata() -> None:
     reference = BlockContents(block=electra.BeaconBlock())
     raw_json = msgspec.json.encode({"finalized": True, "data": reference.to_obj()})
 
-    with pytest.raises(
-        ValueError, match="^unrecognized JSON object field 'finalized'$"
-    ):
+    with pytest.raises(ValueError, match="unrecognized JSON object field 'finalized'"):
         ElectraBeaconBlockContentsMainnet.from_json(raw_json)
 
 

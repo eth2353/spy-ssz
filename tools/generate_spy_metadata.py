@@ -657,6 +657,7 @@ def render_type_stubs() -> dict[Path, str]:
         "    SszObject as SszObject,",
         "    decode_json as decode_json,",
         "    decode_ssz as decode_ssz,",
+        "    get_ssz_type as get_ssz_type,",
         ")",
     ]
     for module in sorted(by_module):

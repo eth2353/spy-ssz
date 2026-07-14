@@ -89,7 +89,13 @@ assert config.sync_committee_size == 32
 When the concrete class is selected dynamically, use the generic registry:
 
 ```python
-from spy_ssz import Fork, ObjectKind, Preset, decode_json, decode_ssz
+from spy_ssz import Fork, ObjectKind, Preset, decode_json, decode_ssz, get_ssz_type
+
+block_type = get_ssz_type(
+    Fork.ELECTRA,
+    ObjectKind.SIGNED_BEACON_BLOCK,
+    Preset.GNOSIS,
+)
 
 from_json = decode_json(
     json_bytes,

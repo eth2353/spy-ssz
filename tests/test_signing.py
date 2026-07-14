@@ -92,6 +92,16 @@ def test_json_decoder_rejects_missing_fields_without_unsafe_token_access() -> No
         AttestationData.from_json(b"{}")
 
 
+def test_json_decoder_reports_status_for_wrong_fixed_byte_length() -> None:
+    value = electra.AttestationData().to_obj()
+    value["beacon_block_root"] = "0x00"
+
+    with pytest.raises(
+        ValueError, match=r"invalid JSON object \(status=MALFORMED_INPUT"
+    ):
+        AttestationData.from_obj(value)
+
+
 @pytest.mark.parametrize(
     ("reference_type", "spy_type"),
     [
@@ -124,7 +134,9 @@ def test_minimal_attestation_json_rejects_bitvector_padding(invalid: str) -> Non
     value = electra_minimal.Attestation().to_obj()
     value["committee_bits"] = invalid
 
-    with pytest.raises(ValueError, match="invalid JSON object"):
+    with pytest.raises(
+        ValueError, match=r"invalid JSON object \(status=MALFORMED_INPUT"
+    ):
         AttestationMinimal.from_obj(value)
 
 
