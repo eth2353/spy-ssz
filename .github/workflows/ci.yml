@@ -59,7 +59,6 @@ jobs:
 
   sanitize:
     name: ASan and UBSan
-    if: github.event_name == 'pull_request'
     needs: test
     runs-on: ubuntu-24.04
     env:
