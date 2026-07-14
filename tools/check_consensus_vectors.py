@@ -1,4 +1,4 @@
-"""Check Electra and Fulu codecs against consensus-specs SSZ static vectors."""
+"""Check implemented codecs against consensus-specs SSZ static vectors."""
 
 from __future__ import annotations
 
@@ -10,11 +10,26 @@ from typing import Any
 
 import yaml
 
-from spy_ssz.schema import Fork, module_for_codec, schema_definitions
+from spy_ssz.schema import Fork, SchemaDefinition, module_for_codec, schema_definitions
 
 
-SUPPORTED_FORKS = (Fork.ELECTRA, Fork.FULU)
-SUPPORTED_PRESETS = ("minimal", "mainnet")
+CONSENSUS_VECTOR_PRESETS = ("minimal", "mainnet")
+
+
+def _vector_definitions(
+    forks: frozenset[Fork] | None = None,
+) -> tuple[SchemaDefinition, ...]:
+    """Return every implemented schema that has an upstream static-vector type."""
+    return tuple(
+        definition
+        for definition in schema_definitions()
+        if definition.consensus_type is not None
+        and (forks is None or definition.fork in forks)
+    )
+
+
+def _supported_forks() -> tuple[Fork, ...]:
+    return tuple(dict.fromkeys(definition.fork for definition in _vector_definitions()))
 
 
 def _snappy_module() -> Any:
@@ -43,11 +58,14 @@ def _vector_root(root: Path, preset: str) -> Path:
 def _codec_class(definition: Any, preset: str) -> type[Any]:
     module_name = module_for_codec(definition.codec)
     module = import_module(f"spy_ssz.{module_name}")
-    suffix = "" if preset == "mainnet" else preset.title()
-    return getattr(module, f"{definition.python_type}{suffix}")
+    return getattr(module, f"{definition.python_type}{preset.title()}")
 
 
-def check_vectors(root: Path, presets: tuple[str, ...]) -> bool:
+def check_vectors(
+    root: Path,
+    presets: tuple[str, ...],
+    forks: frozenset[Fork] | None = None,
+) -> bool:
     snappy = _snappy_module()
     counts: Counter[tuple[str, str, str]] = Counter()
     failures: list[str] = []
@@ -58,21 +76,20 @@ def check_vectors(root: Path, presets: tuple[str, ...]) -> bool:
 
     for preset in presets:
         preset_root = _vector_root(root, preset)
-        for definition in schema_definitions():
-            if definition.fork not in SUPPORTED_FORKS:
-                continue
-            if definition.consensus_type is None or preset not in definition.presets:
+        for definition in _vector_definitions(forks):
+            if preset not in definition.presets:
                 continue
 
             fork = definition.fork.name.lower()
             type_name = definition.consensus_type
+            assert type_name is not None
             cases_root = preset_root / fork / "ssz_static" / type_name
             if not cases_root.is_dir():
                 failures.append(f"missing vectors: {preset}/{fork}/{type_name}")
                 continue
 
             codec_class = _codec_class(definition, preset)
-            serialized_paths = sorted(cases_root.glob("*/*/serialized.ssz_snappy"))
+            serialized_paths = sorted(cases_root.rglob("serialized.ssz_snappy"))
             if not serialized_paths:
                 failures.append(f"no vectors: {preset}/{fork}/{type_name}")
                 continue
@@ -127,13 +144,22 @@ def main() -> None:
     parser.add_argument(
         "--preset",
         action="append",
-        choices=SUPPORTED_PRESETS,
+        choices=CONSENSUS_VECTOR_PRESETS,
         dest="presets",
         help="preset to check; repeat for both (default: minimal and mainnet)",
     )
+    supported_forks = _supported_forks()
+    parser.add_argument(
+        "--fork",
+        action="append",
+        choices=tuple(fork.name.lower() for fork in supported_forks),
+        dest="forks",
+        help="fork to check; repeat for multiple (default: every implemented fork)",
+    )
     args = parser.parse_args()
-    presets = tuple(args.presets or SUPPORTED_PRESETS)
-    if not check_vectors(args.root, presets):
+    presets = tuple(dict.fromkeys(args.presets or CONSENSUS_VECTOR_PRESETS))
+    forks = frozenset(Fork[name.upper()] for name in args.forks) if args.forks else None
+    if not check_vectors(args.root, presets, forks):
         raise SystemExit(1)
 
 

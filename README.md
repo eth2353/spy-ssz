@@ -298,9 +298,13 @@ uv run --with python-snappy python tools/check_consensus_vectors.py \
 
 The path may be the extraction root containing `tests/minimal` and
 `tests/mainnet`, or the `tests` directory itself. Use `--preset minimal` or
-`--preset mainnet` to check only one preset. The runner verifies SSZ decode,
-canonical re-encoding, and hash-tree roots for every vector matching an
-implemented Electra or Fulu codec.
+`--preset mainnet` to check only one preset, and `--fork electra` or
+`--fork fulu` to narrow the automatically discovered implemented forks. The
+runner verifies SSZ decode, canonical re-encoding, and hash-tree roots for
+every vector matching an implemented codec. Upstream consensus-spec tests only
+publish static vectors for the `minimal` and `mainnet` presets, so the
+supported `gnosis` codec variants are covered by the regular test suite rather
+than this runner.
 
 The upstream archives are hundreds of megabytes, so this check is intended for
 scheduled or release CI rather than the per-commit pre-commit suite.
