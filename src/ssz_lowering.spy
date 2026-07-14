@@ -128,8 +128,10 @@ def ssz_bitlist(
     obj: raw_ptr[SszObject],
 ) -> i32:
     encoded_length = end - start
+    max_encoded_length = (limit + 8) // 8
     if (
         encoded_length <= 0
+        or encoded_length > max_encoded_length
         or not require_range(document, start, end)
         or obj.arena_cursor < 0
         or obj.arena_cursor > obj.arena_capacity - encoded_length

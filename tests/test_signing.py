@@ -314,6 +314,19 @@ def test_ssz_decoder_rejects_noncanonical_first_variable_offset() -> None:
         AggregateAndProof.from_ssz(raw)
 
 
+def test_ssz_decoder_rejects_bitlist_over_encoded_length_limit() -> None:
+    raw = bytearray(electra.Attestation().encode_bytes())
+    bitlist_start = int.from_bytes(raw[:4], "little")
+    bit_limit = int(
+        electra.MAX_VALIDATORS_PER_COMMITTEE * electra.MAX_COMMITTEES_PER_SLOT
+    )
+    max_encoded_length = (bit_limit + 8) // 8
+    raw[bitlist_start:] = bytes(max_encoded_length) + b"\x01"
+
+    with pytest.raises(ValueError, match="invalid SSZ object"):
+        Attestation.from_ssz(raw)
+
+
 @pytest.mark.parametrize("invalid", ["0x10", "0x80", "0xff"])
 def test_minimal_attestation_json_rejects_bitvector_padding(invalid: str) -> None:
     value = electra_minimal.Attestation().to_obj()
