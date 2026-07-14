@@ -104,7 +104,8 @@ class _BlockProjection(SszObject):
     def header_dict(self) -> dict[str, str]:
         output = bytearray(112)
         output_obj, output_view = _spy_bytes(output)
-        valid = _spy.lib.spy_ssz_object_block_header(self._require_handle(), output_obj)
+        with self._use_handle() as handle:
+            valid = _spy.lib.spy_ssz_object_block_header(handle, output_obj)
         assert output_view
         if not valid:
             raise ValueError("SPy block header extraction failed")
@@ -124,13 +125,14 @@ class _BlockProjection(SszObject):
     ) -> _SignedObject:
         signature_bytes = _signature_bytes(signature)
         signature_obj, signature_view = _spy_bytes(signature_bytes)
-        handle = _spy.lib.spy_ssz_object_clone_and_sign_block(
-            self._require_handle(),
-            signature_obj,
-            signed_type.expected_kind,
-            signed_schema,
-            self.object_kind is ObjectKind.BEACON_BLOCK_CONTENTS,
-        )
+        with self._use_handle() as source_handle:
+            handle = _spy.lib.spy_ssz_object_clone_and_sign_block(
+                source_handle,
+                signature_obj,
+                signed_type.expected_kind,
+                signed_schema,
+                self.object_kind is ObjectKind.BEACON_BLOCK_CONTENTS,
+            )
         assert signature_view
         if not handle.p or not _spy.lib.spy_ssz_object_is_valid(handle):
             if handle.p:

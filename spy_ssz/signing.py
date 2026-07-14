@@ -195,14 +195,15 @@ def _compose_fields(cls: type[SszObject], fields: dict[str, Any]) -> Any | None:
     second_obj, second_view = _spy_bytes(second)
     fixed_obj, fixed_view = _spy_bytes(fixed)
     definition = get_schema(cls.expected_fork, kind)
-    handle = _spy.lib.spy_ssz_object_compose_signing(
-        child._require_handle(),
-        kind,
-        definition.schema_id,
-        first_obj,
-        second_obj,
-        fixed_obj,
-    )
+    with child._use_handle() as child_handle:
+        handle = _spy.lib.spy_ssz_object_compose_signing(
+            child_handle,
+            kind,
+            definition.schema_id,
+            first_obj,
+            second_obj,
+            fixed_obj,
+        )
     assert first_view and second_view and fixed_view
     if not handle.p or not _spy.lib.spy_ssz_object_is_valid(handle):
         if handle.p:

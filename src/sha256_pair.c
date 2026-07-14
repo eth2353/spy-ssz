@@ -15,6 +15,7 @@
 #endif
 
 /* SHA-256 specialized for SSZ's fixed 64-byte pair hash. */
+#if !defined(__APPLE__)
 static inline uint32_t rotate_right(uint32_t value, uint32_t shift) {
     return (value >> shift) | (value << (32U - shift));
 }
@@ -74,6 +75,7 @@ static void compress_sha256(uint32_t state[8], const uint8_t block[64]) {
     state[0] += a; state[1] += b; state[2] += c; state[3] += d;
     state[4] += e; state[5] += f; state[6] += g; state[7] += h;
 }
+#endif
 
 #if defined(__linux__)
 typedef struct {

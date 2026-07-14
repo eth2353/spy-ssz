@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from contextlib import ExitStack, contextmanager
 from copy import deepcopy
 from enum import IntEnum
 from importlib import import_module
-from typing import Any, Callable, ClassVar, Iterable, Self, TypeVar
+from threading import RLock
+from typing import Any, Callable, ClassVar, Iterable, Iterator, Self, TypeVar
 
 import msgspec
 
@@ -54,7 +56,8 @@ class _DecodeStatus(IntEnum):
 
 # The largest decoder arena is ``input_length * 3 + 16 KiB`` and all native
 # lengths and offsets are signed 32-bit integers.
-_MAX_NATIVE_INPUT_LENGTH = ((1 << 31) - 1 - 16 * 1024) // 3
+_MAX_NATIVE_SIZE = (1 << 31) - 1
+_MAX_NATIVE_INPUT_LENGTH = (_MAX_NATIVE_SIZE - 16 * 1024) // 3
 _JSON_DECODERS: dict[CodecKey, Decoder] = {}
 _SSZ_DECODERS: dict[CodecKey, Decoder] = {}
 _SSZ_ENCODERS: dict[CodecKey, tuple[Sizer, Encoder]] = {}
@@ -166,12 +169,14 @@ class SszObject:
     __slots__ = (
         "_handle",
         "_json_size_cache",
+        "_lock",
         "_obj_cache",
         "_ssz_size_cache",
         "_value_key_cache",
     )
     _handle: Any
     _json_size_cache: int | None
+    _lock: RLock
     _obj_cache: Any
     _ssz_size_cache: int | None
     _value_key_cache: tuple[int, Preset, bytes] | None
@@ -182,6 +187,7 @@ class SszObject:
     json_output_envelope_key: ClassVar[str | None] = "data"
 
     def __init__(self, handle: Any = None, **fields: Any):
+        self._lock = RLock()
         self._json_size_cache = None
         self._obj_cache: Any = None
         self._ssz_size_cache = None
@@ -216,12 +222,13 @@ class SszObject:
         return cls.from_json(msgspec.json.encode(value))
 
     def _decoded_obj(self) -> Any:
-        if self._obj_cache is None:
-            value = msgspec.json.decode(self.to_json())
-            if self.json_output_envelope_key is not None:
-                value = value[self.json_output_envelope_key]
-            self._obj_cache = value
-        return self._obj_cache
+        with self._lock:
+            if self._obj_cache is None:
+                value = msgspec.json.decode(self.to_json())
+                if self.json_output_envelope_key is not None:
+                    value = value[self.json_output_envelope_key]
+                self._obj_cache = value
+            return self._obj_cache
 
     def to_obj(self) -> Any:
         return deepcopy(self._decoded_obj())
@@ -321,40 +328,52 @@ class SszObject:
 
     @property
     def fork(self) -> Fork:
-        return Fork(_spy.lib.spy_ssz_object_fork(self._require_handle()))
+        with self._use_handle() as handle:
+            return Fork(_spy.lib.spy_ssz_object_fork(handle))
 
     @property
     def object_kind(self) -> ObjectKind:
-        return ObjectKind(_spy.lib.spy_ssz_object_kind(self._require_handle()))
+        with self._use_handle() as handle:
+            return ObjectKind(_spy.lib.spy_ssz_object_kind(handle))
 
     @property
     def preset(self) -> Preset:
-        return Preset(_spy.lib.spy_ssz_object_preset(self._require_handle()))
+        with self._use_handle() as handle:
+            return Preset(_spy.lib.spy_ssz_object_preset(handle))
 
     @property
     def schema_id(self) -> int:
-        return _spy.lib.spy_ssz_object_schema(self._require_handle())
+        with self._use_handle() as handle:
+            return _spy.lib.spy_ssz_object_schema(handle)
 
     @property
     def node_count(self) -> int:
-        return _spy.lib.spy_ssz_object_node_count(self._require_handle())
+        with self._use_handle() as handle:
+            return _spy.lib.spy_ssz_object_node_count(handle)
 
     def _require_handle(self) -> Any:
         if self._handle is None:
             raise RuntimeError("SPy SSZ object is closed")
         return self._handle
 
+    @contextmanager
+    def _use_handle(self) -> Iterator[Any]:
+        """Keep this object's native allocation alive for one operation."""
+        with self._lock:
+            yield self._require_handle()
+
     def hash_tree_root(self) -> bytes:
         return self._hash_tree_root_path(0, 0, 0)
 
     def _value_key(self) -> tuple[int, Preset, bytes]:
-        if self._value_key_cache is None:
-            self._value_key_cache = (
-                self.schema_id,
-                self.preset,
-                self.hash_tree_root(),
-            )
-        return self._value_key_cache
+        with self._lock:
+            if self._value_key_cache is None:
+                self._value_key_cache = (
+                    self.schema_id,
+                    self.preset,
+                    self.hash_tree_root(),
+                )
+            return self._value_key_cache
 
     def __repr__(self) -> str:
         definition = get_schema(self.fork, self.object_kind)
@@ -386,14 +405,13 @@ class SszObject:
     def _hash_tree_root_path(self, first: int, second: int, depth: int) -> bytes:
         output = bytearray(32)
         output_obj, output_view = _spy_bytes(output)
-        if depth == 0:
-            valid = _spy.lib.spy_ssz_object_hash_tree_root(
-                self._require_handle(), output_obj
-            )
-        else:
-            valid = _spy.lib.spy_ssz_object_hash_tree_root_path(
-                self._require_handle(), first, second, depth, output_obj
-            )
+        with self._use_handle() as handle:
+            if depth == 0:
+                valid = _spy.lib.spy_ssz_object_hash_tree_root(handle, output_obj)
+            else:
+                valid = _spy.lib.spy_ssz_object_hash_tree_root_path(
+                    handle, first, second, depth, output_obj
+                )
         assert output_view
         if not valid:
             raise ValueError("SPy SSZ hashing failed")
@@ -418,15 +436,17 @@ class SszObject:
         key = (fork, kind, type(self).expected_preset)
         codec = _lookup_codec(encoders, key, f"{encoding} encoder")
         sizer, encoder = codec
-        handle = self._require_handle()
-        size_cache = "_ssz_size_cache" if encoding == "SSZ" else "_json_size_cache"
-        expected = getattr(self, size_cache)
-        if expected is None:
-            expected = sizer(handle)
-            setattr(self, size_cache, expected)
-        output = bytearray(expected)
-        output_obj, output_view = _spy_bytes(output)
-        written = encoder(handle, output_obj)
+        with self._use_handle() as handle:
+            size_cache = "_ssz_size_cache" if encoding == "SSZ" else "_json_size_cache"
+            expected = getattr(self, size_cache)
+            if expected is None:
+                expected = sizer(handle)
+                setattr(self, size_cache, expected)
+            if expected < 0:
+                raise ValueError(f"SPy {encoding} sizing failed")
+            output = bytearray(expected)
+            output_obj, output_view = _spy_bytes(output)
+            written = encoder(handle, output_obj)
         assert output_view
         if written != expected:
             raise ValueError(f"SPy {encoding} encoding failed")
@@ -434,16 +454,22 @@ class SszObject:
 
     def close(self) -> None:
         try:
-            handle = object.__getattribute__(self, "_handle")
+            lock = object.__getattribute__(self, "_lock")
         except AttributeError:
             return
-        if handle is not None:
-            self._handle = None
-            self._obj_cache = None
-            _spy.lib.spy_ssz_object_destroy(handle)
+        with lock:
+            try:
+                handle = object.__getattribute__(self, "_handle")
+            except AttributeError:
+                return
+            if handle is not None:
+                self._handle = None
+                self._obj_cache = None
+                _spy.lib.spy_ssz_object_destroy(handle)
 
     def __enter__(self) -> Self:
-        self._require_handle()
+        with self._lock:
+            self._require_handle()
         return self
 
     def __exit__(self, *exc_info: object) -> None:
@@ -567,6 +593,8 @@ def encode_json_array(values: Iterable[SszObject]) -> bytes:
     items = tuple(values)
     if not items:
         return b"[]"
+    if len(items) > _MAX_NATIVE_SIZE:
+        raise ValueError("JSON array exceeds the signed 32-bit item-count limit")
     first = items[0]
     if not isinstance(first, SszObject):
         raise TypeError("JSON array values must be concrete SPy SSZ objects")
@@ -580,12 +608,7 @@ def encode_json_array(values: Iterable[SszObject]) -> bytes:
         raise TypeError("JSON array encoding requires bare-object JSON types")
     key = (fork, kind, preset)
     batch_codec = _JSON_ARRAY_ENCODERS.get(key)
-    handles = (
-        _spy.ffi.new("spy_raw_ssz_ptr[]", len(items))
-        if batch_codec is not None
-        else None
-    )
-    for index, item in enumerate(items):
+    for item in items:
         if not isinstance(item, SszObject):
             raise TypeError("JSON array values must be concrete SPy SSZ objects")
         item_type = type(item)
@@ -596,48 +619,59 @@ def encode_json_array(values: Iterable[SszObject]) -> bytes:
         )
         if item_key != key:
             raise TypeError("JSON array values must have the same concrete SSZ type")
-        handle = item._require_handle()
-        if handles is not None:
-            handles[index] = handle
-    if batch_codec is not None:
-        assert handles is not None
-        batch_sizer, batch_encoder = batch_codec
-        total = batch_sizer(handles, len(items))
-        if total < 0:
+
+    # CFFI releases the GIL during native calls. Lock every distinct owner in a
+    # stable order so no item can be closed while its pointer is in the batch.
+    unique_items = {id(item): item for item in items}
+    with ExitStack() as stack:
+        owned_handles = {
+            item_id: stack.enter_context(item._use_handle())
+            for item_id, item in sorted(unique_items.items())
+        }
+        item_handles = [owned_handles[id(item)] for item in items]
+        if batch_codec is not None:
+            handles = _spy.ffi.new("spy_raw_ssz_ptr[]", item_handles)
+            batch_sizer, batch_encoder = batch_codec
+            total = batch_sizer(handles, len(items))
+            if total < 0:
+                raise ValueError(
+                    "JSON array output exceeds the signed 32-bit size limit"
+                )
+            output = bytearray(total)
+            output_obj, output_view = _spy_bytes(output)
+            written = batch_encoder(handles, len(items), output_obj)
+            assert output_view
+            if written != total:
+                raise ValueError("SPy JSON array encoding failed")
+            return bytes(output)
+
+        item_sizer, item_encoder = _lookup_codec(_JSON_ENCODERS, key, "JSON encoder")
+        sizes = [item_sizer(handle) for handle in item_handles]
+        if any(size < 0 for size in sizes):
+            raise ValueError("SPy JSON array sizing failed")
+        total = len(items) + 1 + sum(sizes)
+        if total > _MAX_NATIVE_SIZE:
             raise ValueError("JSON array output exceeds the signed 32-bit size limit")
         output = bytearray(total)
-        output_obj, output_view = _spy_bytes(output)
-        written = batch_encoder(handles, len(items), output_obj)
+        output[0] = ord("[")
+        output[-1] = ord("]")
+        output_view = _spy.ffi.from_buffer(output)
+        output_pointer = _spy.ffi.cast("uint8_t *", output_view)
+        position = 1
+        for handle, expected in zip(item_handles, sizes, strict=True):
+            encoded = _spy.ffi.new("spy_BytesObject *")
+            encoded.length = expected
+            encoded.hash = 0
+            encoded.data.p = output_pointer + position
+            written = item_encoder(handle, encoded)
+            if written != expected:
+                raise ValueError("SPy JSON array encoding failed")
+            position += written
+            if position < total - 1:
+                output[position] = ord(",")
+                position += 1
         assert output_view
-        if written != total:
-            raise ValueError("SPy JSON array encoding failed")
         return bytes(output)
-
-    item_sizer, item_encoder = _lookup_codec(_JSON_ENCODERS, key, "JSON encoder")
-    sizes = [item_sizer(item._require_handle()) for item in items]
-    total = len(items) + 1 + sum(sizes)
-    if total > (1 << 31) - 1:
-        raise ValueError("JSON array output exceeds the signed 32-bit size limit")
-    output = bytearray(total)
-    output[0] = ord("[")
-    output[-1] = ord("]")
-    output_view = _spy.ffi.from_buffer(output)
-    output_pointer = _spy.ffi.cast("uint8_t *", output_view)
-    position = 1
-    for item, expected in zip(items, sizes, strict=True):
-        encoded = _spy.ffi.new("spy_BytesObject *")
-        encoded.length = expected
-        encoded.hash = 0
-        encoded.data.p = output_pointer + position
-        written = item_encoder(item._require_handle(), encoded)
-        if written != expected:
-            raise ValueError("SPy JSON array encoding failed")
-        position += written
-        if position < total - 1:
-            output[position] = ord(",")
-            position += 1
-    assert output_view
-    return bytes(output)
 
 
 def get_ssz_type(

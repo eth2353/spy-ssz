@@ -21,7 +21,8 @@ repos:
     rev: v1.20.1
     hooks:
       - id: mypy
-        exclude: "^(benchmarks|tests)/.*\\.py$|^spy_ssz/(__init__|electra/__init__|fulu/__init__|projections|signing)\\.pyi?$"
+        args: [spy_ssz, tools, setup.py, typing_tests]
+        pass_filenames: false
         additional_dependencies:
           [
           msgspec==0.21.1,
