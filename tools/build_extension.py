@@ -257,6 +257,18 @@ def build(spy_root: Path) -> Path:
         spy_raw_ssz_ptr spy_schema_signing_decode_ssz_owned(
             spy_BytesObject *source, int32_t fork, int32_t kind,
             int32_t schema, int32_t preset);
+        spy_raw_ssz_ptr spy_schema_gloas_signing_decode_json_owned(
+            spy_BytesObject *source, int32_t fork, int32_t kind,
+            int32_t schema, int32_t preset);
+        spy_raw_ssz_ptr spy_schema_gloas_signing_decode_ssz_owned(
+            spy_BytesObject *source, int32_t fork, int32_t kind,
+            int32_t schema, int32_t preset);
+        spy_raw_ssz_ptr spy_schema_gloas_block_decode_json_owned(
+            spy_BytesObject *source, int32_t fork, int32_t kind,
+            int32_t schema, int32_t preset);
+        spy_raw_ssz_ptr spy_schema_gloas_block_decode_ssz_owned(
+            spy_BytesObject *source, int32_t fork, int32_t kind,
+            int32_t schema, int32_t preset);
         spy_raw_ssz_ptr spy_schema_block_containers_decode_json_owned(
             spy_BytesObject *source, int32_t fork, int32_t kind,
             int32_t schema, int32_t preset);
@@ -303,6 +315,12 @@ def build(spy_root: Path) -> Path:
             spy_raw_ssz_ptr object, spy_BytesObject *output);
         int32_t spy_schema_signing_json_size(spy_raw_ssz_ptr object);
         int32_t spy_schema_signing_encode_json(
+            spy_raw_ssz_ptr object, spy_BytesObject *output);
+        int32_t spy_schema_gloas_ssz_size(spy_raw_ssz_ptr object);
+        int32_t spy_schema_gloas_encode_ssz(
+            spy_raw_ssz_ptr object, spy_BytesObject *output);
+        int32_t spy_schema_gloas_json_size(spy_raw_ssz_ptr object);
+        int32_t spy_schema_gloas_encode_json(
             spy_raw_ssz_ptr object, spy_BytesObject *output);
         int32_t spy_schema_block_containers_ssz_size(spy_raw_ssz_ptr object);
         int32_t spy_schema_block_containers_encode_ssz(

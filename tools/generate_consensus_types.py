@@ -27,6 +27,7 @@ OUTPUT = ROOT / "spy_ssz" / "consensus_types.json"
 FORK_MODULES = {
     "electra": "eth_consensus_specs.electra.mainnet",
     "fulu": "eth_consensus_specs.fulu.mainnet",
+    "gloas": "eth_consensus_specs.gloas.mainnet",
 }
 GENERIC_EXPORTS = {
     "View",

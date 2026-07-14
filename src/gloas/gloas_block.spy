@@ -1,0 +1,266 @@
+"""Gloas JSON beacon-block decoder."""
+
+from unsafe import raw_ptr
+from decode_status import DECODE_STATUS_MALFORMED_INPUT, DECODE_STATUS_VALID
+from json_parser import (
+    JsonDocument,
+    array_get,
+    array_length,
+    decode_json,
+    mark_expected_fields,
+    object_get,
+    require_recognized_object_fields,
+)
+from json_lowering import JsonDecodeResult, eth1_data, json_fixed_bytes, json_uint64, sync_aggregate
+from metadata import OBJECT_BEACON_BLOCK, OBJECT_SIGNED_BEACON_BLOCK
+from electra_block import (
+    attestation,
+    attester_slashing,
+    signed_bls_change,
+    consolidation_request,
+    deposit,
+    deposit_request,
+    proposer_slashing,
+    signed_voluntary_exit,
+    withdrawal_request,
+)
+from electra_signing import payload_attestation_json
+from gloas_signing import child, promote_attestation, promote_container, promote_indexed_attestation
+from ssz_object import (
+    KIND_CONTAINER,
+    KIND_PROGRESSIVE_LIST,
+    SszObject,
+    add_composite_node,
+    configure_preset,
+    new_object,
+    reserve_edges,
+    set_edge,
+)
+
+
+def promote_attestations(obj: raw_ptr[SszObject], node: i32) -> None:
+    obj.nodes[node].kind = KIND_PROGRESSIVE_LIST
+    i: i32 = 0
+    while i < obj.nodes[node].child_count:
+        promote_attestation(obj, child(obj, node, i))
+        i = i + 1
+
+
+def promote_attester_slashings(obj: raw_ptr[SszObject], node: i32) -> None:
+    obj.nodes[node].kind = KIND_PROGRESSIVE_LIST
+    i: i32 = 0
+    while i < obj.nodes[node].child_count:
+        slashing = child(obj, node, i)
+        promote_indexed_attestation(obj, child(obj, slashing, 0))
+        promote_indexed_attestation(obj, child(obj, slashing, 1))
+        i = i + 1
+
+
+def progressive_list(obj: raw_ptr[SszObject], node: i32) -> i32:
+    obj.nodes[node].kind = KIND_PROGRESSIVE_LIST
+    return node
+
+
+def commitment_list(
+    document: raw_ptr[JsonDocument], values: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    count = array_length(document, values)
+    first = reserve_edges(obj, count)
+    i: i32 = 0
+    while i < count:
+        set_edge(obj, first, i, json_fixed_bytes(document, array_get(document, values, i), obj, 48))
+        i = i + 1
+    return add_composite_node(obj, KIND_PROGRESSIVE_LIST, first, count, 0, 0, 0)
+
+
+def operation_list(
+    document: raw_ptr[JsonDocument], values: i32, kind: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    count = array_length(document, values)
+    first = reserve_edges(obj, count)
+    i: i32 = 0
+    while i < count:
+        value = array_get(document, values, i)
+        if kind == 0:
+            item = proposer_slashing(document, value, obj)
+        elif kind == 1:
+            item = attester_slashing(document, value, obj)
+        elif kind == 2:
+            item = attestation(document, value, obj)
+        elif kind == 3:
+            item = deposit(document, value, obj)
+        elif kind == 4:
+            item = signed_voluntary_exit(document, value, obj)
+        else:
+            item = signed_bls_change(document, value, obj)
+        set_edge(obj, first, i, item)
+        i = i + 1
+    return add_composite_node(obj, KIND_PROGRESSIVE_LIST, first, count, 0, 0, 0)
+
+
+def execution_payload_bid(
+    document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    first = reserve_edges(obj, 12)
+    set_edge(obj, first, 0, json_fixed_bytes(document, object_get(document, value, b"parent_block_hash"), obj, 32))
+    set_edge(obj, first, 1, json_fixed_bytes(document, object_get(document, value, b"parent_block_root"), obj, 32))
+    set_edge(obj, first, 2, json_fixed_bytes(document, object_get(document, value, b"block_hash"), obj, 32))
+    set_edge(obj, first, 3, json_fixed_bytes(document, object_get(document, value, b"prev_randao"), obj, 32))
+    set_edge(obj, first, 4, json_fixed_bytes(document, object_get(document, value, b"fee_recipient"), obj, 20))
+    set_edge(obj, first, 5, json_uint64(document, object_get(document, value, b"gas_limit"), obj))
+    set_edge(obj, first, 6, json_uint64(document, object_get(document, value, b"builder_index"), obj))
+    set_edge(obj, first, 7, json_uint64(document, object_get(document, value, b"slot"), obj))
+    set_edge(obj, first, 8, json_uint64(document, object_get(document, value, b"value"), obj))
+    set_edge(obj, first, 9, json_uint64(document, object_get(document, value, b"execution_payment"), obj))
+    set_edge(obj, first, 10, commitment_list(document, object_get(document, value, b"blob_kzg_commitments"), obj))
+    set_edge(obj, first, 11, json_fixed_bytes(document, object_get(document, value, b"execution_requests_root"), obj, 32))
+    node = add_composite_node(obj, KIND_CONTAINER, first, 12, 12, 0, 0)
+    promote_container(obj, node)
+    return node
+
+
+def signed_execution_payload_bid(
+    document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    first = reserve_edges(obj, 2)
+    set_edge(obj, first, 0, execution_payload_bid(document, object_get(document, value, b"message"), obj))
+    set_edge(obj, first, 1, json_fixed_bytes(document, object_get(document, value, b"signature"), obj, 96))
+    return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
+
+
+def builder_deposit_request(
+    document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    first = reserve_edges(obj, 4)
+    set_edge(obj, first, 0, json_fixed_bytes(document, object_get(document, value, b"pubkey"), obj, 48))
+    set_edge(obj, first, 1, json_fixed_bytes(document, object_get(document, value, b"withdrawal_credentials"), obj, 32))
+    set_edge(obj, first, 2, json_uint64(document, object_get(document, value, b"amount"), obj))
+    set_edge(obj, first, 3, json_fixed_bytes(document, object_get(document, value, b"signature"), obj, 96))
+    return add_composite_node(obj, KIND_CONTAINER, first, 4, 4, 0, 0)
+
+
+def builder_exit_request(
+    document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    first = reserve_edges(obj, 2)
+    set_edge(obj, first, 0, json_fixed_bytes(document, object_get(document, value, b"source_address"), obj, 20))
+    set_edge(obj, first, 1, json_fixed_bytes(document, object_get(document, value, b"pubkey"), obj, 48))
+    return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
+
+
+def request_list(
+    document: raw_ptr[JsonDocument], values: i32, kind: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    count = array_length(document, values)
+    first = reserve_edges(obj, count)
+    i: i32 = 0
+    while i < count:
+        value = array_get(document, values, i)
+        if kind == 0:
+            item = deposit_request(document, value, obj)
+        elif kind == 1:
+            item = withdrawal_request(document, value, obj)
+        elif kind == 2:
+            item = consolidation_request(document, value, obj)
+        elif kind == 3:
+            item = builder_deposit_request(document, value, obj)
+        else:
+            item = builder_exit_request(document, value, obj)
+        set_edge(obj, first, i, item)
+        i = i + 1
+    return add_composite_node(obj, KIND_PROGRESSIVE_LIST, first, count, 0, 0, 0)
+
+
+def execution_requests(
+    document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    first = reserve_edges(obj, 5)
+    set_edge(obj, first, 0, request_list(document, object_get(document, value, b"deposits"), 0, obj))
+    set_edge(obj, first, 1, request_list(document, object_get(document, value, b"withdrawals"), 1, obj))
+    set_edge(obj, first, 2, request_list(document, object_get(document, value, b"consolidations"), 2, obj))
+    set_edge(obj, first, 3, request_list(document, object_get(document, value, b"builder_deposits"), 3, obj))
+    set_edge(obj, first, 4, request_list(document, object_get(document, value, b"builder_exits"), 4, obj))
+    node = add_composite_node(obj, KIND_CONTAINER, first, 5, 5, 0, 0)
+    promote_container(obj, node)
+    return node
+
+
+def payload_attestation_list(
+    document: raw_ptr[JsonDocument], values: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    count = array_length(document, values)
+    first = reserve_edges(obj, count)
+    i: i32 = 0
+    while i < count:
+        set_edge(obj, first, i, payload_attestation_json(document, array_get(document, values, i), obj))
+        i = i + 1
+    return add_composite_node(obj, KIND_PROGRESSIVE_LIST, first, count, 0, 0, 0)
+
+
+def block_body(
+    document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    first = reserve_edges(obj, 13)
+    set_edge(obj, first, 0, json_fixed_bytes(document, object_get(document, value, b"randao_reveal"), obj, 96))
+    set_edge(obj, first, 1, eth1_data(document, object_get(document, value, b"eth1_data"), obj))
+    set_edge(obj, first, 2, json_fixed_bytes(document, object_get(document, value, b"graffiti"), obj, 32))
+    proposer = operation_list(document, object_get(document, value, b"proposer_slashings"), 0, obj)
+    set_edge(obj, first, 3, proposer)
+    attester = operation_list(document, object_get(document, value, b"attester_slashings"), 1, obj)
+    promote_attester_slashings(obj, attester)
+    set_edge(obj, first, 4, attester)
+    attestations = operation_list(document, object_get(document, value, b"attestations"), 2, obj)
+    promote_attestations(obj, attestations)
+    set_edge(obj, first, 5, attestations)
+    set_edge(obj, first, 6, operation_list(document, object_get(document, value, b"deposits"), 3, obj))
+    set_edge(obj, first, 7, operation_list(document, object_get(document, value, b"voluntary_exits"), 4, obj))
+    set_edge(obj, first, 8, sync_aggregate(document, object_get(document, value, b"sync_aggregate"), obj))
+    set_edge(obj, first, 9, operation_list(document, object_get(document, value, b"bls_to_execution_changes"), 5, obj))
+    set_edge(obj, first, 10, signed_execution_payload_bid(document, object_get(document, value, b"signed_execution_payload_bid"), obj))
+    set_edge(obj, first, 11, payload_attestation_list(document, object_get(document, value, b"payload_attestations"), obj))
+    set_edge(obj, first, 12, execution_requests(document, object_get(document, value, b"parent_execution_requests"), obj))
+    node = add_composite_node(obj, KIND_CONTAINER, first, 13, 13, 0, 0)
+    promote_container(obj, node)
+    return node
+
+
+def beacon_block(
+    document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    first = reserve_edges(obj, 5)
+    set_edge(obj, first, 0, json_uint64(document, object_get(document, value, b"slot"), obj))
+    set_edge(obj, first, 1, json_uint64(document, object_get(document, value, b"proposer_index"), obj))
+    set_edge(obj, first, 2, json_fixed_bytes(document, object_get(document, value, b"parent_root"), obj, 32))
+    set_edge(obj, first, 3, json_fixed_bytes(document, object_get(document, value, b"state_root"), obj, 32))
+    set_edge(obj, first, 4, block_body(document, object_get(document, value, b"body"), obj))
+    return add_composite_node(obj, KIND_CONTAINER, first, 5, 5, 0, 0)
+
+
+def signed_beacon_block(
+    document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    first = reserve_edges(obj, 2)
+    set_edge(obj, first, 0, beacon_block(document, object_get(document, value, b"message"), obj))
+    set_edge(obj, first, 1, json_fixed_bytes(document, object_get(document, value, b"signature"), obj, 96))
+    return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
+
+
+def decode_gloas_block_json(
+    source: bytes, fork: i32, kind: i32, schema_id: i32, preset: i32
+) -> JsonDecodeResult:
+    document = decode_json(source)
+    capacity = document.token_count + 2048
+    obj = new_object(fork, kind, schema_id, capacity, capacity, document.json_length * 2 + 16384)
+    configure_preset(obj, preset)
+    value = object_get(document, 0, b"data")
+    if kind == OBJECT_SIGNED_BEACON_BLOCK:
+        obj.root_node = signed_beacon_block(document, value, obj)
+    else:
+        obj.root_node = beacon_block(document, value, obj)
+    mark_expected_fields(document, 0, ["data", "version", "execution_optimistic", "finalized"])
+    require_recognized_object_fields(document)
+    if document.status != DECODE_STATUS_VALID:
+        obj.status = document.status
+        obj.error_start = document.error_start
+        obj.error_end = document.error_end
+    return JsonDecodeResult(obj, document)

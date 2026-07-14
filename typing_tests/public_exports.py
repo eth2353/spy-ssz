@@ -2,29 +2,29 @@
 
 from typing import assert_type
 
+from spy_ssz import signing
 from spy_ssz import (
-    AggregateAndProof,
-    Attestation,
-    AttestationData,
-    AttestationMainnet,
-    AttesterSlashing,
-    BeaconBlockHeader,
-    ContributionAndProof,
-    ElectraBeaconBlockContentsMainnet,
-    ElectraSignedBeaconBlockContentsMainnet,
-    IndexedAttestation,
-    ProposerSlashing,
-    SignedAggregateAndProof,
-    SignedBeaconBlockHeader,
-    SignedContributionAndProof,
-    SingleAttestation,
-    SyncCommitteeContribution,
-    SyncCommitteeMessage,
+    AggregateAndProofElectra,
+    AttestationElectra,
+    AttestationDataElectra,
+    AttestationElectraMainnet,
+    AttesterSlashingElectra,
+    BeaconBlockHeaderElectra,
+    ContributionAndProofElectra,
+    BeaconBlockContentsElectraMainnet,
+    SignedBeaconBlockContentsElectraMainnet,
+    IndexedAttestationElectra,
+    ProposerSlashingElectra,
+    SignedAggregateAndProofElectra,
+    SignedBeaconBlockHeaderElectra,
+    SignedContributionAndProofElectra,
+    SingleAttestationElectra,
+    SyncCommitteeContributionElectra,
+    SyncCommitteeMessageElectra,
     encode_json_array,
     get_ssz_type,
 )
 from spy_ssz.ssz import Fork, ObjectKind, SszObject
-from spy_ssz.signing import Attestation as ModuleAttestation
 
 
 def verify_public_export_types(data: bytes) -> None:
@@ -33,32 +33,43 @@ def verify_public_export_types(data: bytes) -> None:
         get_ssz_type(Fork.ELECTRA, ObjectKind.ATTESTATION),
         type[SszObject],
     )
-    assert_type(Attestation.from_json(data), Attestation)
-    assert_type(AttestationMainnet.from_ssz(data), AttestationMainnet)
-    assert_type(AttestationData.from_json(data), AttestationData)
-    assert_type(AggregateAndProof.from_json(data), AggregateAndProof)
+    assert_type(AttestationElectra.from_json(data), AttestationElectra)
+    assert_type(AttestationElectraMainnet.from_ssz(data), AttestationElectraMainnet)
+    assert_type(AttestationDataElectra.from_json(data), AttestationDataElectra)
+    assert_type(AggregateAndProofElectra.from_json(data), AggregateAndProofElectra)
     assert_type(
-        SyncCommitteeContribution.from_json(data),
-        SyncCommitteeContribution,
+        SyncCommitteeContributionElectra.from_json(data),
+        SyncCommitteeContributionElectra,
     )
-    assert_type(ContributionAndProof.from_json(data), ContributionAndProof)
-    assert_type(SingleAttestation.from_json(data), SingleAttestation)
-    assert_type(SyncCommitteeMessage.from_json(data), SyncCommitteeMessage)
-    assert_type(SignedAggregateAndProof.from_json(data), SignedAggregateAndProof)
     assert_type(
-        SignedContributionAndProof.from_json(data),
-        SignedContributionAndProof,
+        ContributionAndProofElectra.from_json(data), ContributionAndProofElectra
     )
-    assert_type(IndexedAttestation.from_json(data), IndexedAttestation)
-    assert_type(AttesterSlashing.from_json(data), AttesterSlashing)
-    assert_type(BeaconBlockHeader.from_json(data), BeaconBlockHeader)
-    assert_type(SignedBeaconBlockHeader.from_json(data), SignedBeaconBlockHeader)
-    assert_type(ProposerSlashing.from_json(data), ProposerSlashing)
-    assert_type(ModuleAttestation.from_json(data), ModuleAttestation)
+    assert_type(SingleAttestationElectra.from_json(data), SingleAttestationElectra)
+    assert_type(
+        SyncCommitteeMessageElectra.from_json(data), SyncCommitteeMessageElectra
+    )
+    assert_type(
+        SignedAggregateAndProofElectra.from_json(data), SignedAggregateAndProofElectra
+    )
+    assert_type(
+        SignedContributionAndProofElectra.from_json(data),
+        SignedContributionAndProofElectra,
+    )
+    assert_type(IndexedAttestationElectra.from_json(data), IndexedAttestationElectra)
+    assert_type(AttesterSlashingElectra.from_json(data), AttesterSlashingElectra)
+    assert_type(BeaconBlockHeaderElectra.from_json(data), BeaconBlockHeaderElectra)
+    assert_type(
+        SignedBeaconBlockHeaderElectra.from_json(data), SignedBeaconBlockHeaderElectra
+    )
+    assert_type(ProposerSlashingElectra.from_json(data), ProposerSlashingElectra)
+    assert_type(
+        signing.AttestationElectra.from_json(data),
+        AttestationElectra,
+    )
 
-    block = ElectraBeaconBlockContentsMainnet.from_ssz(data)
-    assert_type(block, ElectraBeaconBlockContentsMainnet)
+    block = BeaconBlockContentsElectraMainnet.from_ssz(data)
+    assert_type(block, BeaconBlockContentsElectraMainnet)
     assert_type(
         block.sign(bytes(96)),
-        ElectraSignedBeaconBlockContentsMainnet,
+        SignedBeaconBlockContentsElectraMainnet,
     )

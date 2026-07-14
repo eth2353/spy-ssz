@@ -8,14 +8,14 @@ from remerkleable.complex import Container, List
 
 from spy_ssz import encode_json_array
 from spy_ssz.electra import (
-    ElectraBeaconBlockContentsMainnet,
-    ElectraBlindedBeaconBlockMainnet,
+    BeaconBlockContentsElectraMainnet,
+    BlindedBeaconBlockElectraMainnet,
 )
 from spy_ssz.fulu import (
-    FuluBeaconBlockContentsMainnet,
-    FuluBlindedBeaconBlockMainnet,
-    FuluSignedBeaconBlockContentsMainnet,
-    FuluSignedBlindedBeaconBlockMainnet,
+    BeaconBlockContentsFuluMainnet,
+    BlindedBeaconBlockFuluMainnet,
+    SignedBeaconBlockContentsFuluMainnet,
+    SignedBlindedBeaconBlockFuluMainnet,
 )
 from spy_ssz.ssz import Fork
 
@@ -60,7 +60,7 @@ class SignedBlindedBlock(Container):
 def test_block_projection_json_array_uses_native_batch_encoder() -> None:
     reference = BlindedBlock(slot=12, proposer_index=34)
     values = [
-        ElectraBlindedBeaconBlockMainnet.from_obj(reference.to_obj()) for _ in range(3)
+        BlindedBeaconBlockElectraMainnet.from_obj(reference.to_obj()) for _ in range(3)
     ]
     try:
         expected = [value.to_obj() for value in values]
@@ -74,14 +74,14 @@ def test_block_contents_json_ssz_signing_and_projections() -> None:
     reference = BlockContents(block=electra.BeaconBlock(slot=12, proposer_index=34))
     raw_json = msgspec.json.encode({"version": "electra", "data": reference.to_obj()})
 
-    with ElectraBeaconBlockContentsMainnet.from_json(raw_json) as value:
+    with BeaconBlockContentsElectraMainnet.from_json(raw_json) as value:
         assert value.hash_tree_root() == reference.hash_tree_root()
         assert value.to_ssz() == reference.encode_bytes()
         assert value.block_hash_tree_root() == (
             f"0x{reference.block.hash_tree_root().hex()}"
         )
         with mock.patch.object(
-            ElectraBeaconBlockContentsMainnet,
+            BeaconBlockContentsElectraMainnet,
             "to_obj",
             side_effect=AssertionError("header projection must stay native"),
         ):
@@ -93,7 +93,7 @@ def test_block_contents_json_ssz_signing_and_projections() -> None:
         assert header["body_root"] == f"0x{reference.block.body.hash_tree_root().hex()}"
         signature = bytes(range(96))
         with mock.patch.object(
-            ElectraBeaconBlockContentsMainnet,
+            BeaconBlockContentsElectraMainnet,
             "to_json",
             side_effect=AssertionError("signing must stay native"),
         ):
@@ -117,7 +117,7 @@ def test_block_contents_json_ssz_signing_and_projections() -> None:
         finally:
             signed.close()
 
-    with ElectraBeaconBlockContentsMainnet.from_ssz(reference.encode_bytes()) as value:
+    with BeaconBlockContentsElectraMainnet.from_ssz(reference.encode_bytes()) as value:
         assert value.hash_tree_root() == reference.hash_tree_root()
         assert (
             BlockContents.from_obj(
@@ -132,19 +132,19 @@ def test_block_contents_rejects_beacon_block_response_metadata() -> None:
     raw_json = msgspec.json.encode({"finalized": True, "data": reference.to_obj()})
 
     with pytest.raises(ValueError, match="unrecognized JSON object field 'finalized'"):
-        ElectraBeaconBlockContentsMainnet.from_json(raw_json)
+        BeaconBlockContentsElectraMainnet.from_json(raw_json)
 
 
 def test_blinded_block_json_ssz_signing_and_projections() -> None:
     reference = BlindedBlock(slot=56, proposer_index=78)
     raw_json = msgspec.json.encode({"version": "electra", "data": reference.to_obj()})
 
-    with ElectraBlindedBeaconBlockMainnet.from_json(raw_json) as value:
+    with BlindedBeaconBlockElectraMainnet.from_json(raw_json) as value:
         assert value.hash_tree_root() == reference.hash_tree_root()
         assert value.to_ssz() == reference.encode_bytes()
         assert value.block_hash_tree_root() == f"0x{reference.hash_tree_root().hex()}"
         with mock.patch.object(
-            ElectraBlindedBeaconBlockMainnet,
+            BlindedBeaconBlockElectraMainnet,
             "to_obj",
             side_effect=AssertionError("header projection must stay native"),
         ):
@@ -153,7 +153,7 @@ def test_blinded_block_json_ssz_signing_and_projections() -> None:
             )
         signature = bytes(range(96))
         with mock.patch.object(
-            ElectraBlindedBeaconBlockMainnet,
+            BlindedBeaconBlockElectraMainnet,
             "to_json",
             side_effect=AssertionError("signing must stay native"),
         ):
@@ -175,7 +175,7 @@ def test_blinded_block_json_ssz_signing_and_projections() -> None:
         finally:
             signed.close()
 
-    with ElectraBlindedBeaconBlockMainnet.from_ssz(reference.encode_bytes()) as value:
+    with BlindedBeaconBlockElectraMainnet.from_ssz(reference.encode_bytes()) as value:
         assert value.hash_tree_root() == reference.hash_tree_root()
         assert (
             BlindedBlock.from_obj(msgspec.json.decode(value.to_json())).hash_tree_root()
@@ -193,7 +193,7 @@ def test_blinded_block_ssz_rejects_out_of_order_header_offset() -> None:
     ).to_bytes(4, "little")
 
     with pytest.raises(ValueError, match="invalid SSZ object"):
-        ElectraBlindedBeaconBlockMainnet.from_ssz(raw)
+        BlindedBeaconBlockElectraMainnet.from_ssz(raw)
 
 
 @pytest.mark.parametrize(
@@ -201,13 +201,13 @@ def test_blinded_block_ssz_rejects_out_of_order_header_offset() -> None:
     [
         (
             BlockContents(block=electra.BeaconBlock(slot=12)),
-            FuluBeaconBlockContentsMainnet,
-            FuluSignedBeaconBlockContentsMainnet,
+            BeaconBlockContentsFuluMainnet,
+            SignedBeaconBlockContentsFuluMainnet,
         ),
         (
             BlindedBlock(slot=34),
-            FuluBlindedBeaconBlockMainnet,
-            FuluSignedBlindedBeaconBlockMainnet,
+            BlindedBeaconBlockFuluMainnet,
+            SignedBlindedBeaconBlockFuluMainnet,
         ),
     ],
 )

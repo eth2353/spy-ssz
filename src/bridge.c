@@ -14,6 +14,10 @@
 #include "electra_block_containers.h"
 #include "electra_block_containers_encode.h"
 #include "electra_block_containers_ssz.h"
+#include "gloas_block.h"
+#include "gloas_block_encode.h"
+#include "gloas_block_ssz.h"
+#include "gloas_signing.h"
 #include "ssz_object.h"
 #include "ssz_reader.h"
 #include "decode_status.h"
@@ -103,6 +107,46 @@ spy_raw_ssz_ptr spy_schema_signing_decode_ssz_owned(
     return result.object;
 }
 
+spy_raw_ssz_ptr spy_schema_gloas_signing_decode_json_owned(
+    spy_BytesObject *source, int32_t fork, int32_t kind, int32_t schema,
+    int32_t preset) {
+    spy_json_lowering$JsonDecodeResult result =
+        spy_gloas_signing$decode_gloas_signing_json(
+            source, fork, kind, schema, preset);
+    spy_json_document_destroy(result.temporary);
+    return result.object;
+}
+
+spy_raw_ssz_ptr spy_schema_gloas_signing_decode_ssz_owned(
+    spy_BytesObject *source, int32_t fork, int32_t kind, int32_t schema,
+    int32_t preset) {
+    spy_ssz_lowering$SszDecodeResult result =
+        spy_gloas_signing$decode_gloas_signing_ssz(
+            source, fork, kind, schema, preset);
+    spy_ssz_document_destroy(result.temporary);
+    return result.object;
+}
+
+spy_raw_ssz_ptr spy_schema_gloas_block_decode_json_owned(
+    spy_BytesObject *source, int32_t fork, int32_t kind, int32_t schema,
+    int32_t preset) {
+    spy_json_lowering$JsonDecodeResult result =
+        spy_gloas_block$decode_gloas_block_json(
+            source, fork, kind, schema, preset);
+    spy_json_document_destroy(result.temporary);
+    return result.object;
+}
+
+spy_raw_ssz_ptr spy_schema_gloas_block_decode_ssz_owned(
+    spy_BytesObject *source, int32_t fork, int32_t kind, int32_t schema,
+    int32_t preset) {
+    spy_ssz_lowering$SszDecodeResult result =
+        spy_gloas_block_ssz$decode_gloas_block_ssz(
+            source, fork, kind, schema, preset);
+    spy_ssz_document_destroy(result.temporary);
+    return result.object;
+}
+
 spy_raw_ssz_ptr spy_schema_block_containers_decode_json_owned(
     spy_BytesObject *source, int32_t fork, int32_t kind, int32_t schema,
     int32_t preset) {
@@ -139,6 +183,10 @@ int32_t spy_ssz_object_hash_tree_root(
 #define spy_schema_signing_encode_ssz spy_electra_signing$signing_encode_ssz
 #define spy_schema_signing_json_size spy_electra_signing$signing_json_size
 #define spy_schema_signing_encode_json spy_electra_signing$signing_encode_json
+#define spy_schema_gloas_ssz_size spy_gloas_block_encode$gloas_ssz_size
+#define spy_schema_gloas_encode_ssz spy_gloas_block_encode$gloas_encode_ssz
+#define spy_schema_gloas_json_size spy_gloas_block_encode$gloas_json_size
+#define spy_schema_gloas_encode_json spy_gloas_block_encode$gloas_encode_json
 #define spy_schema_block_containers_json_size spy_electra_block_containers_encode$block_container_json_size
 #define spy_schema_block_containers_encode_json spy_electra_block_containers_encode$block_container_encode_json
 #define spy_ssz_object_clone_and_sign_block spy_ssz_object$clone_and_sign_block
@@ -366,7 +414,8 @@ int32_t spy_ssz_object_block_header(
     int32_t block = obj->root_node;
     if (obj->object_kind == SPY_SSZ_OBJECT_BEACON_BLOCK_CONTENTS)
         block = spy_ssz_child(obj, block, SPY_SIGNED_BLOCK_CONTENTS_BLOCK);
-    else if (obj->object_kind != SPY_SSZ_OBJECT_BLINDED_BEACON_BLOCK)
+    else if (obj->object_kind != SPY_SSZ_OBJECT_BLINDED_BEACON_BLOCK &&
+             obj->object_kind != SPY_SSZ_OBJECT_BEACON_BLOCK)
         return 0;
 
     spy_ssz_object$SszNode block_node = obj->nodes.p[block];

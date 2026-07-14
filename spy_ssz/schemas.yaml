@@ -8,6 +8,7 @@ forks:
   DENEB: 4
   ELECTRA: 5
   FULU: 6
+  GLOAS: 7
 
 object_kinds:
   SIGNED_BEACON_BLOCK: 1
@@ -30,6 +31,11 @@ object_kinds:
   BEACON_BLOCK_HEADER: 18
   SIGNED_BEACON_BLOCK_HEADER: 19
   PROPOSER_SLASHING: 20
+  PAYLOAD_ATTESTATION_DATA: 21
+  PAYLOAD_ATTESTATION: 22
+  PAYLOAD_ATTESTATION_MESSAGE: 23
+  PROPOSER_PREFERENCES: 24
+  SIGNED_PROPOSER_PREFERENCES: 25
 
 codecs:
   electra_block: electra
@@ -38,6 +44,8 @@ codecs:
   block_containers: electra
   fulu_signing: fulu
   fulu_block_containers: fulu
+  gloas_signing: gloas
+  gloas_block: gloas
 
 schemas:
   - name: ELECTRA_SIGNED_BEACON_BLOCK
@@ -46,7 +54,7 @@ schemas:
     kind: SIGNED_BEACON_BLOCK
     consensus_type: SignedBeaconBlock
     codec: electra_block
-    python_type: ElectraSignedBeaconBlock
+    python_type: SignedBeaconBlockElectra
     presets: [mainnet, minimal, gnosis]
   - name: ELECTRA_ATTESTATION
     id: 503
@@ -54,7 +62,7 @@ schemas:
     kind: ATTESTATION
     consensus_type: Attestation
     codec: signing
-    python_type: Attestation
+    python_type: AttestationElectra
     presets: [mainnet, minimal, gnosis]
   - name: ELECTRA_ATTESTATION_DATA
     id: 504
@@ -62,7 +70,7 @@ schemas:
     kind: ATTESTATION_DATA
     consensus_type: AttestationData
     codec: signing
-    python_type: AttestationData
+    python_type: AttestationDataElectra
     presets: [mainnet, minimal, gnosis]
   - name: ELECTRA_AGGREGATE_AND_PROOF
     id: 505
@@ -70,7 +78,7 @@ schemas:
     kind: AGGREGATE_AND_PROOF
     consensus_type: AggregateAndProof
     codec: signing
-    python_type: AggregateAndProof
+    python_type: AggregateAndProofElectra
     presets: [mainnet, minimal, gnosis]
   - name: ELECTRA_SYNC_COMMITTEE_CONTRIBUTION
     id: 506
@@ -78,7 +86,7 @@ schemas:
     kind: SYNC_COMMITTEE_CONTRIBUTION
     consensus_type: SyncCommitteeContribution
     codec: signing
-    python_type: SyncCommitteeContribution
+    python_type: SyncCommitteeContributionElectra
     presets: [mainnet, minimal, gnosis]
   - name: ELECTRA_CONTRIBUTION_AND_PROOF
     id: 507
@@ -86,7 +94,7 @@ schemas:
     kind: CONTRIBUTION_AND_PROOF
     consensus_type: ContributionAndProof
     codec: signing
-    python_type: ContributionAndProof
+    python_type: ContributionAndProofElectra
     presets: [mainnet, minimal, gnosis]
   - name: ELECTRA_SINGLE_ATTESTATION
     id: 512
@@ -94,7 +102,7 @@ schemas:
     kind: SINGLE_ATTESTATION
     consensus_type: SingleAttestation
     codec: signing
-    python_type: SingleAttestation
+    python_type: SingleAttestationElectra
     presets: [mainnet, minimal, gnosis]
   - name: ELECTRA_SYNC_COMMITTEE_MESSAGE
     id: 513
@@ -102,7 +110,7 @@ schemas:
     kind: SYNC_COMMITTEE_MESSAGE
     consensus_type: SyncCommitteeMessage
     codec: signing
-    python_type: SyncCommitteeMessage
+    python_type: SyncCommitteeMessageElectra
     presets: [mainnet, minimal, gnosis]
   - name: ELECTRA_SIGNED_AGGREGATE_AND_PROOF
     id: 514
@@ -110,7 +118,7 @@ schemas:
     kind: SIGNED_AGGREGATE_AND_PROOF
     consensus_type: SignedAggregateAndProof
     codec: signing
-    python_type: SignedAggregateAndProof
+    python_type: SignedAggregateAndProofElectra
     presets: [mainnet, minimal, gnosis]
   - name: ELECTRA_SIGNED_CONTRIBUTION_AND_PROOF
     id: 515
@@ -118,7 +126,7 @@ schemas:
     kind: SIGNED_CONTRIBUTION_AND_PROOF
     consensus_type: SignedContributionAndProof
     codec: signing
-    python_type: SignedContributionAndProof
+    python_type: SignedContributionAndProofElectra
     presets: [mainnet, minimal, gnosis]
   - name: ELECTRA_INDEXED_ATTESTATION
     id: 516
@@ -126,7 +134,7 @@ schemas:
     kind: INDEXED_ATTESTATION
     consensus_type: IndexedAttestation
     codec: signing
-    python_type: IndexedAttestation
+    python_type: IndexedAttestationElectra
     presets: [mainnet, minimal, gnosis]
   - name: ELECTRA_ATTESTER_SLASHING
     id: 517
@@ -134,7 +142,7 @@ schemas:
     kind: ATTESTER_SLASHING
     consensus_type: AttesterSlashing
     codec: signing
-    python_type: AttesterSlashing
+    python_type: AttesterSlashingElectra
     presets: [mainnet, minimal, gnosis]
   - name: ELECTRA_BEACON_BLOCK_HEADER
     id: 518
@@ -142,7 +150,7 @@ schemas:
     kind: BEACON_BLOCK_HEADER
     consensus_type: BeaconBlockHeader
     codec: signing
-    python_type: BeaconBlockHeader
+    python_type: BeaconBlockHeaderElectra
     presets: [mainnet, minimal, gnosis]
   - name: ELECTRA_SIGNED_BEACON_BLOCK_HEADER
     id: 519
@@ -150,7 +158,7 @@ schemas:
     kind: SIGNED_BEACON_BLOCK_HEADER
     consensus_type: SignedBeaconBlockHeader
     codec: signing
-    python_type: SignedBeaconBlockHeader
+    python_type: SignedBeaconBlockHeaderElectra
     presets: [mainnet, minimal, gnosis]
   - name: ELECTRA_PROPOSER_SLASHING
     id: 520
@@ -158,35 +166,35 @@ schemas:
     kind: PROPOSER_SLASHING
     consensus_type: ProposerSlashing
     codec: signing
-    python_type: ProposerSlashing
+    python_type: ProposerSlashingElectra
     presets: [mainnet, minimal, gnosis]
   - name: ELECTRA_BEACON_BLOCK_CONTENTS
     id: 508
     fork: ELECTRA
     kind: BEACON_BLOCK_CONTENTS
     codec: block_containers
-    python_type: ElectraBeaconBlockContents
+    python_type: BeaconBlockContentsElectra
     presets: [mainnet, minimal, gnosis]
   - name: ELECTRA_SIGNED_BEACON_BLOCK_CONTENTS
     id: 509
     fork: ELECTRA
     kind: SIGNED_BEACON_BLOCK_CONTENTS
     codec: block_containers
-    python_type: ElectraSignedBeaconBlockContents
+    python_type: SignedBeaconBlockContentsElectra
     presets: [mainnet, minimal, gnosis]
   - name: ELECTRA_BLINDED_BEACON_BLOCK
     id: 510
     fork: ELECTRA
     kind: BLINDED_BEACON_BLOCK
     codec: block_containers
-    python_type: ElectraBlindedBeaconBlock
+    python_type: BlindedBeaconBlockElectra
     presets: [mainnet, minimal, gnosis]
   - name: ELECTRA_SIGNED_BLINDED_BEACON_BLOCK
     id: 511
     fork: ELECTRA
     kind: SIGNED_BLINDED_BEACON_BLOCK
     codec: block_containers
-    python_type: ElectraSignedBlindedBeaconBlock
+    python_type: SignedBlindedBeaconBlockElectra
     presets: [mainnet, minimal, gnosis]
   - name: FULU_SIGNED_BEACON_BLOCK
     id: 601
@@ -194,7 +202,7 @@ schemas:
     kind: SIGNED_BEACON_BLOCK
     consensus_type: SignedBeaconBlock
     codec: fulu_block
-    python_type: FuluSignedBeaconBlock
+    python_type: SignedBeaconBlockFulu
     presets: [mainnet, minimal, gnosis]
   - name: FULU_ATTESTATION
     id: 603
@@ -202,7 +210,7 @@ schemas:
     kind: ATTESTATION
     consensus_type: Attestation
     codec: fulu_signing
-    python_type: FuluAttestation
+    python_type: AttestationFulu
     presets: [mainnet, minimal, gnosis]
   - name: FULU_ATTESTATION_DATA
     id: 604
@@ -210,7 +218,7 @@ schemas:
     kind: ATTESTATION_DATA
     consensus_type: AttestationData
     codec: fulu_signing
-    python_type: FuluAttestationData
+    python_type: AttestationDataFulu
     presets: [mainnet, minimal, gnosis]
   - name: FULU_AGGREGATE_AND_PROOF
     id: 605
@@ -218,7 +226,7 @@ schemas:
     kind: AGGREGATE_AND_PROOF
     consensus_type: AggregateAndProof
     codec: fulu_signing
-    python_type: FuluAggregateAndProof
+    python_type: AggregateAndProofFulu
     presets: [mainnet, minimal, gnosis]
   - name: FULU_SYNC_COMMITTEE_CONTRIBUTION
     id: 606
@@ -226,7 +234,7 @@ schemas:
     kind: SYNC_COMMITTEE_CONTRIBUTION
     consensus_type: SyncCommitteeContribution
     codec: fulu_signing
-    python_type: FuluSyncCommitteeContribution
+    python_type: SyncCommitteeContributionFulu
     presets: [mainnet, minimal, gnosis]
   - name: FULU_CONTRIBUTION_AND_PROOF
     id: 607
@@ -234,35 +242,35 @@ schemas:
     kind: CONTRIBUTION_AND_PROOF
     consensus_type: ContributionAndProof
     codec: fulu_signing
-    python_type: FuluContributionAndProof
+    python_type: ContributionAndProofFulu
     presets: [mainnet, minimal, gnosis]
   - name: FULU_BEACON_BLOCK_CONTENTS
     id: 608
     fork: FULU
     kind: BEACON_BLOCK_CONTENTS
     codec: fulu_block_containers
-    python_type: FuluBeaconBlockContents
+    python_type: BeaconBlockContentsFulu
     presets: [mainnet, minimal, gnosis]
   - name: FULU_SIGNED_BEACON_BLOCK_CONTENTS
     id: 609
     fork: FULU
     kind: SIGNED_BEACON_BLOCK_CONTENTS
     codec: fulu_block_containers
-    python_type: FuluSignedBeaconBlockContents
+    python_type: SignedBeaconBlockContentsFulu
     presets: [mainnet, minimal, gnosis]
   - name: FULU_BLINDED_BEACON_BLOCK
     id: 610
     fork: FULU
     kind: BLINDED_BEACON_BLOCK
     codec: fulu_block_containers
-    python_type: FuluBlindedBeaconBlock
+    python_type: BlindedBeaconBlockFulu
     presets: [mainnet, minimal, gnosis]
   - name: FULU_SIGNED_BLINDED_BEACON_BLOCK
     id: 611
     fork: FULU
     kind: SIGNED_BLINDED_BEACON_BLOCK
     codec: fulu_block_containers
-    python_type: FuluSignedBlindedBeaconBlock
+    python_type: SignedBlindedBeaconBlockFulu
     presets: [mainnet, minimal, gnosis]
   - name: FULU_SINGLE_ATTESTATION
     id: 612
@@ -270,7 +278,7 @@ schemas:
     kind: SINGLE_ATTESTATION
     consensus_type: SingleAttestation
     codec: fulu_signing
-    python_type: FuluSingleAttestation
+    python_type: SingleAttestationFulu
     presets: [mainnet, minimal, gnosis]
   - name: FULU_SYNC_COMMITTEE_MESSAGE
     id: 613
@@ -278,7 +286,7 @@ schemas:
     kind: SYNC_COMMITTEE_MESSAGE
     consensus_type: SyncCommitteeMessage
     codec: fulu_signing
-    python_type: FuluSyncCommitteeMessage
+    python_type: SyncCommitteeMessageFulu
     presets: [mainnet, minimal, gnosis]
   - name: FULU_SIGNED_AGGREGATE_AND_PROOF
     id: 614
@@ -286,7 +294,7 @@ schemas:
     kind: SIGNED_AGGREGATE_AND_PROOF
     consensus_type: SignedAggregateAndProof
     codec: fulu_signing
-    python_type: FuluSignedAggregateAndProof
+    python_type: SignedAggregateAndProofFulu
     presets: [mainnet, minimal, gnosis]
   - name: FULU_SIGNED_CONTRIBUTION_AND_PROOF
     id: 615
@@ -294,7 +302,7 @@ schemas:
     kind: SIGNED_CONTRIBUTION_AND_PROOF
     consensus_type: SignedContributionAndProof
     codec: fulu_signing
-    python_type: FuluSignedContributionAndProof
+    python_type: SignedContributionAndProofFulu
     presets: [mainnet, minimal, gnosis]
   - name: FULU_INDEXED_ATTESTATION
     id: 616
@@ -302,7 +310,7 @@ schemas:
     kind: INDEXED_ATTESTATION
     consensus_type: IndexedAttestation
     codec: fulu_signing
-    python_type: FuluIndexedAttestation
+    python_type: IndexedAttestationFulu
     presets: [mainnet, minimal, gnosis]
   - name: FULU_ATTESTER_SLASHING
     id: 617
@@ -310,7 +318,7 @@ schemas:
     kind: ATTESTER_SLASHING
     consensus_type: AttesterSlashing
     codec: fulu_signing
-    python_type: FuluAttesterSlashing
+    python_type: AttesterSlashingFulu
     presets: [mainnet, minimal, gnosis]
   - name: FULU_BEACON_BLOCK_HEADER
     id: 618
@@ -318,7 +326,7 @@ schemas:
     kind: BEACON_BLOCK_HEADER
     consensus_type: BeaconBlockHeader
     codec: fulu_signing
-    python_type: FuluBeaconBlockHeader
+    python_type: BeaconBlockHeaderFulu
     presets: [mainnet, minimal, gnosis]
   - name: FULU_SIGNED_BEACON_BLOCK_HEADER
     id: 619
@@ -326,7 +334,7 @@ schemas:
     kind: SIGNED_BEACON_BLOCK_HEADER
     consensus_type: SignedBeaconBlockHeader
     codec: fulu_signing
-    python_type: FuluSignedBeaconBlockHeader
+    python_type: SignedBeaconBlockHeaderFulu
     presets: [mainnet, minimal, gnosis]
   - name: FULU_PROPOSER_SLASHING
     id: 620
@@ -334,5 +342,173 @@ schemas:
     kind: PROPOSER_SLASHING
     consensus_type: ProposerSlashing
     codec: fulu_signing
-    python_type: FuluProposerSlashing
+    python_type: ProposerSlashingFulu
+    presets: [mainnet, minimal, gnosis]
+  - name: GLOAS_SIGNED_BEACON_BLOCK
+    id: 701
+    fork: GLOAS
+    kind: SIGNED_BEACON_BLOCK
+    consensus_type: SignedBeaconBlock
+    codec: gloas_block
+    python_type: SignedBeaconBlockGloas
+    presets: [mainnet, minimal, gnosis]
+  - name: GLOAS_BEACON_BLOCK
+    id: 702
+    fork: GLOAS
+    kind: BEACON_BLOCK
+    consensus_type: BeaconBlock
+    codec: gloas_block
+    python_type: BeaconBlockGloas
+    presets: [mainnet, minimal, gnosis]
+  - name: GLOAS_ATTESTATION
+    id: 703
+    fork: GLOAS
+    kind: ATTESTATION
+    consensus_type: Attestation
+    codec: gloas_signing
+    python_type: AttestationGloas
+    presets: [mainnet, minimal, gnosis]
+  - name: GLOAS_ATTESTATION_DATA
+    id: 704
+    fork: GLOAS
+    kind: ATTESTATION_DATA
+    consensus_type: AttestationData
+    codec: gloas_signing
+    python_type: AttestationDataGloas
+    presets: [mainnet, minimal, gnosis]
+  - name: GLOAS_AGGREGATE_AND_PROOF
+    id: 705
+    fork: GLOAS
+    kind: AGGREGATE_AND_PROOF
+    consensus_type: AggregateAndProof
+    codec: gloas_signing
+    python_type: AggregateAndProofGloas
+    presets: [mainnet, minimal, gnosis]
+  - name: GLOAS_SYNC_COMMITTEE_CONTRIBUTION
+    id: 706
+    fork: GLOAS
+    kind: SYNC_COMMITTEE_CONTRIBUTION
+    consensus_type: SyncCommitteeContribution
+    codec: gloas_signing
+    python_type: SyncCommitteeContributionGloas
+    presets: [mainnet, minimal, gnosis]
+  - name: GLOAS_CONTRIBUTION_AND_PROOF
+    id: 707
+    fork: GLOAS
+    kind: CONTRIBUTION_AND_PROOF
+    consensus_type: ContributionAndProof
+    codec: gloas_signing
+    python_type: ContributionAndProofGloas
+    presets: [mainnet, minimal, gnosis]
+  - name: GLOAS_SINGLE_ATTESTATION
+    id: 712
+    fork: GLOAS
+    kind: SINGLE_ATTESTATION
+    consensus_type: SingleAttestation
+    codec: gloas_signing
+    python_type: SingleAttestationGloas
+    presets: [mainnet, minimal, gnosis]
+  - name: GLOAS_SYNC_COMMITTEE_MESSAGE
+    id: 713
+    fork: GLOAS
+    kind: SYNC_COMMITTEE_MESSAGE
+    consensus_type: SyncCommitteeMessage
+    codec: gloas_signing
+    python_type: SyncCommitteeMessageGloas
+    presets: [mainnet, minimal, gnosis]
+  - name: GLOAS_SIGNED_AGGREGATE_AND_PROOF
+    id: 714
+    fork: GLOAS
+    kind: SIGNED_AGGREGATE_AND_PROOF
+    consensus_type: SignedAggregateAndProof
+    codec: gloas_signing
+    python_type: SignedAggregateAndProofGloas
+    presets: [mainnet, minimal, gnosis]
+  - name: GLOAS_SIGNED_CONTRIBUTION_AND_PROOF
+    id: 715
+    fork: GLOAS
+    kind: SIGNED_CONTRIBUTION_AND_PROOF
+    consensus_type: SignedContributionAndProof
+    codec: gloas_signing
+    python_type: SignedContributionAndProofGloas
+    presets: [mainnet, minimal, gnosis]
+  - name: GLOAS_INDEXED_ATTESTATION
+    id: 716
+    fork: GLOAS
+    kind: INDEXED_ATTESTATION
+    consensus_type: IndexedAttestation
+    codec: gloas_signing
+    python_type: IndexedAttestationGloas
+    presets: [mainnet, minimal, gnosis]
+  - name: GLOAS_ATTESTER_SLASHING
+    id: 717
+    fork: GLOAS
+    kind: ATTESTER_SLASHING
+    consensus_type: AttesterSlashing
+    codec: gloas_signing
+    python_type: AttesterSlashingGloas
+    presets: [mainnet, minimal, gnosis]
+  - name: GLOAS_BEACON_BLOCK_HEADER
+    id: 718
+    fork: GLOAS
+    kind: BEACON_BLOCK_HEADER
+    consensus_type: BeaconBlockHeader
+    codec: gloas_signing
+    python_type: BeaconBlockHeaderGloas
+    presets: [mainnet, minimal, gnosis]
+  - name: GLOAS_SIGNED_BEACON_BLOCK_HEADER
+    id: 719
+    fork: GLOAS
+    kind: SIGNED_BEACON_BLOCK_HEADER
+    consensus_type: SignedBeaconBlockHeader
+    codec: gloas_signing
+    python_type: SignedBeaconBlockHeaderGloas
+    presets: [mainnet, minimal, gnosis]
+  - name: GLOAS_PROPOSER_SLASHING
+    id: 720
+    fork: GLOAS
+    kind: PROPOSER_SLASHING
+    consensus_type: ProposerSlashing
+    codec: gloas_signing
+    python_type: ProposerSlashingGloas
+    presets: [mainnet, minimal, gnosis]
+  - name: GLOAS_PAYLOAD_ATTESTATION_DATA
+    id: 721
+    fork: GLOAS
+    kind: PAYLOAD_ATTESTATION_DATA
+    consensus_type: PayloadAttestationData
+    codec: gloas_signing
+    python_type: PayloadAttestationDataGloas
+    presets: [mainnet, minimal, gnosis]
+  - name: GLOAS_PAYLOAD_ATTESTATION
+    id: 722
+    fork: GLOAS
+    kind: PAYLOAD_ATTESTATION
+    consensus_type: PayloadAttestation
+    codec: gloas_signing
+    python_type: PayloadAttestationGloas
+    presets: [mainnet, minimal, gnosis]
+  - name: GLOAS_PAYLOAD_ATTESTATION_MESSAGE
+    id: 723
+    fork: GLOAS
+    kind: PAYLOAD_ATTESTATION_MESSAGE
+    consensus_type: PayloadAttestationMessage
+    codec: gloas_signing
+    python_type: PayloadAttestationMessageGloas
+    presets: [mainnet, minimal, gnosis]
+  - name: GLOAS_PROPOSER_PREFERENCES
+    id: 724
+    fork: GLOAS
+    kind: PROPOSER_PREFERENCES
+    consensus_type: ProposerPreferences
+    codec: gloas_signing
+    python_type: ProposerPreferencesGloas
+    presets: [mainnet, minimal, gnosis]
+  - name: GLOAS_SIGNED_PROPOSER_PREFERENCES
+    id: 725
+    fork: GLOAS
+    kind: SIGNED_PROPOSER_PREFERENCES
+    consensus_type: SignedProposerPreferences
+    codec: gloas_signing
+    python_type: SignedProposerPreferencesGloas
     presets: [mainnet, minimal, gnosis]

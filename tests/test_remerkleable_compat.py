@@ -16,20 +16,20 @@ import pytest
 from eth_consensus_specs.electra import mainnet as electra
 
 from spy_ssz.signing import (
-    AggregateAndProof,
-    Attestation,
-    AttestationData,
-    AttesterSlashing,
-    BeaconBlockHeader,
-    ContributionAndProof,
-    IndexedAttestation,
-    ProposerSlashing,
-    SignedAggregateAndProof,
-    SignedBeaconBlockHeader,
-    SignedContributionAndProof,
-    SingleAttestation,
-    SyncCommitteeContribution,
-    SyncCommitteeMessage,
+    AggregateAndProofElectra,
+    AttestationDataElectra,
+    AttestationElectra,
+    AttesterSlashingElectra,
+    BeaconBlockHeaderElectra,
+    ContributionAndProofElectra,
+    IndexedAttestationElectra,
+    ProposerSlashingElectra,
+    SignedAggregateAndProofElectra,
+    SignedBeaconBlockHeaderElectra,
+    SignedContributionAndProofElectra,
+    SingleAttestationElectra,
+    SyncCommitteeContributionElectra,
+    SyncCommitteeMessageElectra,
 )
 from spy_ssz.ssz import Bitfield, SszObject
 
@@ -39,7 +39,10 @@ ReferenceFactory = Callable[[], Any]
 
 @pytest.mark.parametrize(
     ("method", "encoding"),
-    [(AttestationData.from_json, "JSON"), (AttestationData.from_ssz, "SSZ")],
+    [
+        (AttestationDataElectra.from_json, "JSON"),
+        (AttestationDataElectra.from_ssz, "SSZ"),
+    ],
 )
 def test_decode_rejects_inputs_over_native_size_limit(
     monkeypatch: pytest.MonkeyPatch,
@@ -119,28 +122,32 @@ def _header(seed: int) -> electra.BeaconBlockHeader:
 
 
 CASES: list[tuple[str, type[SszObject], ReferenceFactory]] = [
-    ("attestation_data", AttestationData, _attestation_data),
-    ("attestation", Attestation, _attestation),
-    ("aggregate_and_proof", AggregateAndProof, _aggregate_and_proof),
+    ("attestation_data", AttestationDataElectra, _attestation_data),
+    ("attestation", AttestationElectra, _attestation),
+    ("aggregate_and_proof", AggregateAndProofElectra, _aggregate_and_proof),
     (
         "signed_aggregate_and_proof",
-        SignedAggregateAndProof,
+        SignedAggregateAndProofElectra,
         lambda: electra.SignedAggregateAndProof(
             message=_aggregate_and_proof(), signature=_signature(53)
         ),
     ),
-    ("sync_committee_contribution", SyncCommitteeContribution, _sync_contribution),
-    ("contribution_and_proof", ContributionAndProof, _contribution_and_proof),
+    (
+        "sync_committee_contribution",
+        SyncCommitteeContributionElectra,
+        _sync_contribution,
+    ),
+    ("contribution_and_proof", ContributionAndProofElectra, _contribution_and_proof),
     (
         "signed_contribution_and_proof",
-        SignedContributionAndProof,
+        SignedContributionAndProofElectra,
         lambda: electra.SignedContributionAndProof(
             message=_contribution_and_proof(), signature=_signature(67)
         ),
     ),
     (
         "single_attestation",
-        SingleAttestation,
+        SingleAttestationElectra,
         lambda: electra.SingleAttestation(
             committee_index=12,
             attester_index=34,
@@ -150,7 +157,7 @@ CASES: list[tuple[str, type[SszObject], ReferenceFactory]] = [
     ),
     (
         "sync_committee_message",
-        SyncCommitteeMessage,
+        SyncCommitteeMessageElectra,
         lambda: electra.SyncCommitteeMessage(
             slot=56,
             beacon_block_root=_root(0x91),
@@ -160,7 +167,7 @@ CASES: list[tuple[str, type[SszObject], ReferenceFactory]] = [
     ),
     (
         "indexed_attestation",
-        IndexedAttestation,
+        IndexedAttestationElectra,
         lambda: electra.IndexedAttestation(
             attesting_indices=[0, 1, 2, 31, 2**32, 2**64 - 1],
             data=_attestation_data(),
@@ -169,7 +176,7 @@ CASES: list[tuple[str, type[SszObject], ReferenceFactory]] = [
     ),
     (
         "attester_slashing",
-        AttesterSlashing,
+        AttesterSlashingElectra,
         lambda: electra.AttesterSlashing(
             attestation_1=electra.IndexedAttestation(
                 attesting_indices=[1, 3, 5],
@@ -183,17 +190,17 @@ CASES: list[tuple[str, type[SszObject], ReferenceFactory]] = [
             ),
         ),
     ),
-    ("beacon_block_header", BeaconBlockHeader, lambda: _header(7)),
+    ("beacon_block_header", BeaconBlockHeaderElectra, lambda: _header(7)),
     (
         "signed_beacon_block_header",
-        SignedBeaconBlockHeader,
+        SignedBeaconBlockHeaderElectra,
         lambda: electra.SignedBeaconBlockHeader(
             message=_header(9), signature=_signature(107)
         ),
     ),
     (
         "proposer_slashing",
-        ProposerSlashing,
+        ProposerSlashingElectra,
         lambda: electra.ProposerSlashing(
             signed_header_1=electra.SignedBeaconBlockHeader(
                 message=_header(11), signature=_signature(109)
@@ -263,7 +270,11 @@ def test_ssz_decoders_reject_noncanonical_container_lengths(
     del name
     encoded = reference_factory().encode_bytes()
 
-    if spy_type not in {Attestation, AggregateAndProof, SignedAggregateAndProof}:
+    if spy_type not in {
+        AttestationElectra,
+        AggregateAndProofElectra,
+        SignedAggregateAndProofElectra,
+    }:
         with pytest.raises(ValueError, match="invalid SSZ object"):
             spy_type.from_ssz(encoded[:-1])
     with pytest.raises(ValueError, match="invalid SSZ object"):
@@ -278,13 +289,13 @@ def test_json_uint64_rejects_values_remerkleable_considers_out_of_bounds(
     value["slot"] = invalid
 
     with pytest.raises(ValueError, match="invalid JSON object"):
-        AttestationData.from_json(msgspec.json.encode(value))
+        AttestationDataElectra.from_json(msgspec.json.encode(value))
 
 
 def test_json_uint64_accepts_its_upper_bound_without_truncation() -> None:
     reference = electra.AttestationData(slot=2**64 - 1)
 
-    with AttestationData.from_obj(reference.to_obj()) as value:
+    with AttestationDataElectra.from_obj(reference.to_obj()) as value:
         assert value.slot == 2**64 - 1
         assert value.to_ssz() == reference.encode_bytes()
         assert value.hash_tree_root() == reference.hash_tree_root()
@@ -295,7 +306,7 @@ def test_json_uint64_accepts_remerkleable_little_endian_hex() -> None:
     value["slot"] = "0x0302010000000000"
     reference = electra.AttestationData.from_obj(value)
 
-    with AttestationData.from_obj(value) as decoded:
+    with AttestationDataElectra.from_obj(value) as decoded:
         assert decoded.slot == 0x010203
         assert decoded.to_ssz() == reference.encode_bytes()
         assert decoded.hash_tree_root() == reference.hash_tree_root()
@@ -318,7 +329,7 @@ def _malformed_json_cases() -> list[bytes]:
 @pytest.mark.parametrize("raw", _malformed_json_cases())
 def test_json_decoder_rejects_malformed_container_syntax(raw: bytes) -> None:
     with pytest.raises(ValueError, match="invalid JSON object"):
-        AttestationData.from_json(raw)
+        AttestationDataElectra.from_json(raw)
 
 
 def test_json_decoder_rejects_leading_zero_in_uint64() -> None:
@@ -329,7 +340,7 @@ def test_json_decoder_rejects_leading_zero_in_uint64() -> None:
     with pytest.raises(
         ValueError, match=r"invalid JSON object \(status=MALFORMED_INPUT"
     ):
-        AttestationData.from_json(raw)
+        AttestationDataElectra.from_json(raw)
 
 
 def test_json_decoder_rejects_leading_zero_in_basic_uint_list() -> None:
@@ -338,7 +349,7 @@ def test_json_decoder_rejects_leading_zero_in_basic_uint_list() -> None:
     ).replace(b"[12]", b"[012]")
 
     with pytest.raises(ValueError, match="invalid JSON object"):
-        IndexedAttestation.from_json(raw)
+        IndexedAttestationElectra.from_json(raw)
 
 
 @pytest.mark.parametrize(
@@ -352,7 +363,7 @@ def test_json_decoder_rejects_invalid_ignored_object_keys(
     malformed = raw[:-1] + b"," + unknown_key + b":0}"
 
     with pytest.raises(ValueError, match="invalid JSON object"):
-        AttestationData.from_json(malformed)
+        AttestationDataElectra.from_json(malformed)
 
 
 @pytest.mark.parametrize("primitive", [b"truth", b"01", b"1.", b"1e", b"-"])
@@ -361,7 +372,7 @@ def test_json_decoder_rejects_invalid_ignored_primitives(primitive: bytes) -> No
     malformed = raw[:-1] + b',"ignored":' + primitive + b"}"
 
     with pytest.raises(ValueError, match="invalid JSON object"):
-        AttestationData.from_json(malformed)
+        AttestationDataElectra.from_json(malformed)
 
 
 def test_json_decoder_rejects_valid_unrecognized_fields() -> None:
@@ -376,7 +387,7 @@ def test_json_decoder_rejects_valid_unrecognized_fields() -> None:
             r"\(status=UNRECOGNIZED_FIELD, byte_range=\d+:\d+\)"
         ),
     ):
-        AttestationData.from_json(extended)
+        AttestationDataElectra.from_json(extended)
 
 
 def test_json_decoder_rejects_duplicate_object_keys() -> None:
@@ -384,7 +395,7 @@ def test_json_decoder_rejects_duplicate_object_keys() -> None:
     duplicated = raw.replace(b'"slot":0', b'"slot":1,"slot":0')
 
     with pytest.raises(ValueError, match="invalid JSON object"):
-        AttestationData.from_json(duplicated)
+        AttestationDataElectra.from_json(duplicated)
 
 
 def test_ssz_decoder_rejects_extreme_variable_offsets_without_crashing() -> None:
@@ -394,7 +405,7 @@ def test_ssz_decoder_rejects_extreme_variable_offsets_without_crashing() -> None
     with pytest.raises(
         ValueError, match=r"invalid SSZ object \(status=MALFORMED_INPUT"
     ):
-        Attestation.from_ssz(encoded)
+        AttestationElectra.from_ssz(encoded)
 
 
 UPSTREAM_BITFIELD_CASES = [

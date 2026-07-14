@@ -36,6 +36,7 @@ class PresetConfig:
     max_deposit_requests_per_payload: int
     max_withdrawal_requests_per_payload: int
     max_consolidation_requests_per_payload: int
+    ptc_size: int
 
 
 def load_preset(preset: Preset | str) -> PresetConfig:

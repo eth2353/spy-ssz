@@ -4,10 +4,10 @@ from eth_consensus_specs.electra import mainnet as electra
 from spy_ssz import Checkpoint
 from spy_ssz._repr import format_value
 from spy_ssz.signing import (
-    Attestation,
-    AttestationData,
-    AttestationDataGnosis,
-    AttestationDataMinimal,
+    AttestationDataElectra,
+    AttestationDataElectraGnosis,
+    AttestationDataElectraMinimal,
+    AttestationElectra,
 )
 
 
@@ -32,9 +32,9 @@ def test_recursive_collection_repr_handles_empty_values() -> None:
 @pytest.mark.parametrize(
     ("ssz_type", "type_name"),
     [
-        (AttestationData, "AttestationData"),
-        (AttestationDataMinimal, "AttestationDataMinimal"),
-        (AttestationDataGnosis, "AttestationDataGnosis"),
+        (AttestationDataElectra, "AttestationDataElectra"),
+        (AttestationDataElectraMinimal, "AttestationDataElectraMinimal"),
+        (AttestationDataElectraGnosis, "AttestationDataElectraGnosis"),
     ],
 )
 def test_ssz_object_repr_is_recursive_and_preserves_value_semantics(
@@ -74,7 +74,7 @@ def test_ssz_object_repr_is_recursive_and_preserves_value_semantics(
 
 
 def test_bitfields_have_deterministic_nested_repr() -> None:
-    with Attestation.from_obj(electra.Attestation().to_obj()) as value:
+    with AttestationElectra.from_obj(electra.Attestation().to_obj()) as value:
         rendered = repr(value)
 
     assert "aggregation_bits=Bitfield(length=0, data=0x00)" in rendered

@@ -22,8 +22,9 @@ def test_fork_ids_follow_consensus_chronology() -> None:
         Fork.DENEB,
         Fork.ELECTRA,
         Fork.FULU,
+        Fork.GLOAS,
     ]
-    assert [fork.value for fork in Fork] == list(range(7))
+    assert [fork.value for fork in Fork] == list(range(8))
 
 
 def test_single_schema_codec_lookup_rejects_multiplexed_codecs() -> None:
@@ -32,13 +33,19 @@ def test_single_schema_codec_lookup_rejects_multiplexed_codecs() -> None:
         schema_for("signing")
 
 
-def test_only_electra_and_fulu_schemas_are_registered() -> None:
+def test_only_supported_fork_schemas_are_registered() -> None:
     assert {schema.fork for schema in schema_definitions()} == {
         Fork.ELECTRA,
         Fork.FULU,
+        Fork.GLOAS,
     }
     with pytest.raises(KeyError):
         get_schema(Fork.DENEB, ObjectKind.SIGNED_BEACON_BLOCK)
+
+
+def test_public_schema_types_use_fork_suffixes() -> None:
+    for definition in schema_definitions():
+        assert definition.python_type.endswith(definition.fork.name.title())
 
 
 def test_public_type_resolver_is_complete_and_coherent() -> None:
@@ -75,3 +82,18 @@ def test_fulu_resolver_returns_first_class_fulu_types() -> None:
             assert fulu_type.expected_fork is Fork.FULU
             assert fulu_type.expected_kind is kind
             assert get_schema(Fork.FULU, kind).schema_id == 600 + kind.value
+
+
+def test_gloas_resolver_returns_first_class_gloas_types() -> None:
+    gloas_definitions = [
+        definition
+        for definition in schema_definitions()
+        if definition.fork is Fork.GLOAS
+    ]
+    assert len(gloas_definitions) == 21
+    for definition in gloas_definitions:
+        for preset in Preset:
+            gloas_type = get_ssz_type(Fork.GLOAS, definition.kind, preset)
+            assert gloas_type.expected_fork is Fork.GLOAS
+            assert gloas_type.expected_kind is definition.kind
+            assert definition.schema_id == 700 + definition.kind.value

@@ -12,36 +12,47 @@ class Projection:
 def project_value(fork: Fork, type_id: int, value: Any) -> Any: ...
 def project_field(fork: Fork, consensus_type: str, name: str, value: Any) -> Any: ...
 
-class AggregateAndProof(Projection):
+class AggregateAndProofElectra(Projection):
     def __init__(
         self,
         aggregator_index: int,
-        aggregate: Attestation,
+        aggregate: AttestationElectra,
         selection_proof: bytes,
     ) -> None: ...
     @property
     def aggregator_index(self) -> int: ...
     @property
-    def aggregate(self) -> Attestation: ...
+    def aggregate(self) -> AttestationElectra: ...
     @property
     def selection_proof(self) -> bytes: ...
 
-class Attestation(Projection):
+class AggregateAndProofFulu(Projection):
     def __init__(
         self,
-        aggregation_bits: bytes,
-        data: AttestationData,
-        signature: bytes,
-        committee_bits: bytes,
+        aggregator_index: int,
+        aggregate: AttestationFulu,
+        selection_proof: bytes,
     ) -> None: ...
     @property
-    def aggregation_bits(self) -> bytes: ...
+    def aggregator_index(self) -> int: ...
     @property
-    def data(self) -> AttestationData: ...
+    def aggregate(self) -> AttestationFulu: ...
     @property
-    def signature(self) -> bytes: ...
+    def selection_proof(self) -> bytes: ...
+
+class AggregateAndProofGloas(Projection):
+    def __init__(
+        self,
+        aggregator_index: int,
+        aggregate: AttestationGloas,
+        selection_proof: bytes,
+    ) -> None: ...
     @property
-    def committee_bits(self) -> bytes: ...
+    def aggregator_index(self) -> int: ...
+    @property
+    def aggregate(self) -> AttestationGloas: ...
+    @property
+    def selection_proof(self) -> bytes: ...
 
 class AttestationData(Projection):
     def __init__(
@@ -63,16 +74,89 @@ class AttestationData(Projection):
     @property
     def target(self) -> Checkpoint: ...
 
-class AttesterSlashing(Projection):
+class AttestationElectra(Projection):
     def __init__(
         self,
-        attestation_1: IndexedAttestation,
-        attestation_2: IndexedAttestation,
+        aggregation_bits: bytes,
+        data: AttestationData,
+        signature: bytes,
+        committee_bits: bytes,
     ) -> None: ...
     @property
-    def attestation_1(self) -> IndexedAttestation: ...
+    def aggregation_bits(self) -> bytes: ...
     @property
-    def attestation_2(self) -> IndexedAttestation: ...
+    def data(self) -> AttestationData: ...
+    @property
+    def signature(self) -> bytes: ...
+    @property
+    def committee_bits(self) -> bytes: ...
+
+class AttestationFulu(Projection):
+    def __init__(
+        self,
+        aggregation_bits: bytes,
+        data: AttestationData,
+        signature: bytes,
+        committee_bits: bytes,
+    ) -> None: ...
+    @property
+    def aggregation_bits(self) -> bytes: ...
+    @property
+    def data(self) -> AttestationData: ...
+    @property
+    def signature(self) -> bytes: ...
+    @property
+    def committee_bits(self) -> bytes: ...
+
+class AttestationGloas(Projection):
+    def __init__(
+        self,
+        aggregation_bits: bytes,
+        data: AttestationData,
+        signature: bytes,
+        committee_bits: bytes,
+    ) -> None: ...
+    @property
+    def aggregation_bits(self) -> bytes: ...
+    @property
+    def data(self) -> AttestationData: ...
+    @property
+    def signature(self) -> bytes: ...
+    @property
+    def committee_bits(self) -> bytes: ...
+
+class AttesterSlashingElectra(Projection):
+    def __init__(
+        self,
+        attestation_1: IndexedAttestationElectra,
+        attestation_2: IndexedAttestationElectra,
+    ) -> None: ...
+    @property
+    def attestation_1(self) -> IndexedAttestationElectra: ...
+    @property
+    def attestation_2(self) -> IndexedAttestationElectra: ...
+
+class AttesterSlashingFulu(Projection):
+    def __init__(
+        self,
+        attestation_1: IndexedAttestationFulu,
+        attestation_2: IndexedAttestationFulu,
+    ) -> None: ...
+    @property
+    def attestation_1(self) -> IndexedAttestationFulu: ...
+    @property
+    def attestation_2(self) -> IndexedAttestationFulu: ...
+
+class AttesterSlashingGloas(Projection):
+    def __init__(
+        self,
+        attestation_1: IndexedAttestationGloas,
+        attestation_2: IndexedAttestationGloas,
+    ) -> None: ...
+    @property
+    def attestation_1(self) -> IndexedAttestationGloas: ...
+    @property
+    def attestation_2(self) -> IndexedAttestationGloas: ...
 
 class BLSToExecutionChange(Projection):
     def __init__(
@@ -88,42 +172,22 @@ class BLSToExecutionChange(Projection):
     @property
     def to_execution_address(self) -> bytes: ...
 
-class BeaconBlock(Projection):
-    def __init__(
-        self,
-        slot: int,
-        proposer_index: int,
-        parent_root: bytes,
-        state_root: bytes,
-        body: BeaconBlockBody,
-    ) -> None: ...
-    @property
-    def slot(self) -> int: ...
-    @property
-    def proposer_index(self) -> int: ...
-    @property
-    def parent_root(self) -> bytes: ...
-    @property
-    def state_root(self) -> bytes: ...
-    @property
-    def body(self) -> BeaconBlockBody: ...
-
-class BeaconBlockBody(Projection):
+class BeaconBlockBodyElectra(Projection):
     def __init__(
         self,
         randao_reveal: bytes,
         eth1_data: Eth1Data,
         graffiti: bytes,
         proposer_slashings: tuple[ProposerSlashing, ...],
-        attester_slashings: tuple[AttesterSlashing, ...],
-        attestations: tuple[Attestation, ...],
+        attester_slashings: tuple[AttesterSlashingElectra, ...],
+        attestations: tuple[AttestationElectra, ...],
         deposits: tuple[Deposit, ...],
         voluntary_exits: tuple[SignedVoluntaryExit, ...],
         sync_aggregate: SyncAggregate,
         execution_payload: ExecutionPayload,
         bls_to_execution_changes: tuple[SignedBLSToExecutionChange, ...],
         blob_kzg_commitments: tuple[bytes, ...],
-        execution_requests: ExecutionRequests,
+        execution_requests: ExecutionRequestsElectra,
     ) -> None: ...
     @property
     def randao_reveal(self) -> bytes: ...
@@ -134,9 +198,9 @@ class BeaconBlockBody(Projection):
     @property
     def proposer_slashings(self) -> tuple[ProposerSlashing, ...]: ...
     @property
-    def attester_slashings(self) -> tuple[AttesterSlashing, ...]: ...
+    def attester_slashings(self) -> tuple[AttesterSlashingElectra, ...]: ...
     @property
-    def attestations(self) -> tuple[Attestation, ...]: ...
+    def attestations(self) -> tuple[AttestationElectra, ...]: ...
     @property
     def deposits(self) -> tuple[Deposit, ...]: ...
     @property
@@ -150,7 +214,155 @@ class BeaconBlockBody(Projection):
     @property
     def blob_kzg_commitments(self) -> tuple[bytes, ...]: ...
     @property
-    def execution_requests(self) -> ExecutionRequests: ...
+    def execution_requests(self) -> ExecutionRequestsElectra: ...
+
+class BeaconBlockBodyFulu(Projection):
+    def __init__(
+        self,
+        randao_reveal: bytes,
+        eth1_data: Eth1Data,
+        graffiti: bytes,
+        proposer_slashings: tuple[ProposerSlashing, ...],
+        attester_slashings: tuple[AttesterSlashingFulu, ...],
+        attestations: tuple[AttestationFulu, ...],
+        deposits: tuple[Deposit, ...],
+        voluntary_exits: tuple[SignedVoluntaryExit, ...],
+        sync_aggregate: SyncAggregate,
+        execution_payload: ExecutionPayload,
+        bls_to_execution_changes: tuple[SignedBLSToExecutionChange, ...],
+        blob_kzg_commitments: tuple[bytes, ...],
+        execution_requests: ExecutionRequestsFulu,
+    ) -> None: ...
+    @property
+    def randao_reveal(self) -> bytes: ...
+    @property
+    def eth1_data(self) -> Eth1Data: ...
+    @property
+    def graffiti(self) -> bytes: ...
+    @property
+    def proposer_slashings(self) -> tuple[ProposerSlashing, ...]: ...
+    @property
+    def attester_slashings(self) -> tuple[AttesterSlashingFulu, ...]: ...
+    @property
+    def attestations(self) -> tuple[AttestationFulu, ...]: ...
+    @property
+    def deposits(self) -> tuple[Deposit, ...]: ...
+    @property
+    def voluntary_exits(self) -> tuple[SignedVoluntaryExit, ...]: ...
+    @property
+    def sync_aggregate(self) -> SyncAggregate: ...
+    @property
+    def execution_payload(self) -> ExecutionPayload: ...
+    @property
+    def bls_to_execution_changes(self) -> tuple[SignedBLSToExecutionChange, ...]: ...
+    @property
+    def blob_kzg_commitments(self) -> tuple[bytes, ...]: ...
+    @property
+    def execution_requests(self) -> ExecutionRequestsFulu: ...
+
+class BeaconBlockBodyGloas(Projection):
+    def __init__(
+        self,
+        randao_reveal: bytes,
+        eth1_data: Eth1Data,
+        graffiti: bytes,
+        proposer_slashings: tuple[ProposerSlashing, ...],
+        attester_slashings: tuple[AttesterSlashingGloas, ...],
+        attestations: tuple[AttestationGloas, ...],
+        deposits: tuple[Deposit, ...],
+        voluntary_exits: tuple[SignedVoluntaryExit, ...],
+        sync_aggregate: SyncAggregate,
+        bls_to_execution_changes: tuple[SignedBLSToExecutionChange, ...],
+        signed_execution_payload_bid: SignedExecutionPayloadBid,
+        payload_attestations: tuple[PayloadAttestation, ...],
+        parent_execution_requests: ExecutionRequestsGloas,
+    ) -> None: ...
+    @property
+    def randao_reveal(self) -> bytes: ...
+    @property
+    def eth1_data(self) -> Eth1Data: ...
+    @property
+    def graffiti(self) -> bytes: ...
+    @property
+    def proposer_slashings(self) -> tuple[ProposerSlashing, ...]: ...
+    @property
+    def attester_slashings(self) -> tuple[AttesterSlashingGloas, ...]: ...
+    @property
+    def attestations(self) -> tuple[AttestationGloas, ...]: ...
+    @property
+    def deposits(self) -> tuple[Deposit, ...]: ...
+    @property
+    def voluntary_exits(self) -> tuple[SignedVoluntaryExit, ...]: ...
+    @property
+    def sync_aggregate(self) -> SyncAggregate: ...
+    @property
+    def bls_to_execution_changes(self) -> tuple[SignedBLSToExecutionChange, ...]: ...
+    @property
+    def signed_execution_payload_bid(self) -> SignedExecutionPayloadBid: ...
+    @property
+    def payload_attestations(self) -> tuple[PayloadAttestation, ...]: ...
+    @property
+    def parent_execution_requests(self) -> ExecutionRequestsGloas: ...
+
+class BeaconBlockElectra(Projection):
+    def __init__(
+        self,
+        slot: int,
+        proposer_index: int,
+        parent_root: bytes,
+        state_root: bytes,
+        body: BeaconBlockBodyElectra,
+    ) -> None: ...
+    @property
+    def slot(self) -> int: ...
+    @property
+    def proposer_index(self) -> int: ...
+    @property
+    def parent_root(self) -> bytes: ...
+    @property
+    def state_root(self) -> bytes: ...
+    @property
+    def body(self) -> BeaconBlockBodyElectra: ...
+
+class BeaconBlockFulu(Projection):
+    def __init__(
+        self,
+        slot: int,
+        proposer_index: int,
+        parent_root: bytes,
+        state_root: bytes,
+        body: BeaconBlockBodyFulu,
+    ) -> None: ...
+    @property
+    def slot(self) -> int: ...
+    @property
+    def proposer_index(self) -> int: ...
+    @property
+    def parent_root(self) -> bytes: ...
+    @property
+    def state_root(self) -> bytes: ...
+    @property
+    def body(self) -> BeaconBlockBodyFulu: ...
+
+class BeaconBlockGloas(Projection):
+    def __init__(
+        self,
+        slot: int,
+        proposer_index: int,
+        parent_root: bytes,
+        state_root: bytes,
+        body: BeaconBlockBodyGloas,
+    ) -> None: ...
+    @property
+    def slot(self) -> int: ...
+    @property
+    def proposer_index(self) -> int: ...
+    @property
+    def parent_root(self) -> bytes: ...
+    @property
+    def state_root(self) -> bytes: ...
+    @property
+    def body(self) -> BeaconBlockBodyGloas: ...
 
 class BeaconBlockHeader(Projection):
     def __init__(
@@ -171,6 +383,34 @@ class BeaconBlockHeader(Projection):
     def state_root(self) -> bytes: ...
     @property
     def body_root(self) -> bytes: ...
+
+class BuilderDepositRequest(Projection):
+    def __init__(
+        self,
+        pubkey: bytes,
+        withdrawal_credentials: bytes,
+        amount: int,
+        signature: bytes,
+    ) -> None: ...
+    @property
+    def pubkey(self) -> bytes: ...
+    @property
+    def withdrawal_credentials(self) -> bytes: ...
+    @property
+    def amount(self) -> int: ...
+    @property
+    def signature(self) -> bytes: ...
+
+class BuilderExitRequest(Projection):
+    def __init__(
+        self,
+        source_address: bytes,
+        pubkey: bytes,
+    ) -> None: ...
+    @property
+    def source_address(self) -> bytes: ...
+    @property
+    def pubkey(self) -> bytes: ...
 
 class Checkpoint(Projection):
     def __init__(
@@ -329,7 +569,48 @@ class ExecutionPayload(Projection):
     @property
     def excess_blob_gas(self) -> int: ...
 
-class ExecutionRequests(Projection):
+class ExecutionPayloadBid(Projection):
+    def __init__(
+        self,
+        parent_block_hash: bytes,
+        parent_block_root: bytes,
+        block_hash: bytes,
+        prev_randao: bytes,
+        fee_recipient: bytes,
+        gas_limit: int,
+        builder_index: int,
+        slot: int,
+        value: int,
+        execution_payment: int,
+        blob_kzg_commitments: tuple[bytes, ...],
+        execution_requests_root: bytes,
+    ) -> None: ...
+    @property
+    def parent_block_hash(self) -> bytes: ...
+    @property
+    def parent_block_root(self) -> bytes: ...
+    @property
+    def block_hash(self) -> bytes: ...
+    @property
+    def prev_randao(self) -> bytes: ...
+    @property
+    def fee_recipient(self) -> bytes: ...
+    @property
+    def gas_limit(self) -> int: ...
+    @property
+    def builder_index(self) -> int: ...
+    @property
+    def slot(self) -> int: ...
+    @property
+    def value(self) -> int: ...
+    @property
+    def execution_payment(self) -> int: ...
+    @property
+    def blob_kzg_commitments(self) -> tuple[bytes, ...]: ...
+    @property
+    def execution_requests_root(self) -> bytes: ...
+
+class ExecutionRequestsElectra(Projection):
     def __init__(
         self,
         deposits: tuple[DepositRequest, ...],
@@ -343,7 +624,41 @@ class ExecutionRequests(Projection):
     @property
     def consolidations(self) -> tuple[ConsolidationRequest, ...]: ...
 
-class IndexedAttestation(Projection):
+class ExecutionRequestsFulu(Projection):
+    def __init__(
+        self,
+        deposits: tuple[DepositRequest, ...],
+        withdrawals: tuple[WithdrawalRequest, ...],
+        consolidations: tuple[ConsolidationRequest, ...],
+    ) -> None: ...
+    @property
+    def deposits(self) -> tuple[DepositRequest, ...]: ...
+    @property
+    def withdrawals(self) -> tuple[WithdrawalRequest, ...]: ...
+    @property
+    def consolidations(self) -> tuple[ConsolidationRequest, ...]: ...
+
+class ExecutionRequestsGloas(Projection):
+    def __init__(
+        self,
+        deposits: tuple[DepositRequest, ...],
+        withdrawals: tuple[WithdrawalRequest, ...],
+        consolidations: tuple[ConsolidationRequest, ...],
+        builder_deposits: tuple[BuilderDepositRequest, ...],
+        builder_exits: tuple[BuilderExitRequest, ...],
+    ) -> None: ...
+    @property
+    def deposits(self) -> tuple[DepositRequest, ...]: ...
+    @property
+    def withdrawals(self) -> tuple[WithdrawalRequest, ...]: ...
+    @property
+    def consolidations(self) -> tuple[ConsolidationRequest, ...]: ...
+    @property
+    def builder_deposits(self) -> tuple[BuilderDepositRequest, ...]: ...
+    @property
+    def builder_exits(self) -> tuple[BuilderExitRequest, ...]: ...
+
+class IndexedAttestationElectra(Projection):
     def __init__(
         self,
         attesting_indices: tuple[int, ...],
@@ -357,6 +672,99 @@ class IndexedAttestation(Projection):
     @property
     def signature(self) -> bytes: ...
 
+class IndexedAttestationFulu(Projection):
+    def __init__(
+        self,
+        attesting_indices: tuple[int, ...],
+        data: AttestationData,
+        signature: bytes,
+    ) -> None: ...
+    @property
+    def attesting_indices(self) -> tuple[int, ...]: ...
+    @property
+    def data(self) -> AttestationData: ...
+    @property
+    def signature(self) -> bytes: ...
+
+class IndexedAttestationGloas(Projection):
+    def __init__(
+        self,
+        attesting_indices: tuple[int, ...],
+        data: AttestationData,
+        signature: bytes,
+    ) -> None: ...
+    @property
+    def attesting_indices(self) -> tuple[int, ...]: ...
+    @property
+    def data(self) -> AttestationData: ...
+    @property
+    def signature(self) -> bytes: ...
+
+class PayloadAttestation(Projection):
+    def __init__(
+        self,
+        aggregation_bits: bytes,
+        data: PayloadAttestationData,
+        signature: bytes,
+    ) -> None: ...
+    @property
+    def aggregation_bits(self) -> bytes: ...
+    @property
+    def data(self) -> PayloadAttestationData: ...
+    @property
+    def signature(self) -> bytes: ...
+
+class PayloadAttestationData(Projection):
+    def __init__(
+        self,
+        beacon_block_root: bytes,
+        slot: int,
+        payload_present: bool,
+        blob_data_available: bool,
+    ) -> None: ...
+    @property
+    def beacon_block_root(self) -> bytes: ...
+    @property
+    def slot(self) -> int: ...
+    @property
+    def payload_present(self) -> bool: ...
+    @property
+    def blob_data_available(self) -> bool: ...
+
+class PayloadAttestationMessage(Projection):
+    def __init__(
+        self,
+        validator_index: int,
+        data: PayloadAttestationData,
+        signature: bytes,
+    ) -> None: ...
+    @property
+    def validator_index(self) -> int: ...
+    @property
+    def data(self) -> PayloadAttestationData: ...
+    @property
+    def signature(self) -> bytes: ...
+
+class ProposerPreferences(Projection):
+    def __init__(
+        self,
+        dependent_root: bytes,
+        proposal_slot: int,
+        validator_index: int,
+        fee_recipient: bytes,
+        target_gas_limit: int,
+    ) -> None: ...
+    @property
+    def dependent_root(self) -> bytes: ...
+    @property
+    def proposal_slot(self) -> int: ...
+    @property
+    def validator_index(self) -> int: ...
+    @property
+    def fee_recipient(self) -> bytes: ...
+    @property
+    def target_gas_limit(self) -> int: ...
+
 class ProposerSlashing(Projection):
     def __init__(
         self,
@@ -368,14 +776,36 @@ class ProposerSlashing(Projection):
     @property
     def signed_header_2(self) -> SignedBeaconBlockHeader: ...
 
-class SignedAggregateAndProof(Projection):
+class SignedAggregateAndProofElectra(Projection):
     def __init__(
         self,
-        message: AggregateAndProof,
+        message: AggregateAndProofElectra,
         signature: bytes,
     ) -> None: ...
     @property
-    def message(self) -> AggregateAndProof: ...
+    def message(self) -> AggregateAndProofElectra: ...
+    @property
+    def signature(self) -> bytes: ...
+
+class SignedAggregateAndProofFulu(Projection):
+    def __init__(
+        self,
+        message: AggregateAndProofFulu,
+        signature: bytes,
+    ) -> None: ...
+    @property
+    def message(self) -> AggregateAndProofFulu: ...
+    @property
+    def signature(self) -> bytes: ...
+
+class SignedAggregateAndProofGloas(Projection):
+    def __init__(
+        self,
+        message: AggregateAndProofGloas,
+        signature: bytes,
+    ) -> None: ...
+    @property
+    def message(self) -> AggregateAndProofGloas: ...
     @property
     def signature(self) -> bytes: ...
 
@@ -390,14 +820,36 @@ class SignedBLSToExecutionChange(Projection):
     @property
     def signature(self) -> bytes: ...
 
-class SignedBeaconBlock(Projection):
+class SignedBeaconBlockElectra(Projection):
     def __init__(
         self,
-        message: BeaconBlock,
+        message: BeaconBlockElectra,
         signature: bytes,
     ) -> None: ...
     @property
-    def message(self) -> BeaconBlock: ...
+    def message(self) -> BeaconBlockElectra: ...
+    @property
+    def signature(self) -> bytes: ...
+
+class SignedBeaconBlockFulu(Projection):
+    def __init__(
+        self,
+        message: BeaconBlockFulu,
+        signature: bytes,
+    ) -> None: ...
+    @property
+    def message(self) -> BeaconBlockFulu: ...
+    @property
+    def signature(self) -> bytes: ...
+
+class SignedBeaconBlockGloas(Projection):
+    def __init__(
+        self,
+        message: BeaconBlockGloas,
+        signature: bytes,
+    ) -> None: ...
+    @property
+    def message(self) -> BeaconBlockGloas: ...
     @property
     def signature(self) -> bytes: ...
 
@@ -420,6 +872,28 @@ class SignedContributionAndProof(Projection):
     ) -> None: ...
     @property
     def message(self) -> ContributionAndProof: ...
+    @property
+    def signature(self) -> bytes: ...
+
+class SignedExecutionPayloadBid(Projection):
+    def __init__(
+        self,
+        message: ExecutionPayloadBid,
+        signature: bytes,
+    ) -> None: ...
+    @property
+    def message(self) -> ExecutionPayloadBid: ...
+    @property
+    def signature(self) -> bytes: ...
+
+class SignedProposerPreferences(Projection):
+    def __init__(
+        self,
+        message: ProposerPreferences,
+        signature: bytes,
+    ) -> None: ...
+    @property
+    def message(self) -> ProposerPreferences: ...
     @property
     def signature(self) -> bytes: ...
 

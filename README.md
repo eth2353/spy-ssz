@@ -33,9 +33,9 @@ mainnet Electra signed-block class accepts the standard Beacon API
 `{"data": ...}` JSON envelope:
 
 ```python
-from spy_ssz import ElectraSignedBeaconBlock
+from spy_ssz import SignedBeaconBlockElectra
 
-with ElectraSignedBeaconBlock.from_json(response.content) as block:
+with SignedBeaconBlockElectra.from_json(response.content) as block:
     root: bytes = block.hash_tree_root()
     canonical_ssz: bytes = block.to_ssz()
     beacon_api_json: bytes = block.to_json()
@@ -47,9 +47,9 @@ with ElectraSignedBeaconBlock.from_json(response.content) as block:
 Decode canonical SSZ into the same object type:
 
 ```python
-from spy_ssz import ElectraSignedBeaconBlock
+from spy_ssz import SignedBeaconBlockElectra
 
-with ElectraSignedBeaconBlock.from_ssz(ssz_bytes) as block:
+with SignedBeaconBlockElectra.from_ssz(ssz_bytes) as block:
     assert block.to_ssz() == ssz_bytes
     print(block.hash_tree_root().hex())
 ```
@@ -63,14 +63,14 @@ Mainnet is the default. Minimal and Gnosis use explicit class suffixes:
 
 ```python
 from spy_ssz import (
-    ElectraSignedBeaconBlock,
-    ElectraSignedBeaconBlockGnosis,
-    ElectraSignedBeaconBlockMinimal,
+    SignedBeaconBlockElectra,
+    SignedBeaconBlockElectraGnosis,
+    SignedBeaconBlockElectraMinimal,
 )
 
-mainnet_block = ElectraSignedBeaconBlock.from_ssz(mainnet_ssz)
-minimal_block = ElectraSignedBeaconBlockMinimal.from_ssz(minimal_ssz)
-gnosis_block = ElectraSignedBeaconBlockGnosis.from_ssz(gnosis_ssz)
+mainnet_block = SignedBeaconBlockElectra.from_ssz(mainnet_ssz)
+minimal_block = SignedBeaconBlockElectraMinimal.from_ssz(minimal_ssz)
+gnosis_block = SignedBeaconBlockElectraGnosis.from_ssz(gnosis_ssz)
 ```
 
 The canonical YAML files under `spy_ssz/presets/<preset>/` are the source of
@@ -201,9 +201,9 @@ individual `to_json()` byte strings are not allocated.
 Electra block-container types provide helpers used during block proposal:
 
 ```python
-from spy_ssz import ElectraBeaconBlockContentsMainnet
+from spy_ssz import BeaconBlockContentsElectraMainnet
 
-with ElectraBeaconBlockContentsMainnet.from_json(response.content) as contents:
+with BeaconBlockContentsElectraMainnet.from_json(response.content) as contents:
     header = contents.header_dict()
     block_root = contents.block_hash_tree_root()
 
@@ -215,8 +215,8 @@ with ElectraBeaconBlockContentsMainnet.from_json(response.content) as contents:
         signed.close()
 ```
 
-The corresponding blinded types are `ElectraBlindedBeaconBlockMainnet` and
-`ElectraSignedBlindedBeaconBlockMainnet`. Minimal and Gnosis variants use the
+The corresponding blinded types are `BlindedBeaconBlockElectraMainnet` and
+`SignedBlindedBeaconBlockElectraMainnet`. Minimal and Gnosis variants use the
 same suffix convention.
 
 ## API summary

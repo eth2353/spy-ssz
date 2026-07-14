@@ -10,8 +10,15 @@ def test_vector_definitions_cover_all_implemented_forks() -> None:
     assert {definition.fork for definition in definitions} == {
         Fork.ELECTRA,
         Fork.FULU,
+        Fork.GLOAS,
     }
-    assert len(definitions) == 30
+    assert len(definitions) == 51
+
+
+def test_required_gloas_validator_types_include_beacon_blocks() -> None:
+    assert {"BeaconBlock", "SignedBeaconBlock"}.issubset(
+        check_consensus_vectors.REQUIRED_VALIDATOR_TYPES[Fork.GLOAS]
+    )
 
 
 def test_codec_class_uses_explicit_preset_variant(monkeypatch) -> None:

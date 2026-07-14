@@ -29,4 +29,13 @@ from electra_block_containers_encode import (
     block_container_ssz_size,
 )
 from electra_block_containers_ssz import decode_block_container_ssz
+from gloas_block import decode_gloas_block_json
+from gloas_block_ssz import decode_gloas_block_ssz
+from gloas_block_encode import (
+    gloas_encode_json,
+    gloas_encode_ssz,
+    gloas_json_size,
+    gloas_ssz_size,
+)
+from gloas_signing import decode_gloas_signing_json, decode_gloas_signing_ssz
 from ssz_object import clone_and_sign_block, object_hash_tree_root, object_node_hash_tree_root

@@ -4,9 +4,11 @@ from pathlib import Path
 import pytest
 from eth_consensus_specs.electra import mainnet as electra
 
-from spy_ssz import Checkpoint
-from spy_ssz.projections import AttestationData as AttestationDataProjection
-from spy_ssz.signing import AggregateAndProof, AttestationData
+from spy_ssz import Checkpoint, projections
+from spy_ssz.signing import (
+    AggregateAndProofElectra,
+    AttestationDataElectra,
+)
 
 
 ROOT = Path(__file__).parents[1]
@@ -14,7 +16,7 @@ ROOT = Path(__file__).parents[1]
 
 def test_attestation_data_has_typed_immutable_projections() -> None:
     reference = electra.AttestationData()
-    with AttestationData.from_obj(reference.to_obj()) as value:
+    with AttestationDataElectra.from_obj(reference.to_obj()) as value:
         assert value.slot == 0
         assert value.beacon_block_root == bytes(32)
         assert value.source == Checkpoint(epoch=0, root=bytes(32))
@@ -27,8 +29,8 @@ def test_attestation_data_has_typed_immutable_projections() -> None:
 
 def test_nested_containers_use_named_projection_types() -> None:
     reference = electra.AggregateAndProof()
-    with AggregateAndProof.from_obj(reference.to_obj()) as value:
-        assert isinstance(value.aggregate.data, AttestationDataProjection)
+    with AggregateAndProofElectra.from_obj(reference.to_obj()) as value:
+        assert isinstance(value.aggregate.data, projections.AttestationData)
         assert isinstance(value.aggregate.data.source, Checkpoint)
         assert value.aggregate.data.slot == 0
 

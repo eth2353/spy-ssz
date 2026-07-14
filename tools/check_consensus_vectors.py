@@ -14,18 +14,64 @@ from spy_ssz.schema import Fork, SchemaDefinition, module_for_codec, schema_defi
 
 
 CONSENSUS_VECTOR_PRESETS = ("minimal", "mainnet")
+REQUIRED_VALIDATOR_TYPES = {
+    Fork.GLOAS: frozenset(
+        {
+            "BeaconBlock",
+            "SignedBeaconBlock",
+            "Attestation",
+            "AttestationData",
+            "AggregateAndProof",
+            "SyncCommitteeContribution",
+            "ContributionAndProof",
+            "SingleAttestation",
+            "SyncCommitteeMessage",
+            "SignedAggregateAndProof",
+            "SignedContributionAndProof",
+            "IndexedAttestation",
+            "AttesterSlashing",
+            "BeaconBlockHeader",
+            "SignedBeaconBlockHeader",
+            "ProposerSlashing",
+            "PayloadAttestationData",
+            "PayloadAttestation",
+            "PayloadAttestationMessage",
+            "ProposerPreferences",
+            "SignedProposerPreferences",
+        }
+    )
+}
 
 
 def _vector_definitions(
     forks: frozenset[Fork] | None = None,
 ) -> tuple[SchemaDefinition, ...]:
     """Return every implemented schema that has an upstream static-vector type."""
-    return tuple(
+    definitions = tuple(
         definition
         for definition in schema_definitions()
         if definition.consensus_type is not None
         and (forks is None or definition.fork in forks)
     )
+    implemented = {
+        fork: {
+            definition.consensus_type
+            for definition in definitions
+            if definition.fork is fork
+        }
+        for fork in REQUIRED_VALIDATOR_TYPES
+        if forks is None or fork in forks
+    }
+    for fork, required in REQUIRED_VALIDATOR_TYPES.items():
+        if forks is not None and fork not in forks:
+            continue
+        missing = required.difference(implemented[fork])
+        if missing:
+            raise RuntimeError(
+                f"missing required {fork.name.lower()} validator codecs: "
+                f"{', '.join(sorted(missing))}"
+            )
+    return definitions
 
 
 def _supported_forks() -> tuple[Fork, ...]:
