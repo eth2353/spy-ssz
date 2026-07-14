@@ -6,6 +6,7 @@ from eth_consensus_specs.electra import mainnet as electra
 from remerkleable.byte_arrays import ByteVector
 from remerkleable.complex import Container, List
 
+from spy_ssz import encode_json_array
 from spy_ssz.electra import (
     ElectraBeaconBlockContentsMainnet,
     ElectraBlindedBeaconBlockMainnet,
@@ -54,6 +55,19 @@ class BlindedBlock(Container):
 class SignedBlindedBlock(Container):
     message: BlindedBlock
     signature: electra.BLSSignature
+
+
+def test_block_projection_json_array_uses_native_batch_encoder() -> None:
+    reference = BlindedBlock(slot=12, proposer_index=34)
+    values = [
+        ElectraBlindedBeaconBlockMainnet.from_obj(reference.to_obj()) for _ in range(3)
+    ]
+    try:
+        expected = [value.to_obj() for value in values]
+        assert msgspec.json.decode(encode_json_array(values)) == expected
+    finally:
+        for value in values:
+            value.close()
 
 
 def test_block_contents_json_ssz_signing_and_projections() -> None:

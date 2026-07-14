@@ -24,7 +24,7 @@ from spy_ssz.signing import (
 )
 from spy_ssz import encode_json_array
 from spy_ssz import Preset, get_ssz_type
-from spy_ssz.ssz import Fork, ObjectKind, decode_json
+from spy_ssz.ssz import Fork, ObjectKind, _JSON_ENCODERS, decode_json
 
 
 @pytest.mark.parametrize(
@@ -369,12 +369,34 @@ def test_native_json_array_encoding_uses_one_output_buffer(
 ) -> None:
     values = [spy_type.from_obj(reference_factory().to_obj()) for _ in range(3)]
     try:
-        with mock.patch.object(
-            spy_type,
-            "to_json",
-            side_effect=AssertionError("batch encoding must use native encoders"),
+        key = (
+            spy_type.expected_fork,
+            spy_type.expected_kind,
+            spy_type.expected_preset,
+        )
+        individual_codec = _JSON_ENCODERS[key]
+        with (
+            mock.patch.object(
+                spy_type,
+                "to_json",
+                side_effect=AssertionError("batch encoding must stay native"),
+            ),
+            mock.patch.dict(
+                _JSON_ENCODERS,
+                {
+                    key: (
+                        mock.Mock(
+                            side_effect=AssertionError("batch sizing must be fused")
+                        ),
+                        mock.Mock(
+                            side_effect=AssertionError("batch encoding must be fused")
+                        ),
+                    )
+                },
+            ),
         ):
             encoded = encode_json_array(values)
+        assert _JSON_ENCODERS[key] == individual_codec
         assert msgspec.json.decode(encoded) == [value.to_obj() for value in values]
     finally:
         for value in values:

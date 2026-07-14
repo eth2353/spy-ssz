@@ -240,6 +240,16 @@ def build(spy_root: Path) -> Path:
         int32_t spy_schema_block_containers_json_size(spy_raw_ssz_ptr object);
         int32_t spy_schema_block_containers_encode_json(
             spy_raw_ssz_ptr object, spy_BytesObject *output);
+        int32_t spy_schema_signing_json_array_size(
+            spy_raw_ssz_ptr *objects, int32_t count);
+        int32_t spy_schema_signing_encode_json_array(
+            spy_raw_ssz_ptr *objects, int32_t count,
+            spy_BytesObject *output);
+        int32_t spy_schema_block_containers_json_array_size(
+            spy_raw_ssz_ptr *objects, int32_t count);
+        int32_t spy_schema_block_containers_encode_json_array(
+            spy_raw_ssz_ptr *objects, int32_t count,
+            spy_BytesObject *output);
         void spy_ssz_object_destroy(spy_raw_ssz_ptr object);
         """
     )

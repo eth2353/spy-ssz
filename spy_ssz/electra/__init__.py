@@ -12,6 +12,7 @@ from ..ssz import (
     _spy_bytes,
     bind_decoder,
     register_json_decoder,
+    register_json_array_encoder,
     register_json_encoder,
     register_ssz_decoder,
     register_ssz_encoder,
@@ -240,6 +241,13 @@ for _definition in schemas_for("block_containers"):
             _kind,
             _spy.lib.spy_schema_block_containers_json_size,
             _spy.lib.spy_schema_block_containers_encode_json,
+            _preset,
+        )
+        register_json_array_encoder(
+            _definition.fork,
+            _kind,
+            _spy.lib.spy_schema_block_containers_json_array_size,
+            _spy.lib.spy_schema_block_containers_encode_json_array,
             _preset,
         )
         register_ssz_encoder(

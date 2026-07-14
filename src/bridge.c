@@ -1,4 +1,6 @@
+#include <limits.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "json_parser.h"
 #include "metadata.h"
@@ -140,6 +142,75 @@ int32_t spy_ssz_object_hash_tree_root(
 #define spy_schema_block_containers_encode_json spy_electra_block_containers_encode$block_container_encode_json
 #define spy_ssz_object_clone_and_sign_block spy_ssz_object$clone_and_sign_block
 #define spy_ssz_object_compose_signing spy_electra_signing$compose_signing_object
+
+typedef int32_t (*spy_json_sizer)(spy_raw_ssz_ptr object);
+typedef int32_t (*spy_json_encoder)(spy_raw_ssz_ptr object,
+                                    spy_BytesObject *output);
+
+static int32_t spy_json_array_size(spy_raw_ssz_ptr *objects, int32_t count,
+                                   spy_json_sizer sizer) {
+    if (objects == NULL || count <= 0) return -1;
+    int64_t total = (int64_t)count + 1;
+    for (int32_t i = 0; i < count; i++) {
+        if (objects[i].p == NULL) return -1;
+        int32_t size = sizer(objects[i]);
+        if (size < 0 || total > INT32_MAX - size) return -1;
+        total += size;
+    }
+    return (int32_t)total;
+}
+
+static int32_t spy_json_array_encode(spy_raw_ssz_ptr *objects, int32_t count,
+                                     spy_BytesObject *output,
+                                     spy_json_encoder encoder) {
+    if (objects == NULL || count <= 0 || output == NULL ||
+        output->data.p == NULL || output->length < 2)
+        return -1;
+    int32_t position = 0;
+    output->data.p[position++] = '[';
+    for (int32_t i = 0; i < count; i++) {
+        if (objects[i].p == NULL) return -1;
+        if (i > 0) {
+            if ((size_t)position >= output->length) return -1;
+            output->data.p[position++] = ',';
+        }
+        spy_BytesObject item_output = {
+            .length = output->length - (size_t)position,
+            .hash = 0,
+            .data = {.p = output->data.p + position},
+        };
+        int32_t written = encoder(objects[i], &item_output);
+        if (written < 0 || (size_t)written > item_output.length) return -1;
+        position += written;
+    }
+    if ((size_t)position >= output->length) return -1;
+    output->data.p[position++] = ']';
+    return position;
+}
+
+int32_t spy_schema_signing_json_array_size(spy_raw_ssz_ptr *objects,
+                                           int32_t count) {
+    return spy_json_array_size(objects, count, spy_schema_signing_json_size);
+}
+
+int32_t spy_schema_signing_encode_json_array(spy_raw_ssz_ptr *objects,
+                                             int32_t count,
+                                             spy_BytesObject *output) {
+    return spy_json_array_encode(objects, count, output,
+                                 spy_schema_signing_encode_json);
+}
+
+int32_t spy_schema_block_containers_json_array_size(
+        spy_raw_ssz_ptr *objects, int32_t count) {
+    return spy_json_array_size(objects, count,
+                               spy_schema_block_containers_json_size);
+}
+
+int32_t spy_schema_block_containers_encode_json_array(
+        spy_raw_ssz_ptr *objects, int32_t count, spy_BytesObject *output) {
+    return spy_json_array_encode(objects, count, output,
+                                 spy_schema_block_containers_encode_json);
+}
 
 static int32_t spy_ssz_child(spy_ssz_object$SszObject *obj,
                              int32_t node, int32_t child) {

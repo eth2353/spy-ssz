@@ -8,6 +8,7 @@ from ..ssz import (
     SszObject,
     bind_decoder,
     register_json_decoder,
+    register_json_array_encoder,
     register_json_encoder,
     register_ssz_decoder,
     register_ssz_encoder,
@@ -153,6 +154,24 @@ for _definition in _DEFINITIONS.values():
             _json_encoder,
             _preset,
         )
+        if _definition.codec != "fulu_block":
+            _json_array_sizer = (
+                _spy.lib.spy_schema_signing_json_array_size
+                if _definition.codec == "fulu_signing"
+                else _spy.lib.spy_schema_block_containers_json_array_size
+            )
+            _json_array_encoder = (
+                _spy.lib.spy_schema_signing_encode_json_array
+                if _definition.codec == "fulu_signing"
+                else _spy.lib.spy_schema_block_containers_encode_json_array
+            )
+            register_json_array_encoder(
+                _definition.fork,
+                _definition.kind,
+                _json_array_sizer,
+                _json_array_encoder,
+                _preset,
+            )
         register_ssz_encoder(
             _definition.fork,
             _definition.kind,

@@ -40,6 +40,8 @@ def _compose_typed_fields(cls: type[SszObject], fields: dict[str, Any]) -> Any |
 Decoder = Callable[[Any], Any]
 Sizer = Callable[[Any], int]
 Encoder = Callable[[Any, Any], int]
+ArraySizer = Callable[[Any, int], int]
+ArrayEncoder = Callable[[Any, int, Any], int]
 CodecKey = tuple[Fork, ObjectKind, Preset]
 Codec = TypeVar("Codec")
 
@@ -57,6 +59,7 @@ _JSON_DECODERS: dict[CodecKey, Decoder] = {}
 _SSZ_DECODERS: dict[CodecKey, Decoder] = {}
 _SSZ_ENCODERS: dict[CodecKey, tuple[Sizer, Encoder]] = {}
 _JSON_ENCODERS: dict[CodecKey, tuple[Sizer, Encoder]] = {}
+_JSON_ARRAY_ENCODERS: dict[CodecKey, tuple[ArraySizer, ArrayEncoder]] = {}
 
 
 def bind_decoder(decoder: Callable[..., Any], *arguments: int) -> Decoder:
@@ -130,6 +133,21 @@ def register_json_encoder(
     preset: Preset = Preset.MAINNET,
 ) -> None:
     _register(_JSON_ENCODERS, (fork, kind, preset), (sizer, encoder), "JSON")
+
+
+def register_json_array_encoder(
+    fork: Fork,
+    kind: ObjectKind,
+    sizer: ArraySizer,
+    encoder: ArrayEncoder,
+    preset: Preset = Preset.MAINNET,
+) -> None:
+    _register(
+        _JSON_ARRAY_ENCODERS,
+        (fork, kind, preset),
+        (sizer, encoder),
+        "JSON array",
+    )
 
 
 def _load_builtin_codecs(fork: Fork) -> None:
@@ -561,7 +579,13 @@ def encode_json_array(values: Iterable[SszObject]) -> bytes:
     if concrete_type.json_output_envelope_key is not None:
         raise TypeError("JSON array encoding requires bare-object JSON types")
     key = (fork, kind, preset)
-    for item in items:
+    batch_codec = _JSON_ARRAY_ENCODERS.get(key)
+    handles = (
+        _spy.ffi.new("spy_raw_ssz_ptr[]", len(items))
+        if batch_codec is not None
+        else None
+    )
+    for index, item in enumerate(items):
         if not isinstance(item, SszObject):
             raise TypeError("JSON array values must be concrete SPy SSZ objects")
         item_type = type(item)
@@ -572,10 +596,26 @@ def encode_json_array(values: Iterable[SszObject]) -> bytes:
         )
         if item_key != key:
             raise TypeError("JSON array values must have the same concrete SSZ type")
-        item._require_handle()
-    sizer, encoder = _lookup_codec(_JSON_ENCODERS, key, "JSON encoder")
-    sizes = [sizer(item._require_handle()) for item in items]
-    total = 2 + sum(sizes) + len(items) - 1
+        handle = item._require_handle()
+        if handles is not None:
+            handles[index] = handle
+    if batch_codec is not None:
+        assert handles is not None
+        batch_sizer, batch_encoder = batch_codec
+        total = batch_sizer(handles, len(items))
+        if total < 0:
+            raise ValueError("JSON array output exceeds the signed 32-bit size limit")
+        output = bytearray(total)
+        output_obj, output_view = _spy_bytes(output)
+        written = batch_encoder(handles, len(items), output_obj)
+        assert output_view
+        if written != total:
+            raise ValueError("SPy JSON array encoding failed")
+        return bytes(output)
+
+    item_sizer, item_encoder = _lookup_codec(_JSON_ENCODERS, key, "JSON encoder")
+    sizes = [item_sizer(item._require_handle()) for item in items]
+    total = len(items) + 1 + sum(sizes)
     if total > (1 << 31) - 1:
         raise ValueError("JSON array output exceeds the signed 32-bit size limit")
     output = bytearray(total)
@@ -589,7 +629,7 @@ def encode_json_array(values: Iterable[SszObject]) -> bytes:
         encoded.length = expected
         encoded.hash = 0
         encoded.data.p = output_pointer + position
-        written = encoder(item._require_handle(), encoded)
+        written = item_encoder(item._require_handle(), encoded)
         if written != expected:
             raise ValueError("SPy JSON array encoding failed")
         position += written
