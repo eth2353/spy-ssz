@@ -62,7 +62,9 @@ def blinded_body(document: raw_ptr[SszDocument], start: i32, end: i32, obj: raw_
     requests = variable_offset(document, start, end, header_position + 12, fixed_size)
     if attester < proposer or attestations < attester or deposits < attestations:
         obj.status = DECODE_STATUS_MALFORMED_INPUT
-    if exits < deposits or changes < exits or commitments < changes or requests < commitments:
+    if exits < deposits or header < exits or changes < header:
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
+    if commitments < changes or requests < commitments:
         obj.status = DECODE_STATUS_MALFORMED_INPUT
     first = reserve_edges(obj, 13)
     set_edge(obj, first, 0, ssz_fixed_bytes(document, start, 96, obj))

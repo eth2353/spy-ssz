@@ -183,6 +183,19 @@ def test_blinded_block_json_ssz_signing_and_projections() -> None:
         )
 
 
+def test_blinded_block_ssz_rejects_out_of_order_header_offset() -> None:
+    raw = bytearray(BlindedBlock().encode_bytes())
+    body_start = int.from_bytes(raw[80:84], "little")
+    exits = int.from_bytes(raw[body_start + 216 : body_start + 220], "little")
+    header_position = 316 + int(electra.SYNC_COMMITTEE_SIZE) // 8
+    raw[body_start + header_position : body_start + header_position + 4] = (
+        exits - 1
+    ).to_bytes(4, "little")
+
+    with pytest.raises(ValueError, match="invalid SSZ object"):
+        ElectraBlindedBeaconBlockMainnet.from_ssz(raw)
+
+
 @pytest.mark.parametrize(
     ("reference", "fulu_type", "signed_type"),
     [
