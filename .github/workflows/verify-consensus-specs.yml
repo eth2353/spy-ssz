@@ -1,0 +1,128 @@
+name: Upstream consensus specs compatibility
+
+on:
+  # Deliberately off-peak randomized weekly slot: Wednesday at 04:17 UTC.
+  schedule:
+    - cron: "17 4 * * 3"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: upstream-consensus-specs-compatibility
+  cancel-in-progress: false
+
+jobs:
+  verify-presets:
+    name: Verify shipped presets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Compare preset files with upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          declare -A preset_roots=(
+            [mainnet]="https://raw.githubusercontent.com/ethereum/consensus-specs/master/presets/mainnet/"
+            [minimal]="https://raw.githubusercontent.com/ethereum/consensus-specs/master/presets/minimal/"
+            [gnosis]="https://raw.githubusercontent.com/gnosischain/specs/master/consensus/preset/gnosis/"
+          )
+
+          has_failure=0
+          for preset in mainnet minimal gnosis; do
+            local_dir="spy_ssz/presets/$preset"
+            echo "Checking $preset presets against ${preset_roots[$preset]}"
+
+            shopt -s nullglob
+            local_files=("$local_dir"/*.yaml)
+            shopt -u nullglob
+            if (( ${#local_files[@]} == 0 )); then
+              echo "ERROR: no YAML files found in $local_dir"
+              has_failure=1
+              continue
+            fi
+
+            for local_path in "${local_files[@]}"; do
+              file_name="$(basename "$local_path")"
+              remote_url="${preset_roots[$preset]}$file_name"
+              remote_path="$RUNNER_TEMP/$preset-$file_name"
+
+              if ! curl -fsSL "$remote_url" -o "$remote_path"; then
+                echo "ERROR: failed to fetch $remote_url"
+                has_failure=1
+                continue
+              fi
+              if ! cmp -s "$local_path" "$remote_path"; then
+                echo "ERROR: $local_path differs from upstream"
+                diff -u "$local_path" "$remote_path" || true
+                has_failure=1
+              else
+                echo "$preset/$file_name is up to date"
+              fi
+            done
+          done
+
+          exit "$has_failure"
+
+  check:
+    name: Latest consensus-spec tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Install project
+        run: uv sync --locked --dev
+
+      - name: Find latest consensus-specs release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          tag="$(gh api 'repos/ethereum/consensus-specs/releases?per_page=100' \
+            --jq 'map(select(.draft == false))[0].tag_name')"
+          test -n "$tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Testing consensus-specs release: $tag"
+          echo "### Consensus-specs $tag" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Download reference tests
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/consensus-vectors/archives"
+          gh release download "$RELEASE_TAG" \
+            --repo ethereum/consensus-specs \
+            --pattern minimal.tar.gz \
+            --pattern mainnet.tar.gz \
+            --dir "$RUNNER_TEMP/consensus-vectors/archives"
+
+      - name: Extract reference tests
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/consensus-vectors/extracted"
+          for archive in "$RUNNER_TEMP"/consensus-vectors/archives/*.tar.gz; do
+            tar -xzf "$archive" -C "$RUNNER_TEMP/consensus-vectors/extracted"
+          done
+
+      - name: Check all supported forks
+        run: |
+          uv run --with python-snappy python tools/check_consensus_vectors.py \
+            "$RUNNER_TEMP/consensus-vectors/extracted"
