@@ -66,20 +66,20 @@ for _definition in _DEFINITIONS.values():
         )
 
 
-_FULU_CONTENTS = globals()["FuluBeaconBlockContents"]
+_FULU_CONTENTS = globals()["BeaconBlockContentsFulu"]
 _FULU_CONTENTS.signed_schema_id = get_schema(
     Fork.FULU, ObjectKind.SIGNED_BEACON_BLOCK_CONTENTS
 ).schema_id
 _FULU_CONTENTS.signed_types_by_preset = {
-    preset: globals()[f"FuluSignedBeaconBlockContents{preset.name.title()}"]
+    preset: globals()[f"SignedBeaconBlockContentsFulu{preset.name.title()}"]
     for preset in Preset
 }
-_FULU_BLINDED = globals()["FuluBlindedBeaconBlock"]
+_FULU_BLINDED = globals()["BlindedBeaconBlockFulu"]
 _FULU_BLINDED.signed_schema_id = get_schema(
     Fork.FULU, ObjectKind.SIGNED_BLINDED_BEACON_BLOCK
 ).schema_id
 _FULU_BLINDED.signed_types_by_preset = {
-    preset: globals()[f"FuluSignedBlindedBeaconBlock{preset.name.title()}"]
+    preset: globals()[f"SignedBlindedBeaconBlockFulu{preset.name.title()}"]
     for preset in Preset
 }
 

@@ -15,6 +15,7 @@ enum {
     SPY_KIND_PROGRESSIVE_CONTAINER = 7,
     SPY_KIND_PROGRESSIVE_LIST = 8,
     SPY_KIND_PROGRESSIVE_BITLIST = 9,
+    SPY_KIND_PROGRESSIVE_BASIC_LIST = 11,
     SPY_KIND_BASIC_LIST = 10,
     SPY_NODE_ROOT_NOT_CACHED = 0,
     SPY_NODE_ROOT_CACHED = 1,
@@ -280,6 +281,11 @@ static int spy_fast_hash_node(
                 object, data, node->data_length, 0, chunks,
                 (node->limit * node->active_length + 31) / 32, root
             );
+            spy_mix_length(root, node->data_length / node->active_length, root);
+            break;
+        case SPY_KIND_PROGRESSIVE_BASIC_LIST:
+            chunks = (node->data_length + 31) / 32;
+            spy_progressive_bytes(object, data, node->data_length, chunks, root);
             spy_mix_length(root, node->data_length / node->active_length, root);
             break;
         case SPY_KIND_PROGRESSIVE_BITLIST: {

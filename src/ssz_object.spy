@@ -22,6 +22,7 @@ from preset_config import (
     preset_max_withdrawal_requests_per_payload,
     preset_max_withdrawals_per_payload,
     preset_sync_committee_size,
+    preset_ptc_size,
 )
 from ssz_kernels import ZERO_HASHES, hash_pair_into, merkleize_at
 from decode_status import (
@@ -41,6 +42,7 @@ KIND_PROGRESSIVE_CONTAINER: i32 = 7
 KIND_PROGRESSIVE_LIST: i32 = 8
 KIND_PROGRESSIVE_BITLIST: i32 = 9
 KIND_BASIC_LIST: i32 = 10
+KIND_PROGRESSIVE_BASIC_LIST: i32 = 11
 
 NO_NODE: i32 = -1
 ALLOCATION_FAILED: i32 = -1
@@ -81,6 +83,7 @@ class SszObject:
     max_deposit_requests_per_payload: i32
     max_withdrawal_requests_per_payload: i32
     max_consolidation_requests_per_payload: i32
+    ptc_size: i32
     object_kind: i32
     schema_id: i32
     root_node: i32
@@ -194,6 +197,7 @@ def configure_preset(obj: raw_ptr[SszObject], preset: i32) -> None:
     obj.max_deposit_requests_per_payload = preset_max_deposit_requests_per_payload(preset)
     obj.max_withdrawal_requests_per_payload = preset_max_withdrawal_requests_per_payload(preset)
     obj.max_consolidation_requests_per_payload = preset_max_consolidation_requests_per_payload(preset)
+    obj.ptc_size = preset_ptc_size(preset)
 
 
 def add_node(
@@ -550,6 +554,17 @@ def hash_node(obj: raw_ptr[SszObject], node_index: i32) -> i32:
         limit_chunks = (node.limit * node.active_length + 31) // 32
         merkleize_limit(obj, base, chunks, limit_chunks)
         return mix_length(obj, base, node.data_length // node.active_length)
+    if node.kind == KIND_PROGRESSIVE_BASIC_LIST:
+        chunks = (node.data_length + 31) // 32
+        base = alloc_work(obj, next_power(chunks) * 32)
+        i = 0
+        while i < node.data_length:
+            obj.work.data[base + i] = obj.arena[node.data_offset + i]
+            i = i + 1
+        progressive_basic = merkleize_progressive(obj, base, chunks)
+        return mix_length(
+            obj, progressive_basic, node.data_length // node.active_length
+        )
     if node.kind == KIND_PROGRESSIVE_BITLIST:
         byte_length = (node.data_length + 7) // 8
         chunks = (node.data_length + 255) // 256

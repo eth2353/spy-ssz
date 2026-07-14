@@ -7,9 +7,9 @@ from eth_consensus_specs.electra import mainnet as electra
 from spy_ssz.preset import Preset
 from spy_ssz.schema import Fork, ObjectKind
 from spy_ssz.signing import (
-    AttestationData,
-    AttestationDataMinimal,
-    SyncCommitteeContribution,
+    AttestationDataElectra,
+    AttestationDataElectraMinimal,
+    SyncCommitteeContributionElectra,
 )
 from spy_ssz.ssz import _JSON_ENCODERS, _SSZ_ENCODERS
 
@@ -17,10 +17,10 @@ from spy_ssz.ssz import _JSON_ENCODERS, _SSZ_ENCODERS
 def test_ssz_objects_have_schema_and_preset_scoped_value_semantics() -> None:
     reference = electra.AttestationData()
     with (
-        AttestationData.from_ssz(reference.encode_bytes()) as first,
-        AttestationData.from_obj(reference.to_obj()) as second,
-        AttestationDataMinimal.from_ssz(reference.encode_bytes()) as minimal,
-        SyncCommitteeContribution.from_obj(
+        AttestationDataElectra.from_ssz(reference.encode_bytes()) as first,
+        AttestationDataElectra.from_obj(reference.to_obj()) as second,
+        AttestationDataElectraMinimal.from_ssz(reference.encode_bytes()) as minimal,
+        SyncCommitteeContributionElectra.from_obj(
             electra.SyncCommitteeContribution().to_obj()
         ) as different_schema,
     ):
@@ -34,7 +34,7 @@ def test_ssz_objects_have_schema_and_preset_scoped_value_semantics() -> None:
 
 def test_to_obj_returns_a_detached_value() -> None:
     reference = electra.AttestationData(slot=123)
-    with AttestationData.from_obj(reference.to_obj()) as value:
+    with AttestationDataElectra.from_obj(reference.to_obj()) as value:
         expected = value.to_obj()
         detached = value.to_obj()
         detached["slot"] = "999"
@@ -50,7 +50,7 @@ def test_immutable_objects_cache_exact_encoding_sizes() -> None:
     encoded_ssz = reference.encode_bytes()
     key = (Fork.ELECTRA, ObjectKind.ATTESTATION_DATA, Preset.MAINNET)
 
-    with AttestationData.from_ssz(encoded_ssz) as value:
+    with AttestationDataElectra.from_ssz(encoded_ssz) as value:
         ssz_sizer, ssz_encoder = _SSZ_ENCODERS[key]
         json_sizer, json_encoder = _JSON_ENCODERS[key]
         ssz_size_calls = 0
@@ -80,7 +80,7 @@ def test_immutable_objects_cache_exact_encoding_sizes() -> None:
 
 def test_close_waits_for_in_flight_native_operation() -> None:
     reference = electra.AttestationData(slot=123)
-    value = AttestationData.from_obj(reference.to_obj())
+    value = AttestationDataElectra.from_obj(reference.to_obj())
     expected_json = value.to_json()
     key = (Fork.ELECTRA, ObjectKind.ATTESTATION_DATA, Preset.MAINNET)
     sizer, encoder = _JSON_ENCODERS[key]

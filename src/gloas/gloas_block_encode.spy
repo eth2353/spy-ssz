@@ -1,0 +1,427 @@
+"""Gloas beacon-block JSON and SSZ encoders."""
+
+from _bytes import BytesObject
+from unsafe import gc_ptr, raw_ptr
+from metadata import OBJECT_SIGNED_BEACON_BLOCK
+from writer import child, json_hex_node, json_key, json_uint, put, put_literal, put_u32, ssz_fixed_bytes, ssz_uint
+from electra_block_encode import (
+    json_attestations,
+    json_attester_slashings,
+    json_bls_changes,
+    json_consolidation_request,
+    json_deposit_request,
+    json_deposits,
+    json_eth1_data,
+    json_exits,
+    json_proposer_slashings,
+    json_sync_aggregate,
+    json_withdrawal_request,
+    ssz_attestations,
+    ssz_bls_changes,
+    ssz_consolidation_request,
+    ssz_deposit_request,
+    ssz_deposits,
+    ssz_eth1_data,
+    ssz_exits,
+    ssz_proposer_slashings,
+    ssz_sync_aggregate,
+    ssz_variable_attester_slashings,
+    ssz_withdrawal_request,
+)
+from electra_signing import json_payload_attestation, ssz_payload_attestation
+from ssz_object import SszObject
+
+
+def ssz_commitments(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    i: i32 = 0
+    while i < obj.nodes[node].child_count:
+        pos = ssz_fixed_bytes(obj, child(obj, node, i), data, cap, pos)
+        i = i + 1
+    return pos
+
+
+def ssz_execution_payload_bid(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = ssz_fixed_bytes(obj, child(obj, node, 0), data, cap, pos)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 1), data, cap, pos)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 2), data, cap, pos)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 3), data, cap, pos)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 4), data, cap, pos)
+    pos = ssz_uint(obj, child(obj, node, 5), 8, data, cap, pos)
+    pos = ssz_uint(obj, child(obj, node, 6), 8, data, cap, pos)
+    pos = ssz_uint(obj, child(obj, node, 7), 8, data, cap, pos)
+    pos = ssz_uint(obj, child(obj, node, 8), 8, data, cap, pos)
+    pos = ssz_uint(obj, child(obj, node, 9), 8, data, cap, pos)
+    pos = put_u32(data, cap, pos, 224)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 11), data, cap, pos)
+    return ssz_commitments(obj, child(obj, node, 10), data, cap, pos)
+
+
+def ssz_signed_execution_payload_bid(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put_u32(data, cap, pos, 100)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 1), data, cap, pos)
+    return ssz_execution_payload_bid(obj, child(obj, node, 0), data, cap, pos)
+
+
+def ssz_builder_deposit_request(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = ssz_fixed_bytes(obj, child(obj, node, 0), data, cap, pos)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 1), data, cap, pos)
+    pos = ssz_uint(obj, child(obj, node, 2), 8, data, cap, pos)
+    return ssz_fixed_bytes(obj, child(obj, node, 3), data, cap, pos)
+
+
+def ssz_builder_exit_request(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = ssz_fixed_bytes(obj, child(obj, node, 0), data, cap, pos)
+    return ssz_fixed_bytes(obj, child(obj, node, 1), data, cap, pos)
+
+
+def ssz_execution_requests(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    deposits = child(obj, node, 0)
+    withdrawals = child(obj, node, 1)
+    consolidations = child(obj, node, 2)
+    builder_deposits = child(obj, node, 3)
+    builder_exits = child(obj, node, 4)
+    running: i32 = 20
+    pos = put_u32(data, cap, pos, running)
+    running = running + obj.nodes[deposits].child_count * 192
+    pos = put_u32(data, cap, pos, running)
+    running = running + obj.nodes[withdrawals].child_count * 76
+    pos = put_u32(data, cap, pos, running)
+    running = running + obj.nodes[consolidations].child_count * 116
+    pos = put_u32(data, cap, pos, running)
+    running = running + obj.nodes[builder_deposits].child_count * 184
+    pos = put_u32(data, cap, pos, running)
+    i: i32 = 0
+    while i < obj.nodes[deposits].child_count:
+        pos = ssz_deposit_request(obj, child(obj, deposits, i), data, cap, pos)
+        i = i + 1
+    i = 0
+    while i < obj.nodes[withdrawals].child_count:
+        pos = ssz_withdrawal_request(obj, child(obj, withdrawals, i), data, cap, pos)
+        i = i + 1
+    i = 0
+    while i < obj.nodes[consolidations].child_count:
+        pos = ssz_consolidation_request(obj, child(obj, consolidations, i), data, cap, pos)
+        i = i + 1
+    i = 0
+    while i < obj.nodes[builder_deposits].child_count:
+        pos = ssz_builder_deposit_request(obj, child(obj, builder_deposits, i), data, cap, pos)
+        i = i + 1
+    i = 0
+    while i < obj.nodes[builder_exits].child_count:
+        pos = ssz_builder_exit_request(obj, child(obj, builder_exits, i), data, cap, pos)
+        i = i + 1
+    return pos
+
+
+def ssz_payload_attestations(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    i: i32 = 0
+    while i < obj.nodes[node].child_count:
+        pos = ssz_payload_attestation(obj, child(obj, node, i), data, cap, pos)
+        i = i + 1
+    return pos
+
+
+def ssz_block_body(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    proposer = child(obj, node, 3)
+    attester = child(obj, node, 4)
+    attestations = child(obj, node, 5)
+    deposits = child(obj, node, 6)
+    exits = child(obj, node, 7)
+    changes = child(obj, node, 9)
+    bid = child(obj, node, 10)
+    payload_attestations = child(obj, node, 11)
+    requests = child(obj, node, 12)
+    proposer_size = ssz_proposer_slashings(obj, proposer, data, 0, 0)
+    attester_size = ssz_variable_attester_slashings(obj, attester, data, 0, 0)
+    attestation_size = ssz_attestations(obj, attestations, data, 0, 0)
+    deposit_size = ssz_deposits(obj, deposits, data, 0, 0)
+    exit_size = ssz_exits(obj, exits, data, 0, 0)
+    change_size = ssz_bls_changes(obj, changes, data, 0, 0)
+    bid_size = ssz_signed_execution_payload_bid(obj, bid, data, 0, 0)
+    payload_attestation_size = ssz_payload_attestations(obj, payload_attestations, data, 0, 0)
+    running: i32 = 332 + obj.sync_committee_size // 8
+    pos = ssz_fixed_bytes(obj, child(obj, node, 0), data, cap, pos)
+    pos = ssz_eth1_data(obj, child(obj, node, 1), data, cap, pos)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 2), data, cap, pos)
+    pos = put_u32(data, cap, pos, running)
+    running = running + proposer_size
+    pos = put_u32(data, cap, pos, running)
+    running = running + attester_size
+    pos = put_u32(data, cap, pos, running)
+    running = running + attestation_size
+    pos = put_u32(data, cap, pos, running)
+    running = running + deposit_size
+    pos = put_u32(data, cap, pos, running)
+    running = running + exit_size
+    pos = ssz_sync_aggregate(obj, child(obj, node, 8), data, cap, pos)
+    pos = put_u32(data, cap, pos, running)
+    running = running + change_size
+    pos = put_u32(data, cap, pos, running)
+    running = running + bid_size
+    pos = put_u32(data, cap, pos, running)
+    running = running + payload_attestation_size
+    pos = put_u32(data, cap, pos, running)
+    pos = ssz_proposer_slashings(obj, proposer, data, cap, pos)
+    pos = ssz_variable_attester_slashings(obj, attester, data, cap, pos)
+    pos = ssz_attestations(obj, attestations, data, cap, pos)
+    pos = ssz_deposits(obj, deposits, data, cap, pos)
+    pos = ssz_exits(obj, exits, data, cap, pos)
+    pos = ssz_bls_changes(obj, changes, data, cap, pos)
+    pos = ssz_signed_execution_payload_bid(obj, bid, data, cap, pos)
+    pos = ssz_payload_attestations(obj, payload_attestations, data, cap, pos)
+    return ssz_execution_requests(obj, requests, data, cap, pos)
+
+
+def ssz_beacon_block(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = ssz_uint(obj, child(obj, node, 0), 8, data, cap, pos)
+    pos = ssz_uint(obj, child(obj, node, 1), 8, data, cap, pos)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 2), data, cap, pos)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 3), data, cap, pos)
+    pos = put_u32(data, cap, pos, 84)
+    return ssz_block_body(obj, child(obj, node, 4), data, cap, pos)
+
+
+def ssz_signed_block(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put_u32(data, cap, pos, 100)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 1), data, cap, pos)
+    return ssz_beacon_block(obj, child(obj, node, 0), data, cap, pos)
+
+
+def gloas_ssz_size(obj: raw_ptr[SszObject]) -> i32:
+    if obj.object_kind == OBJECT_SIGNED_BEACON_BLOCK:
+        return ssz_signed_block(obj, obj.root_node, obj.root.data, 0, 0)
+    return ssz_beacon_block(obj, obj.root_node, obj.root.data, 0, 0)
+
+
+def gloas_encode_ssz(obj: raw_ptr[SszObject], output: bytes) -> i32:
+    out = BytesObject.from_bytes(output)
+    if obj.object_kind == OBJECT_SIGNED_BEACON_BLOCK:
+        return ssz_signed_block(obj, obj.root_node, out.data, out.length, 0)
+    return ssz_beacon_block(obj, obj.root_node, out.data, out.length, 0)
+
+
+def json_commitments(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put(data, cap, pos, u8(91))
+    i: i32 = 0
+    while i < obj.nodes[node].child_count:
+        if i > 0:
+            pos = put(data, cap, pos, u8(44))
+        pos = json_hex_node(obj, child(obj, node, i), data, cap, pos)
+        i = i + 1
+    return put(data, cap, pos, u8(93))
+
+
+def json_execution_payload_bid(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put(data, cap, pos, u8(123))
+    pos = json_key(data, cap, pos, b"parent_block_hash")
+    pos = json_hex_node(obj, child(obj, node, 0), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"parent_block_root")
+    pos = json_hex_node(obj, child(obj, node, 1), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"block_hash")
+    pos = json_hex_node(obj, child(obj, node, 2), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"prev_randao")
+    pos = json_hex_node(obj, child(obj, node, 3), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"fee_recipient")
+    pos = json_hex_node(obj, child(obj, node, 4), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"gas_limit")
+    pos = json_uint(obj, child(obj, node, 5), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"builder_index")
+    pos = json_uint(obj, child(obj, node, 6), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"slot")
+    pos = json_uint(obj, child(obj, node, 7), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"value")
+    pos = json_uint(obj, child(obj, node, 8), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"execution_payment")
+    pos = json_uint(obj, child(obj, node, 9), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"blob_kzg_commitments")
+    pos = json_commitments(obj, child(obj, node, 10), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"execution_requests_root")
+    pos = json_hex_node(obj, child(obj, node, 11), data, cap, pos)
+    return put(data, cap, pos, u8(125))
+
+
+def json_signed_execution_payload_bid(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put_literal(data, cap, pos, b"{\"message\":")
+    pos = json_execution_payload_bid(obj, child(obj, node, 0), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"signature")
+    pos = json_hex_node(obj, child(obj, node, 1), data, cap, pos)
+    return put(data, cap, pos, u8(125))
+
+
+def json_builder_deposit_request(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put(data, cap, pos, u8(123))
+    pos = json_key(data, cap, pos, b"pubkey")
+    pos = json_hex_node(obj, child(obj, node, 0), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"withdrawal_credentials")
+    pos = json_hex_node(obj, child(obj, node, 1), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"amount")
+    pos = json_uint(obj, child(obj, node, 2), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"signature")
+    pos = json_hex_node(obj, child(obj, node, 3), data, cap, pos)
+    return put(data, cap, pos, u8(125))
+
+
+def json_builder_exit_request(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put(data, cap, pos, u8(123))
+    pos = json_key(data, cap, pos, b"source_address")
+    pos = json_hex_node(obj, child(obj, node, 0), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"pubkey")
+    pos = json_hex_node(obj, child(obj, node, 1), data, cap, pos)
+    return put(data, cap, pos, u8(125))
+
+
+def json_request_list(obj: raw_ptr[SszObject], node: i32, kind: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put(data, cap, pos, u8(91))
+    i: i32 = 0
+    while i < obj.nodes[node].child_count:
+        if i > 0:
+            pos = put(data, cap, pos, u8(44))
+        item = child(obj, node, i)
+        if kind == 0:
+            pos = json_deposit_request(obj, item, data, cap, pos)
+        elif kind == 1:
+            pos = json_withdrawal_request(obj, item, data, cap, pos)
+        elif kind == 2:
+            pos = json_consolidation_request(obj, item, data, cap, pos)
+        elif kind == 3:
+            pos = json_builder_deposit_request(obj, item, data, cap, pos)
+        else:
+            pos = json_builder_exit_request(obj, item, data, cap, pos)
+        i = i + 1
+    return put(data, cap, pos, u8(93))
+
+
+def json_execution_requests(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put(data, cap, pos, u8(123))
+    pos = json_key(data, cap, pos, b"deposits")
+    pos = json_request_list(obj, child(obj, node, 0), 0, data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"withdrawals")
+    pos = json_request_list(obj, child(obj, node, 1), 1, data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"consolidations")
+    pos = json_request_list(obj, child(obj, node, 2), 2, data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"builder_deposits")
+    pos = json_request_list(obj, child(obj, node, 3), 3, data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"builder_exits")
+    pos = json_request_list(obj, child(obj, node, 4), 4, data, cap, pos)
+    return put(data, cap, pos, u8(125))
+
+
+def json_payload_attestations(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put(data, cap, pos, u8(91))
+    i: i32 = 0
+    while i < obj.nodes[node].child_count:
+        if i > 0:
+            pos = put(data, cap, pos, u8(44))
+        pos = json_payload_attestation(obj, child(obj, node, i), data, cap, pos)
+        i = i + 1
+    return put(data, cap, pos, u8(93))
+
+
+def json_block_body(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put(data, cap, pos, u8(123))
+    pos = json_key(data, cap, pos, b"randao_reveal")
+    pos = json_hex_node(obj, child(obj, node, 0), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"eth1_data")
+    pos = json_eth1_data(obj, child(obj, node, 1), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"graffiti")
+    pos = json_hex_node(obj, child(obj, node, 2), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"proposer_slashings")
+    pos = json_proposer_slashings(obj, child(obj, node, 3), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"attester_slashings")
+    pos = json_attester_slashings(obj, child(obj, node, 4), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"attestations")
+    pos = json_attestations(obj, child(obj, node, 5), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"deposits")
+    pos = json_deposits(obj, child(obj, node, 6), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"voluntary_exits")
+    pos = json_exits(obj, child(obj, node, 7), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"sync_aggregate")
+    pos = json_sync_aggregate(obj, child(obj, node, 8), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"bls_to_execution_changes")
+    pos = json_bls_changes(obj, child(obj, node, 9), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"signed_execution_payload_bid")
+    pos = json_signed_execution_payload_bid(obj, child(obj, node, 10), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"payload_attestations")
+    pos = json_payload_attestations(obj, child(obj, node, 11), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"parent_execution_requests")
+    pos = json_execution_requests(obj, child(obj, node, 12), data, cap, pos)
+    return put(data, cap, pos, u8(125))
+
+
+def json_beacon_block(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put(data, cap, pos, u8(123))
+    pos = json_key(data, cap, pos, b"slot")
+    pos = json_uint(obj, child(obj, node, 0), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"proposer_index")
+    pos = json_uint(obj, child(obj, node, 1), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"parent_root")
+    pos = json_hex_node(obj, child(obj, node, 2), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"state_root")
+    pos = json_hex_node(obj, child(obj, node, 3), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"body")
+    pos = json_block_body(obj, child(obj, node, 4), data, cap, pos)
+    return put(data, cap, pos, u8(125))
+
+
+def json_signed_block(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put_literal(data, cap, pos, b"{\"message\":")
+    pos = json_beacon_block(obj, child(obj, node, 0), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"signature")
+    pos = json_hex_node(obj, child(obj, node, 1), data, cap, pos)
+    return put(data, cap, pos, u8(125))
+
+
+def gloas_json_size(obj: raw_ptr[SszObject]) -> i32:
+    pos = put_literal(obj.root.data, 0, 0, b"{\"data\":")
+    if obj.object_kind == OBJECT_SIGNED_BEACON_BLOCK:
+        pos = json_signed_block(obj, obj.root_node, obj.root.data, 0, pos)
+    else:
+        pos = json_beacon_block(obj, obj.root_node, obj.root.data, 0, pos)
+    return put(obj.root.data, 0, pos, u8(125))
+
+
+def gloas_encode_json(obj: raw_ptr[SszObject], output: bytes) -> i32:
+    out = BytesObject.from_bytes(output)
+    pos = put_literal(out.data, out.length, 0, b"{\"data\":")
+    if obj.object_kind == OBJECT_SIGNED_BEACON_BLOCK:
+        pos = json_signed_block(obj, obj.root_node, out.data, out.length, pos)
+    else:
+        pos = json_beacon_block(obj, obj.root_node, out.data, out.length, pos)
+    return put(out.data, out.length, pos, u8(125))

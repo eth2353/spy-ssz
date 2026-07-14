@@ -24,6 +24,7 @@ build-backend = "setuptools.build_meta"
 spy_ssz = ["*.pyi", "py.typed", "consensus_types.json", "schemas.yaml", "presets/*/*.yaml"]
 "spy_ssz.electra" = ["*.pyi"]
 "spy_ssz.fulu" = ["*.pyi"]
+"spy_ssz.gloas" = ["*.pyi"]
 
 [tool.setuptools.packages.find]
 include = ["spy_ssz*"]

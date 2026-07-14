@@ -20,7 +20,7 @@ from ..ssz import (
 
 
 _SIGNED_BLOCK = schema_for("electra_block")
-ElectraSignedBeaconBlock = type(
+SignedBeaconBlockElectra = type(
     _SIGNED_BLOCK.python_type,
     (SszObject,),
     {"expected_fork": _SIGNED_BLOCK.fork, "expected_kind": _SIGNED_BLOCK.kind},
@@ -29,9 +29,9 @@ for _preset_name in _SIGNED_BLOCK.presets:
     _preset = Preset[_preset_name.upper()]
     _name = f"{_SIGNED_BLOCK.python_type}{_preset.name.title()}"
     globals()[_name] = (
-        ElectraSignedBeaconBlock
+        SignedBeaconBlockElectra
         if _preset is Preset.MAINNET
-        else type(_name, (ElectraSignedBeaconBlock,), {"expected_preset": _preset})
+        else type(_name, (SignedBeaconBlockElectra,), {"expected_preset": _preset})
     )
 
 for _preset_name in _SIGNED_BLOCK.presets:
@@ -155,26 +155,26 @@ class _BlockProjection(SszObject):
         return f"0x{root.hex()}"
 
 
-class ElectraBeaconBlockContents(_BlockProjection):
+class BeaconBlockContentsElectra(_BlockProjection):
     expected_fork = _CONTENTS.fork
     expected_kind = _CONTENTS.kind
     signed_schema_id = _SIGNED_CONTENTS.schema_id
 
 
-class ElectraSignedBeaconBlockContents(SszObject):
+class SignedBeaconBlockContentsElectra(SszObject):
     expected_fork = _SIGNED_CONTENTS.fork
     expected_kind = _SIGNED_CONTENTS.kind
     json_input_envelope_key = "data"
     json_output_envelope_key = None
 
 
-class ElectraBlindedBeaconBlock(_BlockProjection):
+class BlindedBeaconBlockElectra(_BlockProjection):
     expected_fork = _BLINDED.fork
     expected_kind = _BLINDED.kind
     signed_schema_id = _SIGNED_BLINDED.schema_id
 
 
-class ElectraSignedBlindedBeaconBlock(SszObject):
+class SignedBlindedBeaconBlockElectra(SszObject):
     expected_fork = _SIGNED_BLINDED.fork
     expected_kind = _SIGNED_BLINDED.kind
     json_input_envelope_key = "data"
@@ -186,10 +186,10 @@ def _variant(name: str, base: type[SszObject], preset: Preset):
 
 
 _BASES = (
-    (ElectraBeaconBlockContents, _CONTENTS),
-    (ElectraSignedBeaconBlockContents, _SIGNED_CONTENTS),
-    (ElectraBlindedBeaconBlock, _BLINDED),
-    (ElectraSignedBlindedBeaconBlock, _SIGNED_BLINDED),
+    (BeaconBlockContentsElectra, _CONTENTS),
+    (SignedBeaconBlockContentsElectra, _SIGNED_CONTENTS),
+    (BlindedBeaconBlockElectra, _BLINDED),
+    (SignedBlindedBeaconBlockElectra, _SIGNED_BLINDED),
 )
 for _base, _definition in _BASES:
     for _preset_name in _definition.presets:
@@ -199,15 +199,15 @@ for _base, _definition in _BASES:
 
 
 _SIGNED_CONTENTS_BY_PRESET = {
-    preset: globals()[f"ElectraSignedBeaconBlockContents{preset.name.title()}"]
+    preset: globals()[f"SignedBeaconBlockContentsElectra{preset.name.title()}"]
     for preset in Preset
 }
 _SIGNED_BLINDED_BY_PRESET = {
-    preset: globals()[f"ElectraSignedBlindedBeaconBlock{preset.name.title()}"]
+    preset: globals()[f"SignedBlindedBeaconBlockElectra{preset.name.title()}"]
     for preset in Preset
 }
-ElectraBeaconBlockContents.signed_types_by_preset = _SIGNED_CONTENTS_BY_PRESET
-ElectraBlindedBeaconBlock.signed_types_by_preset = _SIGNED_BLINDED_BY_PRESET
+BeaconBlockContentsElectra.signed_types_by_preset = _SIGNED_CONTENTS_BY_PRESET
+BlindedBeaconBlockElectra.signed_types_by_preset = _SIGNED_BLINDED_BY_PRESET
 
 
 for _definition in schemas_for("block_containers"):

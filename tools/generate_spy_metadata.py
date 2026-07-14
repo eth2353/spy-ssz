@@ -23,6 +23,7 @@ PACKAGE_STUB = ROOT / "spy_ssz" / "__init__.pyi"
 TYPE_STUBS = {
     "electra": ROOT / "spy_ssz" / "electra" / "__init__.pyi",
     "fulu": ROOT / "spy_ssz" / "fulu" / "__init__.pyi",
+    "gloas": ROOT / "spy_ssz" / "gloas" / "__init__.pyi",
     "signing": ROOT / "spy_ssz" / "signing.pyi",
 }
 CONSENSUS_TYPES = ROOT / "spy_ssz" / "consensus_types.json"
@@ -138,7 +139,7 @@ def _projection_model(
                 key = (fork, type_id)
                 reachable[key] = shape
                 names[key] = reverse_names.get(
-                    type_id, f"{fork.title()}Type{type_id}Projection"
+                    type_id, f"Type{type_id}Projection{fork.title()}"
                 )
 
     grouped: dict[str, list[tuple[str, int]]] = {}
@@ -153,7 +154,7 @@ def _projection_model(
         if len(fingerprints) == 1:
             class_names.update((key, name) for key in keys)
         else:
-            class_names.update((key, f"{key[0].title()}{name}") for key in keys)
+            class_names.update((key, f"{name}{key[0].title()}") for key in keys)
     return class_names, reachable
 
 
@@ -632,6 +633,33 @@ def _render_fulu_stub(
     return regular.rstrip() + "\n\n" + container_classes
 
 
+def _render_gloas_stub(
+    schemas: list[dict[str, Any]],
+    catalog: dict[str, Any],
+    class_names: dict[tuple[str, int], str],
+) -> str:
+    rendered = _render_dynamic_stub(schemas, catalog, class_names, import_prefix="..")
+    rendered = rendered.replace(
+        "class BeaconBlockGloas(SszObject):",
+        "class BeaconBlockGloas(SszObject):\n"
+        "    def header_dict(self) -> dict[str, str]: ...\n"
+        "    def block_hash_tree_root(self) -> str: ...\n"
+        "    def sign(self, signature: str | bytes) -> SignedBeaconBlockGloas: ...\n"
+        "    @classmethod\n"
+        "    def signed_type(cls) -> type[SignedBeaconBlockGloas]: ...",
+    )
+    for preset in ("Minimal", "Gnosis"):
+        rendered = rendered.replace(
+            f"class BeaconBlockGloas{preset}(BeaconBlockGloas): ...",
+            f"class BeaconBlockGloas{preset}(BeaconBlockGloas):\n"
+            f"    def sign(self, signature: str | bytes) -> SignedBeaconBlockGloas{preset}: ...\n"
+            "    @classmethod\n"
+            f"    def signed_type(cls) -> type[SignedBeaconBlockGloas{preset}]: ..."
+            + ("\n" if preset == "Minimal" else ""),
+        )
+    return rendered
+
+
 def render_type_stubs() -> dict[Path, str]:
     source = _load(SCHEMAS)
     schemas = source["schemas"]
@@ -648,6 +676,9 @@ def render_type_stubs() -> dict[Path, str]:
             by_module["electra"], catalog, class_names
         ),
         TYPE_STUBS["fulu"]: _render_fulu_stub(by_module["fulu"], catalog, class_names),
+        TYPE_STUBS["gloas"]: _render_gloas_stub(
+            by_module["gloas"], catalog, class_names
+        ),
         TYPE_STUBS["signing"]: _render_dynamic_stub(
             by_module["signing"], catalog, class_names
         ),
