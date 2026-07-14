@@ -106,7 +106,8 @@ def store_u32_be(data: bytes, offset: i32, value: u32) -> None:
 
 
 def rotr(value: u32, amount: u32) -> u32:
-    return (value >> amount) | (value << (as_u32(32) - amount))
+    complement = as_u32(32) - amount
+    return (value >> amount) | (value << complement)
 
 
 def small_sigma0(value: u32) -> u32:
@@ -126,11 +127,16 @@ def big_sigma1(value: u32) -> u32:
 
 
 def choose(x: u32, y: u32, z: u32) -> u32:
-    return (x & y) ^ ((x ^ as_u32(-1)) & z)
+    selected_y = x & y
+    selected_z = (x ^ as_u32(-1)) & z
+    return selected_y ^ selected_z
 
 
 def majority(x: u32, y: u32, z: u32) -> u32:
-    return (x & y) ^ (x & z) ^ (y & z)
+    xy = x & y
+    xz = x & z
+    yz = y & z
+    return xy ^ xz ^ yz
 
 
 def initialize_state(state: bytes) -> None:

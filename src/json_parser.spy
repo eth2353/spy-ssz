@@ -56,11 +56,11 @@ def is_space(ch: u8) -> bool:
 
 def is_hex_digit(ch: u8) -> bool:
     value = i32(ch)
-    return (
-        (value >= 48 and value <= 57)
-        or (value >= 65 and value <= 70)
-        or (value >= 97 and value <= 102)
-    )
+    if value >= 48 and value <= 57:
+        return True
+    if value >= 65 and value <= 70:
+        return True
+    return value >= 97 and value <= 102
 
 
 def is_utf8_continuation(ch: u8) -> bool:
@@ -113,25 +113,32 @@ def valid_json_string(
             if i + 2 >= end:
                 return False
             second = i32(document.json[i + 1])
-            if (
-                (value == 224 and (second < 160 or second > 191))
-                or (value == 237 and (second < 128 or second > 159))
-                or (value != 224 and value != 237 and (second < 128 or second > 191))
-                or not is_utf8_continuation(document.json[i + 2])
-            ):
+            if value == 224:
+                if second < 160 or second > 191:
+                    return False
+            elif value == 237:
+                if second < 128 or second > 159:
+                    return False
+            elif second < 128 or second > 191:
+                return False
+            if not is_utf8_continuation(document.json[i + 2]):
                 return False
             i = i + 3
         elif value >= 240 and value <= 244:
             if i + 3 >= end:
                 return False
             second = i32(document.json[i + 1])
-            if (
-                (value == 240 and (second < 144 or second > 191))
-                or (value == 244 and (second < 128 or second > 143))
-                or (value != 240 and value != 244 and (second < 128 or second > 191))
-                or not is_utf8_continuation(document.json[i + 2])
-                or not is_utf8_continuation(document.json[i + 3])
-            ):
+            if value == 240:
+                if second < 144 or second > 191:
+                    return False
+            elif value == 244:
+                if second < 128 or second > 143:
+                    return False
+            elif second < 128 or second > 191:
+                return False
+            if not is_utf8_continuation(document.json[i + 2]):
+                return False
+            if not is_utf8_continuation(document.json[i + 3]):
                 return False
             i = i + 4
         else:
