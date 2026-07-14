@@ -20,6 +20,7 @@ from .ssz import (
     SszObject as SszObject,
     decode_json as decode_json,
     decode_ssz as decode_ssz,
+    encode_json_array as encode_json_array,
     get_ssz_type as get_ssz_type,
 )
 

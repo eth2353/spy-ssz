@@ -23,6 +23,7 @@ __all__ = [
     "TypeDefinition",
     "decode_json",
     "decode_ssz",
+    "encode_json_array",
     "get_type_definition",
     "get_type_shape",
     "get_ssz_type",
@@ -51,6 +52,7 @@ def __getattr__(name: str) -> Any:
         "ObjectKind",
         "decode_json",
         "decode_ssz",
+        "encode_json_array",
         "get_ssz_type",
     }:
         from . import ssz

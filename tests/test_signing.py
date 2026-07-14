@@ -1,3 +1,5 @@
+from unittest import mock
+
 import msgspec
 import pytest
 from eth_consensus_specs.electra import mainnet as electra
@@ -20,6 +22,7 @@ from spy_ssz.signing import (
     SyncCommitteeContribution,
     SyncCommitteeMessage,
 )
+from spy_ssz import encode_json_array
 from spy_ssz.ssz import Fork, ObjectKind, decode_json
 
 
@@ -68,6 +71,117 @@ def test_constructor_and_bitfield_projection() -> None:
         assert len(value.committee_bits) == 64
         assert value.committee_bits.count() == 0
         assert value.data.slot == 0
+
+
+def test_typed_children_are_composed_without_json_roundtrip() -> None:
+    signature = bytes(range(96))
+    attestation_reference = electra.Attestation()
+    attestation = Attestation.from_obj(attestation_reference.to_obj())
+    with (
+        mock.patch.object(
+            Attestation,
+            "to_obj",
+            side_effect=AssertionError("typed composition must stay native"),
+        ),
+        mock.patch.object(
+            Attestation,
+            "to_json",
+            side_effect=AssertionError("typed composition must stay native"),
+        ),
+    ):
+        aggregate = AggregateAndProof(
+            aggregator_index=12,
+            aggregate=attestation,
+            selection_proof=signature,
+        )
+    attestation.close()
+    aggregate_reference = electra.AggregateAndProof(
+        aggregator_index=12,
+        aggregate=attestation_reference,
+        selection_proof=signature,
+    )
+    assert aggregate.to_ssz() == aggregate_reference.encode_bytes()
+
+    with mock.patch.object(
+        AggregateAndProof,
+        "to_json",
+        side_effect=AssertionError("typed composition must stay native"),
+    ):
+        signed_aggregate = SignedAggregateAndProof.from_obj(
+            {"message": aggregate, "signature": signature}
+        )
+    aggregate.close()
+    assert (
+        signed_aggregate.to_ssz()
+        == electra.SignedAggregateAndProof(
+            message=aggregate_reference,
+            signature=signature,
+        ).encode_bytes()
+    )
+    signed_aggregate.close()
+
+    contribution_reference = electra.SyncCommitteeContribution()
+    contribution = SyncCommitteeContribution.from_obj(contribution_reference.to_obj())
+    with mock.patch.object(
+        SyncCommitteeContribution,
+        "to_json",
+        side_effect=AssertionError("typed composition must stay native"),
+    ):
+        proof = ContributionAndProof(
+            aggregator_index="34",
+            contribution=contribution,
+            selection_proof=signature,
+        )
+    contribution.close()
+    proof_reference = electra.ContributionAndProof(
+        aggregator_index=34,
+        contribution=contribution_reference,
+        selection_proof=signature,
+    )
+    assert proof.to_ssz() == proof_reference.encode_bytes()
+    with mock.patch.object(
+        ContributionAndProof,
+        "to_json",
+        side_effect=AssertionError("typed composition must stay native"),
+    ):
+        signed_proof = SignedContributionAndProof(
+            message=proof,
+            signature=signature,
+        )
+    proof.close()
+    assert (
+        signed_proof.to_ssz()
+        == electra.SignedContributionAndProof(
+            message=proof_reference,
+            signature=signature,
+        ).encode_bytes()
+    )
+    signed_proof.close()
+
+    data_reference = electra.AttestationData(slot=56)
+    data = AttestationData.from_obj(data_reference.to_obj())
+    with mock.patch.object(
+        AttestationData,
+        "to_json",
+        side_effect=AssertionError("typed composition must stay native"),
+    ):
+        single = SingleAttestation(
+            committee_index=78,
+            attester_index=90,
+            data=data,
+            signature=signature,
+        )
+    data.close()
+    assert (
+        single.to_ssz()
+        == electra.SingleAttestation(
+            committee_index=78,
+            attester_index=90,
+            data=data_reference,
+            signature=signature,
+        ).encode_bytes()
+    )
+    single.close()
 
 
 def test_populated_variable_slashing_types_match_consensus_ssz() -> None:
@@ -167,3 +281,44 @@ def test_generic_signing_decode_preserves_bare_json_shape() -> None:
     ) as value:
         assert value.to_obj()["slot"] == "0"
         assert value.slot == 0
+
+
+@pytest.mark.parametrize(
+    ("spy_type", "reference_factory"),
+    [
+        (Attestation, electra.Attestation),
+        (AggregateAndProof, electra.AggregateAndProof),
+        (SyncCommitteeMessage, electra.SyncCommitteeMessage),
+        (SyncCommitteeContribution, electra.SyncCommitteeContribution),
+        (SignedAggregateAndProof, electra.SignedAggregateAndProof),
+    ],
+)
+def test_native_json_array_encoding_uses_one_output_buffer(
+    spy_type, reference_factory
+) -> None:
+    values = [spy_type.from_obj(reference_factory().to_obj()) for _ in range(3)]
+    try:
+        with mock.patch.object(
+            spy_type,
+            "to_json",
+            side_effect=AssertionError("batch encoding must use native encoders"),
+        ):
+            encoded = encode_json_array(values)
+        assert msgspec.json.decode(encoded) == [value.to_obj() for value in values]
+    finally:
+        for value in values:
+            value.close()
+
+
+def test_native_json_array_encoding_validates_inputs() -> None:
+    assert encode_json_array([]) == b"[]"
+    with (
+        AttestationData.from_obj(electra.AttestationData().to_obj()) as data,
+        SyncCommitteeMessage.from_obj(
+            electra.SyncCommitteeMessage().to_obj()
+        ) as message,
+    ):
+        with pytest.raises(TypeError, match="same concrete SSZ type"):
+            encode_json_array([data, message])
+    with pytest.raises(TypeError, match="concrete SPy SSZ objects"):
+        encode_json_array([object()])  # type: ignore[list-item]

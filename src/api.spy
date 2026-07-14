@@ -26,6 +26,7 @@ from electra_signing import (
     signing_encode_ssz,
     signing_json_size,
     signing_ssz_size,
+    compose_signing_object,
 )
 from electra_block_containers import decode_block_container_json
 from electra_block_containers_encode import (

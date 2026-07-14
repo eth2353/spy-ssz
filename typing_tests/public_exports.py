@@ -20,6 +20,7 @@ from spy_ssz import (
     SingleAttestation,
     SyncCommitteeContribution,
     SyncCommitteeMessage,
+    encode_json_array,
     get_ssz_type,
 )
 from spy_ssz.ssz import Fork, ObjectKind, SszObject
@@ -27,6 +28,7 @@ from spy_ssz.signing import Attestation as ModuleAttestation
 
 
 def verify_public_export_types(data: bytes) -> None:
+    assert_type(encode_json_array([]), bytes)
     assert_type(
         get_ssz_type(Fork.ELECTRA, ObjectKind.ATTESTATION),
         type[SszObject],

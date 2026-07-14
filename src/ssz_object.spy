@@ -618,24 +618,26 @@ def object_node_hash_tree_root(
     return obj.status
 
 
-def clone_and_sign_block(
+def clone_object(
     source: raw_ptr[SszObject],
-    signature: bytes,
-    signed_kind: i32,
-    signed_schema: i32,
-    contents: bool,
+    target_kind: i32,
+    target_schema: i32,
+    additional_nodes: i32,
+    additional_edges: i32,
+    additional_arena: i32,
 ) -> raw_ptr[SszObject]:
-    """Clone a block graph and wrap its block node with a BLS signature."""
     target = new_object(
         source.fork,
-        signed_kind,
-        signed_schema,
-        source.node_capacity + 3,
-        source.edge_capacity + 5,
-        source.arena_capacity + 96,
+        target_kind,
+        target_schema,
+        source.node_capacity + additional_nodes,
+        source.edge_capacity + additional_edges,
+        source.arena_capacity + additional_arena,
     )
     configure_preset(target, source.preset)
     target.status = source.status
+    target.error_start = source.error_start
+    target.error_end = source.error_end
 
     i: i32 = 0
     while i < source.node_count:
@@ -663,6 +665,18 @@ def clone_and_sign_block(
         target.arena[i] = source.arena[i]
         i = i + 1
     target.arena_cursor = source.arena_cursor
+    return target
+
+
+def clone_and_sign_block(
+    source: raw_ptr[SszObject],
+    signature: bytes,
+    signed_kind: i32,
+    signed_schema: i32,
+    contents: bool,
+) -> raw_ptr[SszObject]:
+    """Clone a block graph and wrap its block node with a BLS signature."""
+    target = clone_object(source, signed_kind, signed_schema, 3, 5, 96)
 
     encoded_signature = BytesObject.from_bytes(signature)
     if encoded_signature.length != 96:

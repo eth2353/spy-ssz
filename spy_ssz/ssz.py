@@ -5,14 +5,21 @@ from __future__ import annotations
 from copy import deepcopy
 from enum import IntEnum
 from importlib import import_module
-from typing import Any, Callable, ClassVar, Self, TypeVar
+from typing import Any, Callable, ClassVar, Iterable, Self, TypeVar
 
 import msgspec
 
 from . import _spy
 from ._repr import format_container
 from .preset import Preset
-from .schema import Fork, ObjectKind, get_schema, module_for_codec, schema_definitions
+from .schema import (
+    Fork,
+    ObjectKind,
+    SchemaDefinition,
+    get_schema,
+    module_for_codec,
+    schema_definitions,
+)
 
 
 def _spy_bytes(buffer: bytes | bytearray) -> tuple[Any, Any]:
@@ -22,6 +29,13 @@ def _spy_bytes(buffer: bytes | bytearray) -> tuple[Any, Any]:
     value.hash = 0
     value.data.p = _spy.ffi.cast("uint8_t *", view)
     return value, view
+
+
+def _compose_typed_fields(cls: type[SszObject], fields: dict[str, Any]) -> Any | None:
+    from . import signing
+
+    composer = getattr(signing, "_compose_fields")
+    return composer(cls, fields)
 
 
 Decoder = Callable[[Any], Any]
@@ -148,6 +162,11 @@ class SszObject:
         if handle is None:
             if not fields:
                 raise TypeError("SPy SSZ containers require field values")
+            if any(isinstance(value, SszObject) for value in fields.values()):
+                composed = _compose_typed_fields(type(self), fields)
+                if composed is not None:
+                    self._handle = composed
+                    return
             decoded = type(self).from_obj(fields)
             self._handle = decoded._handle
             decoded._handle = None
@@ -158,6 +177,12 @@ class SszObject:
 
     @classmethod
     def from_obj(cls, value: Any) -> Self:
+        if isinstance(value, dict) and any(
+            isinstance(item, SszObject) for item in value.values()
+        ):
+            composed = _compose_typed_fields(cls, value)
+            if composed is not None:
+                return cls(composed)
         value = _json_compatible(value)
         if cls.json_input_envelope_key is not None:
             value = {cls.json_input_envelope_key: value}
@@ -500,13 +525,78 @@ def decode_ssz(
     return get_ssz_type(fork, kind, preset).from_ssz(data)
 
 
+def encode_json_array(values: Iterable[SszObject]) -> bytes:
+    """Encode same-type bare JSON objects into one JSON array buffer."""
+    items = tuple(values)
+    if not items:
+        return b"[]"
+    first = items[0]
+    if not isinstance(first, SszObject):
+        raise TypeError("JSON array values must be concrete SPy SSZ objects")
+    concrete_type = type(first)
+    fork = concrete_type.expected_fork
+    kind = concrete_type.expected_kind
+    preset = concrete_type.expected_preset
+    if fork is None or kind is None:
+        raise TypeError("use registered concrete SPy SSZ objects")
+    if concrete_type.json_output_envelope_key is not None:
+        raise TypeError("JSON array encoding requires bare-object JSON types")
+    key = (fork, kind, preset)
+    for item in items:
+        if not isinstance(item, SszObject):
+            raise TypeError("JSON array values must be concrete SPy SSZ objects")
+        item_type = type(item)
+        item_key = (
+            item_type.expected_fork,
+            item_type.expected_kind,
+            item_type.expected_preset,
+        )
+        if item_key != key:
+            raise TypeError("JSON array values must have the same concrete SSZ type")
+        item._require_handle()
+    sizer, encoder = _lookup_codec(_JSON_ENCODERS, key, "JSON encoder")
+    sizes = [sizer(item._require_handle()) for item in items]
+    total = 2 + sum(sizes) + len(items) - 1
+    if total > (1 << 31) - 1:
+        raise ValueError("JSON array output exceeds the signed 32-bit size limit")
+    output = bytearray(total)
+    output[0] = ord("[")
+    output[-1] = ord("]")
+    output_view = _spy.ffi.from_buffer(output)
+    output_pointer = _spy.ffi.cast("uint8_t *", output_view)
+    position = 1
+    for item, expected in zip(items, sizes, strict=True):
+        encoded = _spy.ffi.new("spy_BytesObject *")
+        encoded.length = expected
+        encoded.hash = 0
+        encoded.data.p = output_pointer + position
+        written = encoder(item._require_handle(), encoded)
+        if written != expected:
+            raise ValueError("SPy JSON array encoding failed")
+        position += written
+        if position < total - 1:
+            output[position] = ord(",")
+            position += 1
+    assert output_view
+    return bytes(output)
+
+
 def get_ssz_type(
     fork: Fork, kind: ObjectKind, preset: Preset = Preset.MAINNET
 ) -> type[SszObject]:
     """Resolve a registered fork/object-kind/preset to its concrete class."""
+    definition: SchemaDefinition | None
     try:
         definition = get_schema(fork, kind)
     except KeyError:
+        if fork is Fork.FULU:
+            try:
+                definition = get_schema(Fork.ELECTRA, kind)
+            except KeyError:
+                definition = None
+        else:
+            definition = None
+    if definition is None:
         raise NotImplementedError(
             f"no SPy schema for {fork.name}/{kind.name}/{preset.name}"
         ) from None

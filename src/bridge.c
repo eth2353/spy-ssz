@@ -178,6 +178,7 @@ int32_t spy_ssz_object_hash_tree_root(
 #define spy_schema_block_containers_json_size spy_electra_block_containers_encode$block_container_json_size
 #define spy_schema_block_containers_encode_json spy_electra_block_containers_encode$block_container_encode_json
 #define spy_ssz_object_clone_and_sign_block spy_ssz_object$clone_and_sign_block
+#define spy_ssz_object_compose_signing spy_electra_signing$compose_signing_object
 
 static int32_t spy_ssz_child(spy_ssz_object$SszObject *obj,
                              int32_t node, int32_t child) {

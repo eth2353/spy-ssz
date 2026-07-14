@@ -117,6 +117,11 @@ finally:
     from_ssz.close()
 ```
 
+When a Fulu object kind still uses its unchanged Electra schema,
+`get_ssz_type(Fork.FULU, ...)` returns the existing Electra concrete class.
+Fork-specific schemas, such as `FuluSignedBeaconBlock`, continue to resolve to
+their dedicated classes.
+
 ## Validator-client objects
 
 Electra signing objects accept bare JSON objects rather than a Beacon API
@@ -158,6 +163,38 @@ Available signing classes are:
 
 Each also has `Minimal` and `Gnosis` variants, such as
 `AttestationMinimal` and `AttestationGnosis`.
+
+Compatible typed children can be passed directly to the common composition
+containers. The child graph is cloned natively, so this does not encode or
+decode JSON and the resulting parent owns its memory independently:
+
+```python
+aggregate_and_proof = AggregateAndProof(
+    aggregator_index=validator_index,
+    aggregate=attestation,
+    selection_proof=selection_proof,
+)
+signed = SignedAggregateAndProof(
+    message=aggregate_and_proof,
+    signature=signature,
+)
+```
+
+This native path also covers `ContributionAndProof`,
+`SignedContributionAndProof`, and `SingleAttestation`. Other constructor shapes
+retain the existing JSON-compatible fallback.
+
+Publication batches of same-type bare-object values can be encoded into one
+output buffer:
+
+```python
+from spy_ssz import encode_json_array
+
+request_body = encode_json_array(attestations)
+```
+
+The iterable is materialized to retain object ownership during encoding, but
+individual `to_json()` byte strings are not allocated.
 
 ## Block contents and blinded blocks
 

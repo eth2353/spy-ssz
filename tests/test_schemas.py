@@ -59,3 +59,19 @@ def test_public_type_resolver_rejects_unsupported_combination() -> None:
         match="^no SPy schema for DENEB/ATTESTATION/GNOSIS$",
     ):
         get_ssz_type(Fork.DENEB, ObjectKind.ATTESTATION, Preset.GNOSIS)
+
+
+def test_fulu_resolver_aliases_unchanged_electra_schemas() -> None:
+    electra_kinds = {
+        definition.kind
+        for definition in schema_definitions()
+        if definition.fork is Fork.ELECTRA
+    }
+    for kind in electra_kinds:
+        for preset in Preset:
+            fulu_type = get_ssz_type(Fork.FULU, kind, preset)
+            if kind is ObjectKind.SIGNED_BEACON_BLOCK:
+                assert fulu_type is not get_ssz_type(Fork.ELECTRA, kind, preset)
+                assert fulu_type.expected_fork is Fork.FULU
+            else:
+                assert fulu_type is get_ssz_type(Fork.ELECTRA, kind, preset)

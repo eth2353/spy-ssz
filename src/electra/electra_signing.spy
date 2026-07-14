@@ -67,7 +67,119 @@ from electra_block_ssz import (
     signed_block_header as decode_ssz_signed_block_header,
 )
 from ssz_reader import SszDocument, decode_ssz, first_variable_offset
-from ssz_object import KIND_CONTAINER, SszObject, add_composite_node, configure_preset, new_object, reserve_edges, set_edge
+from ssz_object import (
+    KIND_CONTAINER,
+    SszObject,
+    add_composite_node,
+    add_fixed_bytes_node,
+    add_uint_node,
+    alloc_data,
+    alloc_zeroed_data,
+    clone_object,
+    configure_preset,
+    new_object,
+    reserve_edges,
+    set_edge,
+)
+
+
+def composed_uint(obj: raw_ptr[SszObject], encoded: bytes) -> i32:
+    value = BytesObject.from_bytes(encoded)
+    offset = alloc_zeroed_data(obj, 32)
+    if value.length != 8 or offset < 0:
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
+        return add_uint_node(obj, offset)
+    i: i32 = 0
+    while i < 8:
+        obj.arena[offset + i] = value.data[i]
+        i = i + 1
+    return add_uint_node(obj, offset)
+
+
+def composed_fixed_bytes(obj: raw_ptr[SszObject], encoded: bytes) -> i32:
+    value = BytesObject.from_bytes(encoded)
+    offset = alloc_data(obj, 96)
+    if value.length != 96 or offset < 0:
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
+        return add_fixed_bytes_node(obj, offset, 96)
+    i: i32 = 0
+    while i < 96:
+        obj.arena[offset + i] = value.data[i]
+        i = i + 1
+    return add_fixed_bytes_node(obj, offset, 96)
+
+
+def compose_signing_object(
+    source: raw_ptr[SszObject],
+    target_kind: i32,
+    target_schema: i32,
+    first_uint: bytes,
+    second_uint: bytes,
+    fixed_bytes: bytes,
+) -> raw_ptr[SszObject]:
+    additional_nodes: i32 = 3
+    additional_edges: i32 = 3
+    additional_arena: i32 = 128
+    if target_kind == OBJECT_SINGLE_ATTESTATION:
+        additional_nodes = 4
+        additional_edges = 4
+        additional_arena = 160
+    elif target_kind == OBJECT_SIGNED_AGGREGATE_AND_PROOF or target_kind == OBJECT_SIGNED_CONTRIBUTION_AND_PROOF:
+        additional_nodes = 2
+        additional_edges = 2
+        additional_arena = 96
+    target = clone_object(
+        source,
+        target_kind,
+        target_schema,
+        additional_nodes,
+        additional_edges,
+        additional_arena,
+    )
+    valid_child = (
+        target_kind == OBJECT_AGGREGATE_AND_PROOF
+        and source.object_kind == OBJECT_ATTESTATION
+    ) or (
+        target_kind == OBJECT_CONTRIBUTION_AND_PROOF
+        and source.object_kind == OBJECT_SYNC_COMMITTEE_CONTRIBUTION
+    ) or (
+        target_kind == OBJECT_SINGLE_ATTESTATION
+        and source.object_kind == OBJECT_ATTESTATION_DATA
+    ) or (
+        target_kind == OBJECT_SIGNED_AGGREGATE_AND_PROOF
+        and source.object_kind == OBJECT_AGGREGATE_AND_PROOF
+    ) or (
+        target_kind == OBJECT_SIGNED_CONTRIBUTION_AND_PROOF
+        and source.object_kind == OBJECT_CONTRIBUTION_AND_PROOF
+    )
+    if not valid_child:
+        target.status = DECODE_STATUS_MALFORMED_INPUT
+        return target
+
+    first = reserve_edges(target, additional_edges)
+    if target_kind == OBJECT_SIGNED_AGGREGATE_AND_PROOF or target_kind == OBJECT_SIGNED_CONTRIBUTION_AND_PROOF:
+        set_edge(target, first, 0, source.root_node)
+        set_edge(target, first, 1, composed_fixed_bytes(target, fixed_bytes))
+        target.root_node = add_composite_node(
+            target, KIND_CONTAINER, first, 2, 2, 0, 0
+        )
+    elif target_kind == OBJECT_SINGLE_ATTESTATION:
+        set_edge(target, first, 0, composed_uint(target, first_uint))
+        set_edge(target, first, 1, composed_uint(target, second_uint))
+        set_edge(target, first, 2, source.root_node)
+        set_edge(target, first, 3, composed_fixed_bytes(target, fixed_bytes))
+        target.root_node = add_composite_node(
+            target, KIND_CONTAINER, first, 4, 4, 0, 0
+        )
+    else:
+        set_edge(target, first, 0, composed_uint(target, first_uint))
+        set_edge(target, first, 1, source.root_node)
+        set_edge(target, first, 2, composed_fixed_bytes(target, fixed_bytes))
+        target.root_node = add_composite_node(
+            target, KIND_CONTAINER, first, 3, 3, 0, 0
+        )
+    target.root_valid = False
+    return target
 
 
 def new_signing_object(fork: i32, kind: i32, schema: i32, preset: i32, capacity: i32, arena: i32) -> raw_ptr[SszObject]:

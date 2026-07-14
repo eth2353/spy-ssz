@@ -222,6 +222,10 @@ def build(spy_root: Path) -> Path:
         spy_raw_ssz_ptr spy_ssz_object_clone_and_sign_block(
             spy_raw_ssz_ptr object, spy_BytesObject *signature,
             int32_t signed_kind, int32_t signed_schema, int32_t contents);
+        spy_raw_ssz_ptr spy_ssz_object_compose_signing(
+            spy_raw_ssz_ptr object, int32_t target_kind,
+            int32_t target_schema, spy_BytesObject *first_uint,
+            spy_BytesObject *second_uint, spy_BytesObject *fixed_bytes);
         int32_t spy_schema_electra_ssz_size(spy_raw_ssz_ptr object);
         int32_t spy_schema_electra_encode_ssz(
             spy_raw_ssz_ptr object, spy_BytesObject *output);
