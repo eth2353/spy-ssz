@@ -21,6 +21,7 @@
 
 typedef spy_unsafe$raw_ptr__json_parser$JsonDocument spy_raw_json_ptr;
 typedef spy_unsafe$raw_ptr__ssz_reader$SszDocument spy_raw_ssz_document_ptr;
+typedef spy_ssz_object$SszObject spy_ssz_object_handle;
 typedef spy_unsafe$raw_ptr__ssz_object$SszObject spy_raw_ssz_ptr;
 
 enum {

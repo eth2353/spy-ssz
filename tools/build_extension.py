@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -194,17 +195,38 @@ def build(spy_root: Path) -> Path:
     if not sources:
         raise SystemExit("SPy did not generate C sources")
 
-    # SPy cannot declare an externally implemented function yet. Keep its
-    # generated implementation as a fallback symbol and route all generated
-    # callers through the optimized fixed-size pair kernel below.
+    # SPy cannot declare an externally implemented function yet. Remove its
+    # generated implementation so all callers resolve to the optimized
+    # fixed-size pair kernel below.
     kernels_source = BUILD / "src" / "ssz_kernels.c"
     generated = kernels_source.read_text()
     signature = "void spy_ssz_kernels$hash_pair_into("
-    fallback_signature = "static void spy_ssz_kernels$hash_pair_into_spy("
-    if generated.count(signature) == 1:
-        kernels_source.write_text(generated.replace(signature, fallback_signature, 1))
-    elif generated.count(fallback_signature) != 1:
+    if generated.count(signature) != 1:
         raise RuntimeError("unexpected generated hash_pair_into definition")
+    function_start = generated.index(signature)
+    body_start = generated.index("{", function_start)
+    depth = 0
+    function_end = None
+    for index in range(body_start, len(generated)):
+        if generated[index] == "{":
+            depth += 1
+        elif generated[index] == "}":
+            depth -= 1
+            if depth == 0:
+                function_end = index + 1
+                break
+    if function_end is None:
+        raise RuntimeError("unterminated generated hash_pair_into definition")
+    removed_function = generated[function_start:function_end]
+    generated = generated[:function_start] + generated[function_end:]
+    for literal in set(re.findall(r"\bSPY_g_bytes\d+\b", removed_function)):
+        declaration = f"static spy_BytesObject {literal} ="
+        if generated.count(literal) != 1 or generated.count(declaration) != 1:
+            continue
+        declaration_start = generated.index(declaration)
+        declaration_end = generated.index(";", declaration_start) + 1
+        generated = generated[:declaration_start] + generated[declaration_end:]
+    kernels_source.write_text(generated)
     sources.append(SOURCE / "sha256_pair.c")
     optimization_args = (
         ["-O1", "-g", *SANITIZER_FLAGS] if sanitize else ["-O3", "-flto"]
@@ -220,7 +242,8 @@ def build(spy_root: Path) -> Path:
             int32_t hash;
             spy_gc_ptr_u8 data;
         } spy_BytesObject;
-        typedef struct { void *p; } spy_raw_ssz_ptr;
+        typedef struct spy_ssz_object_handle spy_ssz_object_handle;
+        typedef struct { spy_ssz_object_handle *p; } spy_raw_ssz_ptr;
 
         spy_raw_ssz_ptr spy_schema_block_decode_json_owned(
             spy_BytesObject *source, int32_t fork, int32_t schema,
