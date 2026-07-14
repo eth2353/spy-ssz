@@ -145,9 +145,17 @@ def _load_builtin_codecs(fork: Fork) -> None:
 class SszObject:
     """An opaque Python owner for a typed SPy SSZ value graph."""
 
-    __slots__ = ("_handle", "_obj_cache", "_value_key_cache")
+    __slots__ = (
+        "_handle",
+        "_json_size_cache",
+        "_obj_cache",
+        "_ssz_size_cache",
+        "_value_key_cache",
+    )
     _handle: Any
+    _json_size_cache: int | None
     _obj_cache: Any
+    _ssz_size_cache: int | None
     _value_key_cache: tuple[int, Preset, bytes] | None
     expected_fork: ClassVar[Fork | None] = None
     expected_kind: ClassVar[ObjectKind | None] = None
@@ -156,7 +164,9 @@ class SszObject:
     json_output_envelope_key: ClassVar[str | None] = "data"
 
     def __init__(self, handle: Any = None, **fields: Any):
+        self._json_size_cache = None
         self._obj_cache: Any = None
+        self._ssz_size_cache = None
         self._value_key_cache = None
         if handle is None:
             if not fields:
@@ -280,7 +290,13 @@ class SszObject:
                 detail += f", byte_range={error_start}:{error_end + 1}"
             raise ValueError(f"invalid {encoding} object ({detail})")
         try:
-            return cls(handle)
+            result = cls(handle)
+            # A valid SSZ input is canonical, so its length is also the exact
+            # re-encoded size. Avoid traversing the immutable graph just to
+            # rediscover it on the common decode/encode path.
+            if encoding == "SSZ":
+                result._ssz_size_cache = len(source)
+            return result
         except BaseException:
             _spy.lib.spy_ssz_object_destroy(handle)
             raise
@@ -385,7 +401,11 @@ class SszObject:
         codec = _lookup_codec(encoders, key, f"{encoding} encoder")
         sizer, encoder = codec
         handle = self._require_handle()
-        expected = sizer(handle)
+        size_cache = "_ssz_size_cache" if encoding == "SSZ" else "_json_size_cache"
+        expected = getattr(self, size_cache)
+        if expected is None:
+            expected = sizer(handle)
+            setattr(self, size_cache, expected)
         output = bytearray(expected)
         output_obj, output_view = _spy_bytes(output)
         written = encoder(handle, output_obj)
