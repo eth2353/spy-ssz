@@ -15,7 +15,6 @@ from .preset import Preset
 from .schema import (
     Fork,
     ObjectKind,
-    SchemaDefinition,
     get_schema,
     module_for_codec,
     schema_definitions,
@@ -585,18 +584,9 @@ def get_ssz_type(
     fork: Fork, kind: ObjectKind, preset: Preset = Preset.MAINNET
 ) -> type[SszObject]:
     """Resolve a registered fork/object-kind/preset to its concrete class."""
-    definition: SchemaDefinition | None
     try:
         definition = get_schema(fork, kind)
     except KeyError:
-        if fork is Fork.FULU:
-            try:
-                definition = get_schema(Fork.ELECTRA, kind)
-            except KeyError:
-                definition = None
-        else:
-            definition = None
-    if definition is None:
         raise NotImplementedError(
             f"no SPy schema for {fork.name}/{kind.name}/{preset.name}"
         ) from None

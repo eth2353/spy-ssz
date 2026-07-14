@@ -10,7 +10,6 @@ from json_parser import (
     require_recognized_object_fields,
 )
 from metadata import (
-    FORK_ELECTRA,
     OBJECT_AGGREGATE_AND_PROOF,
     OBJECT_ATTESTATION,
     OBJECT_ATTESTATION_DATA,
@@ -25,11 +24,6 @@ from metadata import (
     OBJECT_SINGLE_ATTESTATION,
     OBJECT_SYNC_COMMITTEE_CONTRIBUTION,
     OBJECT_SYNC_COMMITTEE_MESSAGE,
-    SCHEMA_ELECTRA_AGGREGATE_AND_PROOF,
-    SCHEMA_ELECTRA_ATTESTATION,
-    SCHEMA_ELECTRA_ATTESTATION_DATA,
-    SCHEMA_ELECTRA_CONTRIBUTION_AND_PROOF,
-    SCHEMA_ELECTRA_SYNC_COMMITTEE_CONTRIBUTION,
 )
 from writer import child, json_hex_node, json_key, put, put_u32, ssz_fixed_bytes, write_json_uint, write_ssz_uint
 from json_lowering import JsonDecodeResult, attestation_data, decode_json_uint, json_bitvector, json_fixed_bytes
@@ -323,9 +317,9 @@ def signed_contribution_ssz(
     return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
 
 
-def decode_signing_json(source: bytes, kind: i32, schema: i32, preset: i32) -> JsonDecodeResult:
+def decode_signing_json(source: bytes, fork: i32, kind: i32, schema: i32, preset: i32) -> JsonDecodeResult:
     document = decode_json(source)
-    obj = new_signing_object(FORK_ELECTRA, kind, schema, preset, document.token_count + 64, document.json_length * 2 + 1024)
+    obj = new_signing_object(fork, kind, schema, preset, document.token_count + 64, document.json_length * 2 + 1024)
     if kind == OBJECT_ATTESTATION_DATA:
         obj.root_node = attestation_data(document, 0, obj)
     elif kind == OBJECT_ATTESTATION:
@@ -360,9 +354,9 @@ def decode_signing_json(source: bytes, kind: i32, schema: i32, preset: i32) -> J
     return JsonDecodeResult(obj, document)
 
 
-def decode_signing_ssz(source: bytes, kind: i32, schema: i32, preset: i32) -> SszDecodeResult:
+def decode_signing_ssz(source: bytes, fork: i32, kind: i32, schema: i32, preset: i32) -> SszDecodeResult:
     document = decode_ssz(source)
-    obj = new_signing_object(FORK_ELECTRA, kind, schema, preset, document.length // 4 + 128, document.length * 3 + 1024)
+    obj = new_signing_object(fork, kind, schema, preset, document.length // 4 + 128, document.length * 3 + 1024)
     if kind == OBJECT_ATTESTATION_DATA:
         if document.length != 128:
             document.status = DECODE_STATUS_MALFORMED_INPUT

@@ -1,17 +1,10 @@
 """Compilation root for all registered SPy SSZ schemas."""
 
 from electra_block import (
-    decode_electra_signed_block,
-    decode_electra_signed_block_preset,
+    decode_signed_block,
 )
 from electra_block_ssz import (
-    decode_electra_signed_block_ssz,
-    decode_electra_signed_block_ssz_preset,
-)
-from fulu_block import decode_fulu_signed_block, decode_fulu_signed_block_preset
-from fulu_block_ssz import (
-    decode_fulu_signed_block_ssz,
-    decode_fulu_signed_block_ssz_preset,
+    decode_signed_block_ssz,
 )
 from electra_block_encode import (
     electra_encode_json,

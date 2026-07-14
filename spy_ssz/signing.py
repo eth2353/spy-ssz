@@ -13,7 +13,7 @@ from .ssz import (
     register_ssz_encoder,
 )
 from .preset import Preset
-from .schema import ObjectKind, schemas_for
+from .schema import ObjectKind, get_schema, schemas_for
 
 
 _SCHEMAS = {value.kind: value for value in schemas_for("signing")}
@@ -47,6 +47,7 @@ for _kind, _definition in _SCHEMAS.items():
             _kind,
             bind_decoder(
                 _spy.lib.spy_schema_signing_decode_json_owned,
+                _definition.fork,
                 _kind,
                 _definition.schema_id,
                 _preset,
@@ -58,6 +59,7 @@ for _kind, _definition in _SCHEMAS.items():
             _kind,
             bind_decoder(
                 _spy.lib.spy_schema_signing_decode_ssz_owned,
+                _definition.fork,
                 _kind,
                 _definition.schema_id,
                 _preset,
@@ -174,6 +176,8 @@ def _compose_fields(cls: type[SszObject], fields: dict[str, Any]) -> Any | None:
     child = fields[child_name]
     if not isinstance(child, SszObject):
         return None
+    if child.fork is not cls.expected_fork:
+        raise TypeError("nested SSZ object fork does not match its parent")
     if child.preset is not cls.expected_preset:
         raise TypeError("nested SSZ object preset does not match its parent")
     first = _uint64_bytes(fields[first_name]) if first_name is not None else bytes(8)
@@ -182,7 +186,7 @@ def _compose_fields(cls: type[SszObject], fields: dict[str, Any]) -> Any | None:
     first_obj, first_view = _spy_bytes(first)
     second_obj, second_view = _spy_bytes(second)
     fixed_obj, fixed_view = _spy_bytes(fixed)
-    definition = _SCHEMAS[kind]
+    definition = get_schema(cls.expected_fork, kind)
     handle = _spy.lib.spy_ssz_object_compose_signing(
         child._require_handle(),
         kind,

@@ -38,13 +38,23 @@ for _preset_name in _SIGNED_BLOCK.presets:
     register_json_decoder(
         _SIGNED_BLOCK.fork,
         _SIGNED_BLOCK.kind,
-        bind_decoder(_spy.lib.spy_schema_electra_decode_preset_owned, _preset),
+        bind_decoder(
+            _spy.lib.spy_schema_block_decode_json_owned,
+            _SIGNED_BLOCK.fork,
+            _SIGNED_BLOCK.schema_id,
+            _preset,
+        ),
         _preset,
     )
     register_ssz_decoder(
         _SIGNED_BLOCK.fork,
         _SIGNED_BLOCK.kind,
-        bind_decoder(_spy.lib.spy_schema_electra_decode_ssz_preset_owned, _preset),
+        bind_decoder(
+            _spy.lib.spy_schema_block_decode_ssz_owned,
+            _SIGNED_BLOCK.fork,
+            _SIGNED_BLOCK.schema_id,
+            _preset,
+        ),
         _preset,
     )
     register_ssz_encoder(
@@ -87,6 +97,8 @@ def _signature_bytes(signature: str | bytes) -> bytes:
 class _BlockProjection(SszObject):
     json_input_envelope_key = "data"
     json_output_envelope_key = None
+    signed_schema_id: int
+    signed_types_by_preset: dict[Preset, type[SszObject]]
 
     def header_dict(self) -> dict[str, str]:
         output = bytearray(112)
@@ -125,6 +137,13 @@ class _BlockProjection(SszObject):
             raise ValueError("SPy block signing failed")
         return signed_type(handle)
 
+    def sign(self, signature: str | bytes) -> SszObject:
+        return self._sign(signature, self.signed_type(), self.signed_schema_id)
+
+    @classmethod
+    def signed_type(cls) -> type[SszObject]:
+        return cls.signed_types_by_preset[cls.expected_preset]
+
     def block_hash_tree_root(self) -> str:
         if self.object_kind is ObjectKind.BEACON_BLOCK_CONTENTS:
             root = self._hash_tree_root_path(0, 0, 1)
@@ -136,13 +155,7 @@ class _BlockProjection(SszObject):
 class ElectraBeaconBlockContents(_BlockProjection):
     expected_fork = _CONTENTS.fork
     expected_kind = _CONTENTS.kind
-
-    def sign(self, signature: str | bytes) -> "ElectraSignedBeaconBlockContents":
-        return self._sign(signature, self.signed_type(), _SIGNED_CONTENTS.schema_id)
-
-    @classmethod
-    def signed_type(cls) -> type["ElectraSignedBeaconBlockContents"]:
-        return _SIGNED_CONTENTS_BY_PRESET[cls.expected_preset]
+    signed_schema_id = _SIGNED_CONTENTS.schema_id
 
 
 class ElectraSignedBeaconBlockContents(SszObject):
@@ -155,13 +168,7 @@ class ElectraSignedBeaconBlockContents(SszObject):
 class ElectraBlindedBeaconBlock(_BlockProjection):
     expected_fork = _BLINDED.fork
     expected_kind = _BLINDED.kind
-
-    def sign(self, signature: str | bytes) -> "ElectraSignedBlindedBeaconBlock":
-        return self._sign(signature, self.signed_type(), _SIGNED_BLINDED.schema_id)
-
-    @classmethod
-    def signed_type(cls) -> type["ElectraSignedBlindedBeaconBlock"]:
-        return _SIGNED_BLINDED_BY_PRESET[cls.expected_preset]
+    signed_schema_id = _SIGNED_BLINDED.schema_id
 
 
 class ElectraSignedBlindedBeaconBlock(SszObject):
@@ -196,6 +203,8 @@ _SIGNED_BLINDED_BY_PRESET = {
     preset: globals()[f"ElectraSignedBlindedBeaconBlock{preset.name.title()}"]
     for preset in Preset
 }
+ElectraBeaconBlockContents.signed_types_by_preset = _SIGNED_CONTENTS_BY_PRESET
+ElectraBlindedBeaconBlock.signed_types_by_preset = _SIGNED_BLINDED_BY_PRESET
 
 
 for _definition in schemas_for("block_containers"):
@@ -207,7 +216,9 @@ for _definition in schemas_for("block_containers"):
             _kind,
             bind_decoder(
                 _spy.lib.spy_schema_block_containers_decode_json_owned,
+                _definition.fork,
                 _kind,
+                _definition.schema_id,
                 _preset,
             ),
             _preset,
@@ -217,7 +228,9 @@ for _definition in schemas_for("block_containers"):
             _kind,
             bind_decoder(
                 _spy.lib.spy_schema_block_containers_decode_ssz_owned,
+                _definition.fork,
                 _kind,
+                _definition.schema_id,
                 _preset,
             ),
             _preset,

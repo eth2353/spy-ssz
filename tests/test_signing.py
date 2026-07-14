@@ -23,6 +23,7 @@ from spy_ssz.signing import (
     SyncCommitteeMessage,
 )
 from spy_ssz import encode_json_array
+from spy_ssz import Preset, get_ssz_type
 from spy_ssz.ssz import Fork, ObjectKind, decode_json
 
 
@@ -61,6 +62,76 @@ def test_signing_types_match_consensus_ssz(reference_type, spy_type) -> None:
     with spy_type.from_ssz(reference.encode_bytes()) as from_ssz:
         assert from_ssz.hash_tree_root() == reference.hash_tree_root()
         assert from_ssz.to_ssz() == reference.encode_bytes()
+
+
+@pytest.mark.parametrize(
+    ("reference_type", "kind"),
+    [
+        (electra.AttestationData, ObjectKind.ATTESTATION_DATA),
+        (electra.Attestation, ObjectKind.ATTESTATION),
+        (electra.AggregateAndProof, ObjectKind.AGGREGATE_AND_PROOF),
+        (
+            electra.SyncCommitteeContribution,
+            ObjectKind.SYNC_COMMITTEE_CONTRIBUTION,
+        ),
+        (electra.ContributionAndProof, ObjectKind.CONTRIBUTION_AND_PROOF),
+        (electra.SingleAttestation, ObjectKind.SINGLE_ATTESTATION),
+        (electra.SyncCommitteeMessage, ObjectKind.SYNC_COMMITTEE_MESSAGE),
+        (
+            electra.SignedAggregateAndProof,
+            ObjectKind.SIGNED_AGGREGATE_AND_PROOF,
+        ),
+        (
+            electra.SignedContributionAndProof,
+            ObjectKind.SIGNED_CONTRIBUTION_AND_PROOF,
+        ),
+        (electra.IndexedAttestation, ObjectKind.INDEXED_ATTESTATION),
+        (electra.AttesterSlashing, ObjectKind.ATTESTER_SLASHING),
+        (electra.BeaconBlockHeader, ObjectKind.BEACON_BLOCK_HEADER),
+        (electra.SignedBeaconBlockHeader, ObjectKind.SIGNED_BEACON_BLOCK_HEADER),
+        (electra.ProposerSlashing, ObjectKind.PROPOSER_SLASHING),
+    ],
+)
+def test_fulu_signing_types_reuse_electra_wire_schema(reference_type, kind) -> None:
+    reference = reference_type()
+    fulu_type = get_ssz_type(Fork.FULU, kind, Preset.MAINNET)
+
+    with fulu_type.from_obj(reference.to_obj()) as from_json:
+        assert type(from_json) is fulu_type
+        assert from_json.fork is Fork.FULU
+        assert from_json.object_kind is kind
+        assert from_json.schema_id == 600 + kind.value
+        assert from_json.hash_tree_root() == reference.hash_tree_root()
+        assert from_json.to_ssz() == reference.encode_bytes()
+
+    with fulu_type.from_ssz(reference.encode_bytes()) as from_ssz:
+        assert type(from_ssz) is fulu_type
+        assert from_ssz.fork is Fork.FULU
+        assert from_ssz.schema_id == 600 + kind.value
+        assert from_ssz.hash_tree_root() == reference.hash_tree_root()
+
+
+def test_fulu_typed_composition_preserves_fulu_identity() -> None:
+    attestation_type = get_ssz_type(Fork.FULU, ObjectKind.ATTESTATION, Preset.MAINNET)
+    aggregate_type = get_ssz_type(
+        Fork.FULU, ObjectKind.AGGREGATE_AND_PROOF, Preset.MAINNET
+    )
+    with attestation_type.from_obj(electra.Attestation().to_obj()) as attestation:
+        with aggregate_type(
+            aggregator_index=1,
+            aggregate=attestation,
+            selection_proof=bytes(96),
+        ) as aggregate:
+            assert aggregate.fork is Fork.FULU
+            assert aggregate.schema_id == 605
+
+    with Attestation.from_obj(electra.Attestation().to_obj()) as electra_attestation:
+        with pytest.raises(TypeError, match="nested SSZ object fork"):
+            aggregate_type(
+                aggregator_index=1,
+                aggregate=electra_attestation,
+                selection_proof=bytes(96),
+            )
 
 
 def test_constructor_and_bitfield_projection() -> None:

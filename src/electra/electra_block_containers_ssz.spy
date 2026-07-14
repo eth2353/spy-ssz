@@ -3,15 +3,10 @@
 from unsafe import raw_ptr
 from decode_status import DECODE_STATUS_MALFORMED_INPUT, DECODE_STATUS_VALID
 from metadata import (
-    FORK_ELECTRA,
     OBJECT_BEACON_BLOCK_CONTENTS,
     OBJECT_BLINDED_BEACON_BLOCK,
     OBJECT_SIGNED_BEACON_BLOCK_CONTENTS,
     OBJECT_SIGNED_BLINDED_BEACON_BLOCK,
-    SCHEMA_ELECTRA_BEACON_BLOCK_CONTENTS,
-    SCHEMA_ELECTRA_BLINDED_BEACON_BLOCK,
-    SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK_CONTENTS,
-    SCHEMA_ELECTRA_SIGNED_BLINDED_BEACON_BLOCK,
 )
 from ssz_lowering import SszDecodeResult, eth1_data, fixed_bytes_list, sync_aggregate, ssz_byte_list, ssz_fixed_bytes, ssz_uint
 from electra_block_ssz import (
@@ -127,17 +122,10 @@ def block_contents(document: raw_ptr[SszDocument], signed: bool, obj: raw_ptr[Ss
     return add_composite_node(obj, KIND_CONTAINER, first, 3, 3, 0, 0)
 
 
-def decode_block_container_ssz(source: bytes, kind: i32, preset: i32) -> SszDecodeResult:
+def decode_block_container_ssz(source: bytes, fork: i32, kind: i32, schema: i32, preset: i32) -> SszDecodeResult:
     document = decode_ssz(source)
-    schema: i32 = SCHEMA_ELECTRA_BEACON_BLOCK_CONTENTS
-    if kind == OBJECT_SIGNED_BEACON_BLOCK_CONTENTS:
-        schema = SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK_CONTENTS
-    elif kind == OBJECT_BLINDED_BEACON_BLOCK:
-        schema = SCHEMA_ELECTRA_BLINDED_BEACON_BLOCK
-    elif kind == OBJECT_SIGNED_BLINDED_BEACON_BLOCK:
-        schema = SCHEMA_ELECTRA_SIGNED_BLINDED_BEACON_BLOCK
     capacity = document.length // 4 + 4096
-    obj = new_object(FORK_ELECTRA, kind, schema, capacity, capacity, document.length * 2 + 16384)
+    obj = new_object(fork, kind, schema, capacity, capacity, document.length * 2 + 16384)
     configure_preset(obj, preset)
     if kind == OBJECT_BEACON_BLOCK_CONTENTS:
         obj.root_node = block_contents(document, False, obj)

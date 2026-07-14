@@ -117,10 +117,10 @@ finally:
     from_ssz.close()
 ```
 
-When a Fulu object kind still uses its unchanged Electra schema,
-`get_ssz_type(Fork.FULU, ...)` returns the existing Electra concrete class.
-Fork-specific schemas, such as `FuluSignedBeaconBlock`, continue to resolve to
-their dedicated classes.
+Fulu requests always resolve to dedicated Fulu concrete classes, even where the
+wire schema is unchanged from Electra. The shared codec records Fulu as the
+logical fork and uses the Fulu schema ID, so class identity, object metadata,
+construction, and diagnostics all agree with the requested fork.
 
 ## Validator-client objects
 
@@ -239,9 +239,12 @@ All concrete objects inherit from `SszObject` and expose:
 | Electra `SignedBeaconBlock` | yes | yes | yes | yes |
 | Fulu `SignedBeaconBlock` | yes | yes | yes | yes |
 | Electra signing objects | yes | yes | yes | yes |
+| Fulu signing objects | yes | yes | yes | yes |
 | Electra block contents and blinded blocks | yes | yes | yes | yes |
+| Fulu block contents and blinded blocks | yes | yes | yes | yes |
 
-Fulu blocks reuse the unchanged Electra block layout with Fulu metadata.
+Fulu types reuse the unchanged Electra wire layouts with Fulu class identity,
+schema IDs, and object metadata.
 The generated type catalog covers every named mainnet SSZ type in
 `eth-consensus-specs` 1.7.0a12 for Electra and Fulu, but most cataloged types
 do not yet have executable codecs.

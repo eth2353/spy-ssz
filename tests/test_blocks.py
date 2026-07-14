@@ -10,6 +10,13 @@ from spy_ssz.electra import (
     ElectraBeaconBlockContentsMainnet,
     ElectraBlindedBeaconBlockMainnet,
 )
+from spy_ssz.fulu import (
+    FuluBeaconBlockContentsMainnet,
+    FuluBlindedBeaconBlockMainnet,
+    FuluSignedBeaconBlockContentsMainnet,
+    FuluSignedBlindedBeaconBlockMainnet,
+)
+from spy_ssz.ssz import Fork
 
 
 Blob = ByteVector[131072]
@@ -160,3 +167,39 @@ def test_blinded_block_json_ssz_signing_and_projections() -> None:
             BlindedBlock.from_obj(msgspec.json.decode(value.to_json())).hash_tree_root()
             == reference.hash_tree_root()
         )
+
+
+@pytest.mark.parametrize(
+    ("reference", "fulu_type", "signed_type"),
+    [
+        (
+            BlockContents(block=electra.BeaconBlock(slot=12)),
+            FuluBeaconBlockContentsMainnet,
+            FuluSignedBeaconBlockContentsMainnet,
+        ),
+        (
+            BlindedBlock(slot=34),
+            FuluBlindedBeaconBlockMainnet,
+            FuluSignedBlindedBeaconBlockMainnet,
+        ),
+    ],
+)
+def test_fulu_block_containers_reuse_electra_wire_schema(
+    reference, fulu_type, signed_type
+) -> None:
+    raw_json = msgspec.json.encode({"version": "fulu", "data": reference.to_obj()})
+    with fulu_type.from_json(raw_json) as value:
+        assert type(value) is fulu_type
+        assert value.fork is Fork.FULU
+        assert value.schema_id == 600 + value.object_kind.value
+        assert value.hash_tree_root() == reference.hash_tree_root()
+        assert value.to_ssz() == reference.encode_bytes()
+        with value.sign(bytes(96)) as signed:
+            assert type(signed) is signed_type
+            assert signed.fork is Fork.FULU
+            assert signed.schema_id == 600 + signed.object_kind.value
+
+    with fulu_type.from_ssz(reference.encode_bytes()) as value:
+        assert type(value) is fulu_type
+        assert value.fork is Fork.FULU
+        assert value.hash_tree_root() == reference.hash_tree_root()

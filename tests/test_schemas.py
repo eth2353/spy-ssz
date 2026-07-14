@@ -61,7 +61,7 @@ def test_public_type_resolver_rejects_unsupported_combination() -> None:
         get_ssz_type(Fork.DENEB, ObjectKind.ATTESTATION, Preset.GNOSIS)
 
 
-def test_fulu_resolver_aliases_unchanged_electra_schemas() -> None:
+def test_fulu_resolver_returns_first_class_fulu_types() -> None:
     electra_kinds = {
         definition.kind
         for definition in schema_definitions()
@@ -70,8 +70,8 @@ def test_fulu_resolver_aliases_unchanged_electra_schemas() -> None:
     for kind in electra_kinds:
         for preset in Preset:
             fulu_type = get_ssz_type(Fork.FULU, kind, preset)
-            if kind is ObjectKind.SIGNED_BEACON_BLOCK:
-                assert fulu_type is not get_ssz_type(Fork.ELECTRA, kind, preset)
-                assert fulu_type.expected_fork is Fork.FULU
-            else:
-                assert fulu_type is get_ssz_type(Fork.ELECTRA, kind, preset)
+            assert fulu_type is not get_ssz_type(Fork.ELECTRA, kind, preset)
+            assert not issubclass(fulu_type, get_ssz_type(Fork.ELECTRA, kind, preset))
+            assert fulu_type.expected_fork is Fork.FULU
+            assert fulu_type.expected_kind is kind
+            assert get_schema(Fork.FULU, kind).schema_id == 600 + kind.value

@@ -609,6 +609,29 @@ def _render_electra_stub(
     return signed_block.rstrip() + "\n\n" + container_classes
 
 
+def _render_fulu_stub(
+    schemas: list[dict[str, Any]],
+    catalog: dict[str, Any],
+    class_names: dict[tuple[str, int], str],
+) -> str:
+    regular = _render_dynamic_stub(
+        [
+            schema
+            for schema in schemas
+            if schema["codec"] in {"fulu_block", "fulu_signing"}
+        ],
+        catalog,
+        class_names,
+        import_prefix="..",
+    )
+    containers = _render_blocks_stub(
+        [schema for schema in schemas if schema["codec"] == "fulu_block_containers"],
+        import_prefix="..",
+    )
+    container_classes = containers[containers.index("class ") :]
+    return regular.rstrip() + "\n\n" + container_classes
+
+
 def render_type_stubs() -> dict[Path, str]:
     source = _load(SCHEMAS)
     schemas = source["schemas"]
@@ -624,9 +647,7 @@ def render_type_stubs() -> dict[Path, str]:
         TYPE_STUBS["electra"]: _render_electra_stub(
             by_module["electra"], catalog, class_names
         ),
-        TYPE_STUBS["fulu"]: _render_dynamic_stub(
-            by_module["fulu"], catalog, class_names, import_prefix=".."
-        ),
+        TYPE_STUBS["fulu"]: _render_fulu_stub(by_module["fulu"], catalog, class_names),
         TYPE_STUBS["signing"]: _render_dynamic_stub(
             by_module["signing"], catalog, class_names
         ),

@@ -2,11 +2,7 @@
 
 from unsafe import raw_ptr
 from decode_status import DECODE_STATUS_MALFORMED_INPUT, DECODE_STATUS_VALID
-from metadata import (
-    FORK_ELECTRA,
-    OBJECT_SIGNED_BEACON_BLOCK,
-    SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK,
-)
+from metadata import OBJECT_SIGNED_BEACON_BLOCK
 from ssz_lowering import (
     SszDecodeResult,
     attestation_data,
@@ -515,15 +511,3 @@ def decode_signed_block_ssz(
     if document.status != DECODE_STATUS_VALID:
         obj.status = DECODE_STATUS_MALFORMED_INPUT
     return SszDecodeResult(obj, document)
-
-
-def decode_electra_signed_block_ssz(source: bytes) -> SszDecodeResult:
-    return decode_signed_block_ssz(
-        source, FORK_ELECTRA, SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK, 0
-    )
-
-
-def decode_electra_signed_block_ssz_preset(source: bytes, preset: i32) -> SszDecodeResult:
-    return decode_signed_block_ssz(
-        source, FORK_ELECTRA, SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK, preset
-    )

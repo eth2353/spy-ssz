@@ -10,15 +10,10 @@ from json_parser import (
     require_recognized_object_fields,
 )
 from metadata import (
-    FORK_ELECTRA,
     OBJECT_BEACON_BLOCK_CONTENTS,
     OBJECT_BLINDED_BEACON_BLOCK,
     OBJECT_SIGNED_BEACON_BLOCK_CONTENTS,
     OBJECT_SIGNED_BLINDED_BEACON_BLOCK,
-    SCHEMA_ELECTRA_BEACON_BLOCK_CONTENTS,
-    SCHEMA_ELECTRA_BLINDED_BEACON_BLOCK,
-    SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK_CONTENTS,
-    SCHEMA_ELECTRA_SIGNED_BLINDED_BEACON_BLOCK,
 )
 from json_lowering import JsonDecodeResult, eth1_data, fixed_bytes_list, json_byte_list, json_fixed_bytes, json_uint, json_uint64, sync_aggregate
 from electra_block import (
@@ -103,18 +98,11 @@ def block_contents(document: raw_ptr[JsonDocument], value: i32, signed: bool, ob
     return add_composite_node(obj, KIND_CONTAINER, first, 3, 3, 0, 0)
 
 
-def decode_block_container_json(source: bytes, kind: i32, preset: i32) -> JsonDecodeResult:
+def decode_block_container_json(source: bytes, fork: i32, kind: i32, schema: i32, preset: i32) -> JsonDecodeResult:
     document = decode_json(source)
     value = object_get(document, 0, b"data")
-    schema: i32 = SCHEMA_ELECTRA_BEACON_BLOCK_CONTENTS
-    if kind == OBJECT_SIGNED_BEACON_BLOCK_CONTENTS:
-        schema = SCHEMA_ELECTRA_SIGNED_BEACON_BLOCK_CONTENTS
-    elif kind == OBJECT_BLINDED_BEACON_BLOCK:
-        schema = SCHEMA_ELECTRA_BLINDED_BEACON_BLOCK
-    elif kind == OBJECT_SIGNED_BLINDED_BEACON_BLOCK:
-        schema = SCHEMA_ELECTRA_SIGNED_BLINDED_BEACON_BLOCK
     capacity = document.token_count + 1024
-    obj = new_object(FORK_ELECTRA, kind, schema, capacity, capacity, document.json_length + 16384)
+    obj = new_object(fork, kind, schema, capacity, capacity, document.json_length + 16384)
     configure_preset(obj, preset)
     if kind == OBJECT_BEACON_BLOCK_CONTENTS:
         obj.root_node = block_contents(document, value, False, obj)
