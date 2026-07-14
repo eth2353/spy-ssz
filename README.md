@@ -327,7 +327,7 @@ The benchmark ran on an Apple M1 with macOS 13.2.1 (`arm64`), Python 3.12.9,
 and Rust 1.92.0. `spy-ssz` was compiled with Clang 19 using `-O3` and LTO;
 the Rust implementations were compiled in release mode. Implementations ran
 sequentially to avoid contention. The measured revisions were `spy-ssz`
-`0d75e27`, Grandine `94e8ad1` (the pre-Zisk revision used by the harness),
+`eeee194`, Grandine `94e8ad1` (the pre-Zisk revision used by the harness),
 `libssz` `f4d682b`, and Lighthouse `120c3c6`.
 
 For each block and operation, the harness performed one unmeasured warmup and
@@ -348,16 +348,16 @@ Times below are **p50 ms (p95 ms)**.
 
 | Implementation | SSZ decode | SSZ encode | Cold hash-tree root |
 | --- | ---: | ---: | ---: |
-| `spy-ssz` | **0.020 (0.041)** | 0.023 (0.049) | 3.282 (7.673) |
-| Grandine SSZ | 0.026 (0.059) | 0.015 (0.031) | 5.013 (11.577) |
-| `libssz` | 0.029 (0.066) | **0.008 (0.021)** | 6.214 (13.770) |
-| Lighthouse `ethereum_ssz` | 0.218 (0.327) | 0.113 (0.231) | **3.048 (5.895)** |
+| `spy-ssz` | **0.023 (0.056)** | 0.022 (0.040) | 3.195 (7.471) |
+| Grandine SSZ | 0.026 (0.063) | 0.015 (0.025) | 5.046 (11.741) |
+| `libssz` | 0.029 (0.069) | **0.009 (0.020)** | 6.249 (13.752) |
+| Lighthouse `ethereum_ssz` | 0.223 (0.331) | 0.118 (0.234) | **3.081 (6.356)** |
 
 | Implementation | JSON decode | JSON encode |
 | --- | ---: | ---: |
-| `spy-ssz` | 0.608 (1.114) | 0.331 (0.477) |
-| Grandine SSZ | **0.121 (0.206)** | **0.161 (0.336)** |
-| Lighthouse | 1.306 (2.112) | 0.881 (1.655) |
+| `spy-ssz` | 0.617 (1.113) | 0.246 (0.416) |
+| Grandine SSZ | **0.122 (0.208)** | **0.170 (0.344)** |
+| Lighthouse | 1.299 (2.140) | 0.902 (1.655) |
 
 `libssz` is omitted from the JSON table because the benchmark consensus types
 do not implement Ethereum JSON serde. Lodestar-z is not included because its
@@ -365,9 +365,12 @@ public bindings do not expose a standalone signed-beacon-block codec and root
 operation.
 
 For this corpus, `spy-ssz`, Grandine, and `libssz` have SSZ codec performance
-in the same general range. `spy-ssz` decoded and encoded SSZ faster than
+in the same general range. `spy-ssz` had the fastest SSZ decode, while Grandine
+and `libssz` encoded SSZ faster. `spy-ssz` decoded and encoded SSZ faster than
 Lighthouse's `ethereum_ssz`; their cold hash-tree-root measurements were
-similar, with Lighthouse slightly faster in this run.
+similar, with Lighthouse slightly faster in this run. Grandine remained the
+fastest JSON implementation, while `spy-ssz` JSON encoding narrowed the gap
+to roughly 1.4x.
 
 These numbers describe this corpus and machine rather than every SSZ schema or
 workload. In particular, list sizes, execution-payload contents, allocator
