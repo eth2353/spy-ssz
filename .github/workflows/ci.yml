@@ -27,7 +27,7 @@ jobs:
         run: uvx pre-commit run --all-files
 
   test:
-    name: Linux ${{ matrix.arch }}
+    name: Tests - Linux ${{ matrix.arch }}
     strategy:
       fail-fast: false
       matrix:
