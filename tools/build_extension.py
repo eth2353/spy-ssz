@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -19,6 +20,11 @@ SPY_REVISION = "012ae501eb6a0adc3baff261c97ec9b56c80c2d1"
 SPY_REPOSITORY = "https://github.com/spylang/spy.git"
 METADATA_GENERATOR = ROOT / "tools" / "generate_spy_metadata.py"
 MACOSX_DEPLOYMENT_TARGET = "13.0"
+SANITIZER_FLAGS = [
+    "-fsanitize=address,undefined",
+    "-fno-omit-frame-pointer",
+    "-fno-sanitize-recover=all",
+]
 
 if sys.platform == "darwin":
     os.environ.setdefault("MACOSX_DEPLOYMENT_TARGET", MACOSX_DEPLOYMENT_TARGET)
@@ -26,6 +32,13 @@ if sys.platform == "darwin":
 
 def run(command: list[str], *, env: dict[str, str]) -> None:
     subprocess.run(command, cwd=ROOT, env=env, check=True)
+
+
+def sanitizer_enabled() -> bool:
+    value = os.environ.get("SPY_SSZ_SANITIZE", "0")
+    if value not in {"0", "1"}:
+        raise ValueError("SPY_SSZ_SANITIZE must be '0' or '1'")
+    return value == "1"
 
 
 def generate_metadata() -> None:
@@ -112,6 +125,7 @@ def build(spy_root: Path) -> Path:
     env["PATH"] = f"{Path(sys.executable).parent}:{env.get('PATH', '')}"
     env.setdefault("ZIG_GLOBAL_CACHE_DIR", "/tmp/spy-zig-global-cache")
     env.setdefault("ZIG_LOCAL_CACHE_DIR", "/tmp/spy-zig-local-cache")
+    sanitize = sanitizer_enabled()
 
     generate_metadata()
 
@@ -120,10 +134,39 @@ def build(spy_root: Path) -> Path:
         ["make", "-C", str(libspy), "TARGET=wasi", "BUILD_TYPE=debug"],
         env=env,
     )
-    run(
-        ["make", "-C", str(libspy), "TARGET=native", "BUILD_TYPE=release"],
-        env=env,
-    )
+    # Use a separate archive directory without selecting SPy's debug ABI,
+    # which changes the layout of public pointer wrappers.
+    native_build_type = "debug" if sanitize else "release"
+    native_make = [
+        "make",
+        *(["-B"] if sanitize else []),
+        "-C",
+        str(libspy),
+        "TARGET=native",
+        f"BUILD_TYPE={native_build_type}",
+    ]
+    if sanitize:
+        libspy_cflags_output = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "spy.build.flags",
+                "--cflags",
+                "--target=native",
+                "--build-type=release",
+            ],
+            cwd=ROOT,
+            env=env,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        libspy_cflags = shlex.split(libspy_cflags_output)
+        libspy_cflags = [flag for flag in libspy_cflags if flag not in {"-O3", "-flto"}]
+        native_make.append(
+            "CFLAGS=" + shlex.join([*libspy_cflags, "-O1", "-g", *SANITIZER_FLAGS])
+        )
+    run(native_make, env=env)
     # SPy does not remove generated units that disappeared from the import
     # graph.  A clean directory prevents stale schema/parser C files from
     # being compiled into the extension.
@@ -172,6 +215,10 @@ def build(spy_root: Path) -> Path:
         if sys.platform == "darwin"
         else []
     )
+    optimization_args = (
+        ["-O1", "-g", *SANITIZER_FLAGS] if sanitize else ["-O3", "-flto"]
+    )
+    link_args = SANITIZER_FLAGS if sanitize else ["-flto"]
 
     ffi = FFI()
     ffi.cdef(
@@ -267,15 +314,14 @@ def build(spy_root: Path) -> Path:
         '#include "bridge.c"',
         sources=[str(path) for path in sources],
         include_dirs=[str(SOURCE), str(BUILD / "src"), str(libspy / "include")],
-        library_dirs=[str(libspy / "build" / "native" / "release")],
+        library_dirs=[str(libspy / "build" / "native" / native_build_type)],
         libraries=["spy", "m", *(["dl"] if sys.platform.startswith("linux") else [])],
         extra_compile_args=[
             "-fPIC",
             "-DSPY_GC_NONE",
             "-DSPY_TARGET_NATIVE",
             "-DSPY_RELEASE",
-            "-O3",
-            "-flto",
+            *optimization_args,
             "--std=c99",
             *deployment_args,
             # SPy emits unreachable fallback branches and temporary stores as
@@ -284,7 +330,10 @@ def build(spy_root: Path) -> Path:
             "-Wno-unreachable-code",
             "-Wno-unused-but-set-variable",
         ],
-        extra_link_args=["-flto", *deployment_args],
+        extra_link_args=[
+            *link_args,
+            *deployment_args,
+        ],
     )
     compiled = Path(
         ffi.compile(tmpdir=str(BUILD / "extension"), verbose=True)

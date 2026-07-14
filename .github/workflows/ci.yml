@@ -56,3 +56,34 @@ jobs:
 
       - name: Build wheel
         run: uv build --wheel
+
+  sanitize:
+    name: ASan and UBSan
+    if: github.event_name == 'pull_request'
+    needs: test
+    runs-on: ubuntu-24.04
+    env:
+      SPY_SSZ_SANITIZE: "1"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Install project with sanitizers
+        run: uv sync --locked --dev
+
+      - name: Run tests with ASan and UBSan
+        shell: bash
+        run: |
+          asan_runtime="$(cc -print-file-name=libasan.so)"
+          test -f "$asan_runtime"
+          LD_PRELOAD="$asan_runtime" \
+            ASAN_OPTIONS="detect_leaks=0:halt_on_error=1:abort_on_error=1" \
+            UBSAN_OPTIONS="halt_on_error=1:print_stacktrace=1" \
+            uv run python -m pytest -q
