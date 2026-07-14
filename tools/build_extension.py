@@ -18,6 +18,10 @@ BUILD = SOURCE / "build"
 SPY_REVISION = "012ae501eb6a0adc3baff261c97ec9b56c80c2d1"
 SPY_REPOSITORY = "https://github.com/spylang/spy.git"
 METADATA_GENERATOR = ROOT / "tools" / "generate_spy_metadata.py"
+MACOSX_DEPLOYMENT_TARGET = "13.0"
+
+if sys.platform == "darwin":
+    os.environ.setdefault("MACOSX_DEPLOYMENT_TARGET", MACOSX_DEPLOYMENT_TARGET)
 
 
 def run(command: list[str], *, env: dict[str, str]) -> None:
@@ -163,6 +167,11 @@ def build(spy_root: Path) -> Path:
     elif generated.count(fallback_signature) != 1:
         raise RuntimeError("unexpected generated hash_pair_into definition")
     sources.append(SOURCE / "sha256_pair.c")
+    deployment_args = (
+        [f"-mmacosx-version-min={MACOSX_DEPLOYMENT_TARGET}"]
+        if sys.platform == "darwin"
+        else []
+    )
 
     ffi = FFI()
     ffi.cdef(
@@ -268,13 +277,14 @@ def build(spy_root: Path) -> Path:
             "-O3",
             "-flto",
             "--std=c99",
+            *deployment_args,
             # SPy emits unreachable fallback branches and temporary stores as
             # part of normal lowering. Suppress those two generated-code
             # diagnostics while preserving every other compiler warning.
             "-Wno-unreachable-code",
             "-Wno-unused-but-set-variable",
         ],
-        extra_link_args=["-flto"],
+        extra_link_args=["-flto", *deployment_args],
     )
     compiled = Path(
         ffi.compile(tmpdir=str(BUILD / "extension"), verbose=True)
