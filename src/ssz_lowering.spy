@@ -260,6 +260,7 @@ def withdrawal_list(
     count = length // 44
     if count > obj.max_withdrawals_per_payload:
         obj.status = DECODE_STATUS_MALFORMED_INPUT
+        return empty_list(obj, obj.max_withdrawals_per_payload)
     first = reserve_edges(obj, count)
     i: i32 = 0
     while i < count:
@@ -347,6 +348,7 @@ def fixed_bytes_list(
     count = length // size
     if count > limit:
         obj.status = DECODE_STATUS_MALFORMED_INPUT
+        return empty_list(obj, limit)
     first = reserve_edges(obj, count)
     i: i32 = 0
     while i < count:

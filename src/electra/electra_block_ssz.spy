@@ -75,6 +75,7 @@ def proposer_slashing_list(
     count = length // 416
     if count > obj.max_proposer_slashings:
         obj.status = DECODE_STATUS_MALFORMED_INPUT
+        return empty_list(obj, obj.max_proposer_slashings)
     first = reserve_edges(obj, count)
     i: i32 = 0
     while i < count:
@@ -97,6 +98,8 @@ def attesting_indices(
     limit = obj.max_validators_per_committee * obj.max_committees_per_slot
     if count > limit:
         obj.status = DECODE_STATUS_MALFORMED_INPUT
+        length = 0
+        count = 0
     offset = copy_data(document, start, length, obj)
     return add_basic_list_node(obj, offset, count, 8, limit)
 
@@ -247,6 +250,7 @@ def deposit_list(
     count = length // 1240
     if count > obj.max_deposits:
         obj.status = DECODE_STATUS_MALFORMED_INPUT
+        return empty_list(obj, obj.max_deposits)
     first = reserve_edges(obj, count)
     i: i32 = 0
     while i < count:
@@ -281,6 +285,7 @@ def voluntary_exit_list(
     count = length // 112
     if count > obj.max_voluntary_exits:
         obj.status = DECODE_STATUS_MALFORMED_INPUT
+        return empty_list(obj, obj.max_voluntary_exits)
     first = reserve_edges(obj, count)
     i: i32 = 0
     while i < count:
@@ -316,6 +321,7 @@ def bls_change_list(
     count = length // 172
     if count > obj.max_bls_to_execution_changes:
         obj.status = DECODE_STATUS_MALFORMED_INPUT
+        return empty_list(obj, obj.max_bls_to_execution_changes)
     first = reserve_edges(obj, count)
     i: i32 = 0
     while i < count:
@@ -377,6 +383,7 @@ def execution_requests(
     deposit_count = deposit_length // 192
     if deposit_count > obj.max_deposit_requests_per_payload:
         obj.status = DECODE_STATUS_MALFORMED_INPUT
+        deposit_count = 0
     deposit_first = reserve_edges(obj, deposit_count)
     i: i32 = 0
     while i < deposit_count:
@@ -391,6 +398,7 @@ def execution_requests(
     withdrawal_count = withdrawal_length // 76
     if withdrawal_count > obj.max_withdrawal_requests_per_payload:
         obj.status = DECODE_STATUS_MALFORMED_INPUT
+        withdrawal_count = 0
     withdrawal_first = reserve_edges(obj, withdrawal_count)
     i = 0
     while i < withdrawal_count:
@@ -405,6 +413,7 @@ def execution_requests(
     consolidation_count = consolidation_length // 116
     if consolidation_count > obj.max_consolidation_requests_per_payload:
         obj.status = DECODE_STATUS_MALFORMED_INPUT
+        consolidation_count = 0
     consolidation_first = reserve_edges(obj, consolidation_count)
     i = 0
     while i < consolidation_count:
