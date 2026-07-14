@@ -11,3 +11,4 @@ spy_ssz/_spy.*.so
 *.pyc
 /uv
 /uvx
+tools/spec-tests
