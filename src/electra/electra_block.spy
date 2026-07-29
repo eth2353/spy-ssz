@@ -7,7 +7,7 @@ from json_parser import (
     array_get,
     array_length,
     decode_json,
-    mark_expected_fields,
+    ignore_unrecognized_object_fields,
     object_get,
     require_recognized_object_fields,
 )
@@ -450,11 +450,7 @@ def decode_signed_block(source: bytes, fork: i32, schema_id: i32, preset: i32) -
     configure_preset(obj, preset)
     value = object_get(document, 0, b"data")
     obj.root_node = signed_beacon_block(document, value, obj)
-    mark_expected_fields(
-        document,
-        0,
-        ["data", "version", "execution_optimistic", "finalized"],
-    )
+    ignore_unrecognized_object_fields(document, 0)
     require_recognized_object_fields(document)
     if document.status != DECODE_STATUS_VALID:
         obj.status = document.status

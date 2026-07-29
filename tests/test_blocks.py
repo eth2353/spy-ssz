@@ -10,6 +10,8 @@ from spy_ssz import encode_json_array
 from spy_ssz.electra import (
     ElectraBeaconBlockContentsMainnet,
     ElectraBlindedBeaconBlockMainnet,
+    ElectraSignedBeaconBlockContentsMainnet,
+    ElectraSignedBlindedBeaconBlockMainnet,
 )
 from spy_ssz.fulu import (
     FuluBeaconBlockContentsMainnet,
@@ -127,12 +129,54 @@ def test_block_contents_json_ssz_signing_and_projections() -> None:
         )
 
 
-def test_block_contents_rejects_beacon_block_response_metadata() -> None:
+def test_block_contents_accepts_arbitrary_response_metadata() -> None:
     reference = BlockContents(block=electra.BeaconBlock())
-    raw_json = msgspec.json.encode({"finalized": True, "data": reference.to_obj()})
+    raw_json = msgspec.json.encode(
+        {
+            "data": reference.to_obj(),
+            "execution_payload_source": "engine",
+            "client_metadata": {
+                "nested": [{"future_field": True}],
+            },
+        }
+    )
 
-    with pytest.raises(ValueError, match="unrecognized JSON object field 'finalized'"):
+    with ElectraBeaconBlockContentsMainnet.from_json(raw_json) as value:
+        assert value.hash_tree_root() == reference.hash_tree_root()
+
+
+def test_block_contents_rejects_unrecognized_data_field() -> None:
+    reference = BlockContents(block=electra.BeaconBlock())
+    data = reference.to_obj()
+    data["block"]["unknown_field"] = True
+    raw_json = msgspec.json.encode(
+        {"metadata": {"unknown_field_metadata": True}, "data": data}
+    )
+
+    with pytest.raises(
+        ValueError, match="unrecognized JSON object field 'unknown_field'"
+    ):
         ElectraBeaconBlockContentsMainnet.from_json(raw_json)
+
+
+@pytest.mark.parametrize(
+    "block_type",
+    [
+        ElectraBeaconBlockContentsMainnet,
+        ElectraSignedBeaconBlockContentsMainnet,
+        ElectraBlindedBeaconBlockMainnet,
+        ElectraSignedBlindedBeaconBlockMainnet,
+        FuluBeaconBlockContentsMainnet,
+        FuluSignedBeaconBlockContentsMainnet,
+        FuluBlindedBeaconBlockMainnet,
+        FuluSignedBlindedBeaconBlockMainnet,
+    ],
+)
+def test_block_containers_require_data(block_type) -> None:
+    raw_json = msgspec.json.encode({"metadata": {"anything": True}})
+
+    with pytest.raises(ValueError, match="invalid JSON object"):
+        block_type.from_json(raw_json)
 
 
 def test_blinded_block_json_ssz_signing_and_projections() -> None:

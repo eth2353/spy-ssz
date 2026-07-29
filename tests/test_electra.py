@@ -162,12 +162,13 @@ def test_block_json_rejects_unrecognized_nested_field() -> None:
         ElectraSignedBeaconBlock.from_obj(value)
 
 
-def test_block_json_accepts_standard_response_metadata() -> None:
+def test_block_json_accepts_arbitrary_response_metadata() -> None:
     raw_json = msgspec.json.encode(
         {
             "version": "electra",
             "execution_optimistic": False,
             "finalized": True,
+            "client_metadata": {"nested": [{"future_field": True}]},
             "data": populated_electra_block().to_obj(),
         }
     )
@@ -176,28 +177,15 @@ def test_block_json_accepts_standard_response_metadata() -> None:
         assert decoded.message.slot == 0
 
 
-def test_block_json_rejects_unrecognized_response_metadata() -> None:
-    raw_json = msgspec.json.encode(
-        {"unknown": True, "data": populated_electra_block().to_obj()}
-    )
+@pytest.mark.parametrize(
+    "block_type",
+    [ElectraSignedBeaconBlock, FuluSignedBeaconBlock],
+)
+def test_block_json_requires_data(block_type) -> None:
+    raw_json = msgspec.json.encode({"metadata": {"anything": True}})
 
-    with pytest.raises(ValueError, match="unrecognized JSON object field 'unknown'"):
-        ElectraSignedBeaconBlock.from_json(raw_json)
-
-
-def test_block_json_rejects_block_production_metadata() -> None:
-    raw_json = msgspec.json.encode(
-        {
-            "execution_payload_value": "0",
-            "data": populated_electra_block().to_obj(),
-        }
-    )
-
-    with pytest.raises(
-        ValueError,
-        match="unrecognized JSON object field 'execution_payload_value'",
-    ):
-        ElectraSignedBeaconBlock.from_json(raw_json)
+    with pytest.raises(ValueError, match="invalid JSON object"):
+        block_type.from_json(raw_json)
 
 
 def test_block_json_accepts_remerkleable_little_endian_uint256_hex() -> None:

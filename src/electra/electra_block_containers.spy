@@ -5,7 +5,7 @@ from decode_status import DECODE_STATUS_VALID
 from json_parser import (
     JsonDocument,
     decode_json,
-    mark_expected_fields,
+    ignore_unrecognized_object_fields,
     object_get,
     require_recognized_object_fields,
 )
@@ -112,17 +112,7 @@ def decode_block_container_json(source: bytes, fork: i32, kind: i32, schema: i32
         obj.root_node = blinded_block(document, value, obj)
     else:
         obj.root_node = signed_blinded_block(document, value, obj)
-    mark_expected_fields(
-        document,
-        0,
-        [
-            "data",
-            "version",
-            "execution_payload_blinded",
-            "execution_payload_value",
-            "consensus_block_value",
-        ],
-    )
+    ignore_unrecognized_object_fields(document, 0)
     require_recognized_object_fields(document)
     if document.status != DECODE_STATUS_VALID:
         obj.status = document.status
