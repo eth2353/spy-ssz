@@ -17,6 +17,7 @@ from .preset import (
 )
 from .projections import Checkpoint as Checkpoint
 from .ssz import (
+    Bitfield as Bitfield,
     SszObject as SszObject,
     decode_json as decode_json,
     decode_ssz as decode_ssz,

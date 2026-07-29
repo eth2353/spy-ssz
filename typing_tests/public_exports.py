@@ -9,6 +9,7 @@ from spy_ssz import (
     AttestationMainnet,
     AttesterSlashing,
     BeaconBlockHeader,
+    Bitfield,
     ContributionAndProof,
     ElectraBeaconBlockContentsMainnet,
     ElectraSignedBeaconBlockContentsMainnet,
@@ -28,6 +29,9 @@ from spy_ssz.signing import Attestation as ModuleAttestation
 
 
 def verify_public_export_types(data: bytes) -> None:
+    assert_type(Bitfield.bitvector(64), Bitfield)
+    assert_type(Bitfield.bitlist(64, [True, 0, 1]), Bitfield)
+    assert_type(Bitfield.bitlist(64).to_hex(), str)
     assert_type(encode_json_array([]), bytes)
     assert_type(
         get_ssz_type(Fork.ELECTRA, ObjectKind.ATTESTATION),

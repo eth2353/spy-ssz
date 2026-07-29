@@ -480,11 +480,17 @@ class SszObject:
 
 
 class Bitfield:
-    """Small immutable sequence view over Beacon API bitfield hex."""
+    """Small immutable SSZ bitvector or bitlist.
 
-    __slots__ = ("_data", "_length")
+    Bitvectors retain their declared length and zero-fill any values omitted by
+    the input iterable. Bitlists retain the iterable's length and include their
+    SSZ termination bit when serialized.
+    """
 
-    def __init__(self, data: bytes, length: int):
+    __slots__ = ("_bitlist", "_data", "_length")
+
+    def __init__(self, data: bytes, length: int, *, bitlist: bool = False):
+        self._bitlist = bitlist
         self._data = data
         self._length = length
 
@@ -496,8 +502,52 @@ class Bitfield:
 
     __str__ = __repr__
 
+    @staticmethod
+    def _size(value: int, name: str) -> int:
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise TypeError(f"{name} must be an integer")
+        if value < 0:
+            raise ValueError(f"{name} must be non-negative")
+        return value
+
+    @staticmethod
+    def _bit(value: bool | int) -> bool:
+        if not isinstance(value, (bool, int)):
+            raise TypeError("bitfield values must be bool or int")
+        return bool(value)
+
     @classmethod
-    def from_hex(cls, value: str, *, bitlist: bool) -> "Bitfield":
+    def bitvector(cls, length: int, values: Iterable[bool | int] = ()) -> Bitfield:
+        """Construct a zero-filled SSZ bitvector with a declared length."""
+        length = cls._size(length, "bitvector length")
+        data = bytearray((length + 7) // 8)
+        for index, value in enumerate(values):
+            if index >= length:
+                raise ValueError(
+                    f"bitvector has more values than its declared length {length}"
+                )
+            if cls._bit(value):
+                data[index // 8] |= 1 << (index % 8)
+        return cls(bytes(data), length)
+
+    @classmethod
+    def bitlist(cls, limit: int, values: Iterable[bool | int] = ()) -> Bitfield:
+        """Construct an SSZ bitlist and enforce its declared limit."""
+        limit = cls._size(limit, "bitlist limit")
+        bits: list[bool] = []
+        for value in values:
+            if len(bits) >= limit:
+                raise ValueError(f"bitlist exceeds its declared limit {limit}")
+            bits.append(cls._bit(value))
+
+        data = bytearray((len(bits) + 7) // 8)
+        for index, value in enumerate(bits):
+            if value:
+                data[index // 8] |= 1 << (index % 8)
+        return cls(bytes(data), len(bits), bitlist=True)
+
+    @classmethod
+    def from_hex(cls, value: str, *, bitlist: bool) -> Bitfield:
         data = bytearray.fromhex(value.removeprefix("0x"))
         length = len(data) * 8
         if bitlist:
@@ -506,7 +556,21 @@ class Bitfield:
             marker = data[-1].bit_length() - 1
             length = (len(data) - 1) * 8 + marker
             data[-1] &= (1 << marker) - 1
-        return cls(bytes(data), length)
+        return cls(bytes(data), length, bitlist=bitlist)
+
+    def to_hex(self) -> str:
+        """Serialize the bitfield as Beacon API hexadecimal SSZ data."""
+        data = bytearray(self._data)
+        if self._bitlist:
+            encoded_length = (self._length + 1 + 7) // 8
+            if len(data) < encoded_length:
+                data.extend(b"\x00" * (encoded_length - len(data)))
+            data[self._length // 8] |= 1 << (self._length % 8)
+        return f"0x{data.hex()}"
+
+    def to_obj(self) -> str:
+        """Return the Beacon API object representation."""
+        return self.to_hex()
 
     def __len__(self) -> int:
         return self._length
@@ -518,7 +582,7 @@ class Bitfield:
             raise IndexError(index)
         return bool(self._data[index // 8] & (1 << (index % 8)))
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[bool]:
         for index in range(self._length):
             yield self[index]
 

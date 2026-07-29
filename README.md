@@ -57,6 +57,26 @@ with ElectraSignedBeaconBlock.from_ssz(ssz_bytes) as block:
 Objects own compiled memory. Prefer a context manager as shown above, or call
 `close()` explicitly. Accessing a closed object raises `RuntimeError`.
 
+## Bitfields
+
+Construct immutable bitvectors and bitlists without value-parameterized Python
+types:
+
+```python
+from spy_ssz import Bitfield
+
+committee_bits = Bitfield.bitvector(64)
+aggregation_bits = Bitfield.bitlist(2048, [True, False, 1])
+
+assert len(committee_bits) == 64
+assert committee_bits.to_hex() == "0x" + "00" * 8
+assert aggregation_bits.to_hex() == "0x0d"
+```
+
+Bitvectors are zero-filled to their declared length. Bitlists use the number of
+provided values as their length, enforce the declared limit, and include the
+SSZ termination bit in `to_hex()` and `to_obj()`.
+
 ## Presets
 
 Mainnet is the default. Minimal and Gnosis use explicit class suffixes:

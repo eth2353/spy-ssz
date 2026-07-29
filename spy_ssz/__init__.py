@@ -14,6 +14,7 @@ for _definition in schema_definitions():
         _SCHEMA_EXPORTS[f"{_definition.python_type}{_preset.title()}"] = _module
 
 __all__ = [
+    "Bitfield",
     "Fork",
     "Checkpoint",
     "SszObject",
@@ -47,6 +48,7 @@ def __getattr__(name: str) -> Any:
 
         return getattr(consensus_types, name)
     if name in {
+        "Bitfield",
         "Fork",
         "SszObject",
         "ObjectKind",
