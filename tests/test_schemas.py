@@ -48,6 +48,15 @@ def test_public_schema_types_use_fork_suffixes() -> None:
         assert definition.python_type.endswith(definition.fork.name.title())
 
 
+def test_signed_schema_types_emit_bare_json_objects() -> None:
+    for definition in schema_definitions():
+        if not definition.kind.name.startswith("SIGNED_"):
+            continue
+        module = import_module(f"spy_ssz.{module_for_codec(definition.codec)}")
+        ssz_type = getattr(module, definition.python_type)
+        assert ssz_type.json_output_envelope_key is None
+
+
 def test_public_type_resolver_is_complete_and_coherent() -> None:
     for definition in schema_definitions():
         module = import_module(f"spy_ssz.{module_for_codec(definition.codec)}")

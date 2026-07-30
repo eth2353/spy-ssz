@@ -30,7 +30,8 @@ pinned [SPy](https://github.com/spylang/spy) revision in a temporary directory.
 
 Import the class for the fork, object, and preset you are decoding. The
 mainnet Electra signed-block class accepts the standard Beacon API
-`{"data": ...}` JSON envelope:
+`{"data": ...}` JSON response envelope. Its JSON output is the direct signed
+object expected by block-publishing endpoints:
 
 ```python
 from spy_ssz import SignedBeaconBlockElectra
@@ -38,7 +39,7 @@ from spy_ssz import SignedBeaconBlockElectra
 with SignedBeaconBlockElectra.from_json(response.content) as block:
     root: bytes = block.hash_tree_root()
     canonical_ssz: bytes = block.to_ssz()
-    beacon_api_json: bytes = block.to_json()
+    publish_json: bytes = block.to_json()
 
     print(block.message.slot)
     print(root.hex())

@@ -23,7 +23,12 @@ _SIGNED_BLOCK = schema_for("electra_block")
 SignedBeaconBlockElectra = type(
     _SIGNED_BLOCK.python_type,
     (SszObject,),
-    {"expected_fork": _SIGNED_BLOCK.fork, "expected_kind": _SIGNED_BLOCK.kind},
+    {
+        "expected_fork": _SIGNED_BLOCK.fork,
+        "expected_kind": _SIGNED_BLOCK.kind,
+        "json_input_envelope_key": "data",
+        "json_output_envelope_key": None,
+    },
 )
 for _preset_name in _SIGNED_BLOCK.presets:
     _preset = Preset[_preset_name.upper()]

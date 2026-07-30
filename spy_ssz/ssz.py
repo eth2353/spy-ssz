@@ -421,7 +421,7 @@ class SszObject:
         return self._encode(_SSZ_ENCODERS, "SSZ")
 
     def to_json(self) -> bytes:
-        """Encode a compact Beacon API ``{\"data\": ...}`` JSON response."""
+        """Encode the compact Beacon API JSON representation for this object."""
         return self._encode(_JSON_ENCODERS, "JSON")
 
     def _encode(

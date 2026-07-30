@@ -36,6 +36,11 @@ for _definition in _DEFINITIONS.values():
         )
     elif _definition.kind is ObjectKind.BEACON_BLOCK:
         _attributes.update(json_output_envelope_key="data")
+    elif _definition.kind is ObjectKind.SIGNED_BEACON_BLOCK:
+        _attributes.update(
+            json_input_envelope_key="data",
+            json_output_envelope_key=None,
+        )
     _base = type(_definition.python_type, (_source_base,), _attributes)
     globals()[_definition.python_type] = _base
     for _preset_name in _definition.presets:

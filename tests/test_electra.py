@@ -61,19 +61,17 @@ def test_electra_json_and_ssz_cover_every_block_operation_family() -> None:
         )
         assert decoded.hash_tree_root() == expected
         assert decoded.to_ssz() == raw_ssz
-        encoded_json = decoded.to_json()
-        roundtrip = electra.SignedBeaconBlock.from_obj(
-            msgspec.json.decode(encoded_json)["data"]
-        )
+        encoded = msgspec.json.decode(decoded.to_json())
+        assert set(encoded) == {"message", "signature"}
+        roundtrip = electra.SignedBeaconBlock.from_obj(encoded)
         assert roundtrip.hash_tree_root() == expected
     with SignedBeaconBlockElectra.from_ssz(raw_ssz) as decoded:
         assert decoded.fork is Fork.ELECTRA
         assert decoded.hash_tree_root() == expected
         assert decoded.to_ssz() == raw_ssz
-        encoded_json = decoded.to_json()
-        roundtrip = electra.SignedBeaconBlock.from_obj(
-            msgspec.json.decode(encoded_json)["data"]
-        )
+        encoded = msgspec.json.decode(decoded.to_json())
+        assert set(encoded) == {"message", "signature"}
+        roundtrip = electra.SignedBeaconBlock.from_obj(encoded)
         assert roundtrip.hash_tree_root() == expected
 
 
@@ -104,17 +102,17 @@ def test_fulu_reuses_the_electra_block_codec_with_fulu_metadata() -> None:
         )
         assert decoded.hash_tree_root() == expected
         assert decoded.to_ssz() == raw_ssz
-        roundtrip = fulu.SignedBeaconBlock.from_obj(
-            msgspec.json.decode(decoded.to_json())["data"]
-        )
+        encoded = msgspec.json.decode(decoded.to_json())
+        assert set(encoded) == {"message", "signature"}
+        roundtrip = fulu.SignedBeaconBlock.from_obj(encoded)
         assert roundtrip.hash_tree_root() == expected
     with SignedBeaconBlockFulu.from_ssz(raw_ssz) as decoded:
         assert decoded.fork is Fork.FULU
         assert decoded.hash_tree_root() == expected
         assert decoded.to_ssz() == raw_ssz
-        roundtrip = fulu.SignedBeaconBlock.from_obj(
-            msgspec.json.decode(decoded.to_json())["data"]
-        )
+        encoded = msgspec.json.decode(decoded.to_json())
+        assert set(encoded) == {"message", "signature"}
+        roundtrip = fulu.SignedBeaconBlock.from_obj(encoded)
         assert roundtrip.hash_tree_root() == expected
 
 
@@ -133,7 +131,8 @@ def test_minimal_preset_changes_fixed_vector_sizes_and_roundtrips() -> None:
         assert from_ssz.preset is Preset.MINIMAL
         assert from_ssz.hash_tree_root() == expected_root
         assert from_ssz.to_ssz() == raw_ssz
-        encoded = msgspec.json.decode(from_ssz.to_json())["data"]
+        encoded = msgspec.json.decode(from_ssz.to_json())
+        assert set(encoded) == {"message", "signature"}
         body = encoded["message"]["body"]
         assert body["sync_aggregate"]["sync_committee_bits"] == "0x00000000"
         assert body["attestations"][0]["committee_bits"] == "0x01"

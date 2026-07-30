@@ -900,13 +900,9 @@ def json_signed_block(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap:
 
 
 def electra_json_size(obj: raw_ptr[SszObject]) -> i32:
-    pos = put_literal(obj.root.data, 0, 0, b"{\"data\":")
-    pos = json_signed_block(obj, obj.root_node, obj.root.data, 0, pos)
-    return put(obj.root.data, 0, pos, u8(125))
+    return json_signed_block(obj, obj.root_node, obj.root.data, 0, 0)
 
 
 def electra_encode_json(obj: raw_ptr[SszObject], output: bytes) -> i32:
     out = BytesObject.from_bytes(output)
-    pos = put_literal(out.data, out.length, 0, b"{\"data\":")
-    pos = json_signed_block(obj, obj.root_node, out.data, out.length, pos)
-    return put(out.data, out.length, pos, u8(125))
+    return json_signed_block(obj, obj.root_node, out.data, out.length, 0)

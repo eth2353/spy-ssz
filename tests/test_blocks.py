@@ -3,6 +3,7 @@ from unittest import mock
 import msgspec
 import pytest
 from eth_consensus_specs.electra import mainnet as electra
+from eth_consensus_specs.gloas import mainnet as gloas
 from remerkleable.byte_arrays import ByteVector
 from remerkleable.complex import Container, List
 
@@ -19,6 +20,7 @@ from spy_ssz.fulu import (
     SignedBeaconBlockContentsFuluMainnet,
     SignedBlindedBeaconBlockFuluMainnet,
 )
+from spy_ssz.gloas import BeaconBlockGloas, SignedBeaconBlockGloas
 from spy_ssz.ssz import Fork
 
 
@@ -177,6 +179,44 @@ def test_block_containers_require_data(block_type) -> None:
 
     with pytest.raises(ValueError, match="invalid JSON object"):
         block_type.from_json(raw_json)
+
+
+def test_gloas_signed_block_uses_direct_publish_json() -> None:
+    reference = gloas.BeaconBlock(slot=12, proposer_index=34)
+    signature = bytes(range(96))
+
+    with BeaconBlockGloas.from_obj(reference.to_obj()) as block:
+        with block.sign(signature) as signed:
+            expected = gloas.SignedBeaconBlock(
+                message=reference,
+                signature=signature,
+            )
+            publish_body = msgspec.json.decode(signed.to_json())
+
+            assert set(publish_body) == {"message", "signature"}
+            assert publish_body == signed.to_obj()
+            assert gloas.SignedBeaconBlock.from_obj(publish_body).hash_tree_root() == (
+                expected.hash_tree_root()
+            )
+
+
+def test_gloas_signed_block_accepts_enveloped_response_metadata() -> None:
+    expected = gloas.SignedBeaconBlock(
+        message=gloas.BeaconBlock(slot=12, proposer_index=34),
+        signature=bytes(range(96)),
+    )
+    raw_signed_response = msgspec.json.encode(
+        {
+            "data": expected.to_obj(),
+            "version": "gloas",
+            "execution_optimistic": False,
+            "finalized": True,
+            "client_metadata": {"nested": [{"future_field": True}]},
+        }
+    )
+    with SignedBeaconBlockGloas.from_json(raw_signed_response) as decoded:
+        assert decoded.hash_tree_root() == expected.hash_tree_root()
+        assert set(msgspec.json.decode(decoded.to_json())) == {"message", "signature"}
 
 
 def test_blinded_block_json_ssz_signing_and_projections() -> None:
