@@ -134,7 +134,7 @@ def ssz_blinded_body(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: 
     change_size = ssz_bls_changes(obj, changes, data, 0, 0)
     commitment_size = ssz_commitments(obj, commitments, data, 0, 0)
     header_size = ssz_execution_payload_header(obj, child(obj, node, 9), data, 0, 0)
-    running: i32 = 332 + obj.sync_committee_size // 8
+    running: i32 = 364 + obj.sync_committee_size // 8
     pos = ssz_fixed_bytes(obj, child(obj, node, 0), data, cap, pos)
     pos = ssz_eth1_data(obj, child(obj, node, 1), data, cap, pos)
     pos = ssz_fixed_bytes(obj, child(obj, node, 2), data, cap, pos)
@@ -156,6 +156,7 @@ def ssz_blinded_body(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: 
     pos = put_u32(data, cap, pos, running)
     running = running + commitment_size
     pos = put_u32(data, cap, pos, running)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 13), data, cap, pos)
     pos = ssz_proposer_slashings(obj, proposer, data, cap, pos)
     pos = ssz_variable_attester_slashings(obj, attester, data, cap, pos)
     pos = ssz_attestations(obj, attestations, data, cap, pos)
@@ -185,7 +186,7 @@ def ssz_signed_blinded_block(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8
 def json_blinded_body(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
     pos = put(data, cap, pos, u8(123))
     i: i32 = 0
-    while i < 13:
+    while i < 14:
         if i > 0:
             pos = put(data, cap, pos, u8(44))
         if i == 0:
@@ -212,8 +213,10 @@ def json_blinded_body(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap:
             pos = json_key(data, cap, pos, b"bls_to_execution_changes")
         elif i == 11:
             pos = json_key(data, cap, pos, b"blob_kzg_commitments")
-        else:
+        elif i == 12:
             pos = json_key(data, cap, pos, b"execution_requests")
+        else:
+            pos = json_key(data, cap, pos, b"client_data")
         item = child(obj, node, i)
         if i == 0 or i == 2:
             pos = json_hex_node(obj, item, data, cap, pos)
@@ -237,8 +240,10 @@ def json_blinded_body(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap:
             pos = json_bls_changes(obj, item, data, cap, pos)
         elif i == 11:
             pos = json_commitments(obj, item, data, cap, pos)
-        else:
+        elif i == 12:
             pos = json_execution_requests(obj, item, data, cap, pos)
+        else:
+            pos = json_hex_node(obj, item, data, cap, pos)
         i = i + 1
     return put(data, cap, pos, u8(125))
 

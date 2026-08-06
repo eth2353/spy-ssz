@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 from typing import Any
 
 import yaml
-
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -53,6 +52,15 @@ def _consensus_catalog() -> dict[str, Any]:
     value = json.loads(CONSENSUS_TYPES.read_text())
     if not isinstance(value, dict):
         raise ValueError(f"{CONSENSUS_TYPES} must contain a mapping")
+    # EIP-8359 is implemented locally ahead of its inclusion in the upstream
+    # consensus-specs package used to generate consensus_types.json.
+    for fork_name in ("electra", "fulu"):
+        fork_data = value["forks"][fork_name]
+        body = fork_data["types"][fork_data["names"]["BeaconBlockBody"]]
+        if not any(name == "client_data" for name, _ in body["fields"]):
+            graffiti_type = dict(body["fields"])["graffiti"]
+            body["fields"].append(["client_data", graffiti_type])
+            body["repr"] += "\n    client_data: Bytes32"
     return value
 
 

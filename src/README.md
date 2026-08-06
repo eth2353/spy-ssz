@@ -23,8 +23,9 @@ hasher.
 `electra/electra_block.spy` and `electra/electra_block_ssz.spy` are shared by
 Electra and Fulu signed blocks. Parameterized SPy entry points receive the fork
 and schema IDs before values cross the C bridge. They cover every block
-operation family and execution-request list. `electra/electra_block_encode.spy`
-provides their shared JSON and SSZ output path.
+operation family, execution-request list, and the trailing EIP-8359
+`client_data: Bytes32` body field. `electra/electra_block_encode.spy` provides
+their shared JSON and SSZ output path.
 
 The pinned SPy compiler does not yet support packages, so module basenames are
 globally unique even inside fork directories. The extension build flattens

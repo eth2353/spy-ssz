@@ -118,6 +118,7 @@ class BeaconBlockBody(Projection):
     bls_to_execution_changes: tuple[SignedBLSToExecutionChange, ...]
     blob_kzg_commitments: tuple[bytes, ...]
     execution_requests: ExecutionRequests
+    client_data: bytes
 
 
 @dataclass(frozen=True, slots=True, repr=False)

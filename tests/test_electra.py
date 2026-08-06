@@ -1,18 +1,21 @@
 import msgspec
 import pytest
 from eth_consensus_specs.electra import mainnet as electra
-from eth_consensus_specs.fulu import mainnet as fulu
 
 from spy_ssz.electra import ElectraSignedBeaconBlock, ElectraSignedBeaconBlockMinimal
 from spy_ssz.fulu import FuluSignedBeaconBlock
-from spy_ssz.schema import get_schema
-from spy_ssz.ssz import Fork
-from spy_ssz.ssz import ObjectKind
 from spy_ssz.preset import Preset
+from spy_ssz.schema import get_schema
+from spy_ssz.ssz import Fork, ObjectKind
+from tests.client_data_blocks import (
+    BeaconBlock,
+    BeaconBlockBody,
+    SignedBeaconBlock,
+)
 
 
-def populated_electra_block() -> electra.SignedBeaconBlock:
-    body = electra.BeaconBlockBody(
+def populated_electra_block() -> SignedBeaconBlock:
+    body = BeaconBlockBody(
         proposer_slashings=[electra.ProposerSlashing()],
         attester_slashings=[
             electra.AttesterSlashing(
@@ -41,7 +44,7 @@ def populated_electra_block() -> electra.SignedBeaconBlock:
             consolidations=[electra.ConsolidationRequest()],
         ),
     )
-    return electra.SignedBeaconBlock(message=electra.BeaconBlock(body=body))
+    return SignedBeaconBlock(message=BeaconBlock(body=body))
 
 
 def test_electra_json_and_ssz_cover_every_block_operation_family() -> None:
@@ -59,7 +62,7 @@ def test_electra_json_and_ssz_cover_every_block_operation_family() -> None:
         assert decoded.hash_tree_root() == expected
         assert decoded.to_ssz() == raw_ssz
         encoded_json = decoded.to_json()
-        roundtrip = electra.SignedBeaconBlock.from_obj(
+        roundtrip = SignedBeaconBlock.from_obj(
             msgspec.json.decode(encoded_json)["data"]
         )
         assert roundtrip.hash_tree_root() == expected
@@ -68,7 +71,7 @@ def test_electra_json_and_ssz_cover_every_block_operation_family() -> None:
         assert decoded.hash_tree_root() == expected
         assert decoded.to_ssz() == raw_ssz
         encoded_json = decoded.to_json()
-        roundtrip = electra.SignedBeaconBlock.from_obj(
+        roundtrip = SignedBeaconBlock.from_obj(
             msgspec.json.decode(encoded_json)["data"]
         )
         assert roundtrip.hash_tree_root() == expected
@@ -86,9 +89,10 @@ def test_json_composite_list_decodes_more_than_nine_items() -> None:
         assert decoded.to_ssz() == reference.encode_bytes()
 
 
-def test_fulu_reuses_the_electra_block_codec_with_fulu_metadata() -> None:
-    electra_bytes = populated_electra_block().encode_bytes()
-    reference = fulu.SignedBeaconBlock.decode_bytes(electra_bytes)
+def test_fulu_block_codec_includes_client_data_with_fulu_metadata() -> None:
+    reference = populated_electra_block()
+    client_data = bytes.fromhex("01") + bytes(range(1, 32))
+    reference.message.body.client_data = client_data
     expected = reference.hash_tree_root()
     raw_json = msgspec.json.encode({"data": reference.to_obj()})
     raw_ssz = reference.encode_bytes()
@@ -101,7 +105,8 @@ def test_fulu_reuses_the_electra_block_codec_with_fulu_metadata() -> None:
         )
         assert decoded.hash_tree_root() == expected
         assert decoded.to_ssz() == raw_ssz
-        roundtrip = fulu.SignedBeaconBlock.from_obj(
+        assert decoded.message.body.client_data == client_data
+        roundtrip = SignedBeaconBlock.from_obj(
             msgspec.json.decode(decoded.to_json())["data"]
         )
         assert roundtrip.hash_tree_root() == expected
@@ -109,7 +114,7 @@ def test_fulu_reuses_the_electra_block_codec_with_fulu_metadata() -> None:
         assert decoded.fork is Fork.FULU
         assert decoded.hash_tree_root() == expected
         assert decoded.to_ssz() == raw_ssz
-        roundtrip = fulu.SignedBeaconBlock.from_obj(
+        roundtrip = SignedBeaconBlock.from_obj(
             msgspec.json.decode(decoded.to_json())["data"]
         )
         assert roundtrip.hash_tree_root() == expected

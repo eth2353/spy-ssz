@@ -20,43 +20,33 @@ from spy_ssz.fulu import (
     FuluSignedBlindedBeaconBlockMainnet,
 )
 from spy_ssz.ssz import Fork
-
+from tests.client_data_blocks import (
+    BeaconBlock,
+    SignedBeaconBlock,
+)
+from tests.client_data_blocks import (
+    BlindedBeaconBlock as BlindedBlock,
+)
+from tests.client_data_blocks import (
+    BlindedBeaconBlockBody as BlindedBody,
+)
+from tests.client_data_blocks import (
+    SignedBlindedBeaconBlock as SignedBlindedBlock,
+)
 
 Blob = ByteVector[131072]
 
 
 class BlockContents(Container):
-    block: electra.BeaconBlock
+    block: BeaconBlock
     kzg_proofs: List[electra.KZGProof, 4096]
     blobs: List[Blob, 4096]
 
 
 class SignedBlockContents(Container):
-    signed_block: electra.SignedBeaconBlock
+    signed_block: SignedBeaconBlock
     kzg_proofs: List[electra.KZGProof, 4096]
     blobs: List[Blob, 4096]
-
-
-_body_fields = {
-    ("execution_payload_header" if name == "execution_payload" else name): (
-        electra.ExecutionPayloadHeader if name == "execution_payload" else field_type
-    )
-    for name, field_type in electra.BeaconBlockBody.__annotations__.items()
-}
-BlindedBody = type("BlindedBody", (Container,), {"__annotations__": _body_fields})
-
-
-class BlindedBlock(Container):
-    slot: electra.Slot
-    proposer_index: electra.ValidatorIndex
-    parent_root: electra.Root
-    state_root: electra.Root
-    body: BlindedBody
-
-
-class SignedBlindedBlock(Container):
-    message: BlindedBlock
-    signature: electra.BLSSignature
 
 
 def test_block_projection_json_array_uses_native_batch_encoder() -> None:
@@ -73,7 +63,7 @@ def test_block_projection_json_array_uses_native_batch_encoder() -> None:
 
 
 def test_block_contents_json_ssz_signing_and_projections() -> None:
-    reference = BlockContents(block=electra.BeaconBlock(slot=12, proposer_index=34))
+    reference = BlockContents(block=BeaconBlock(slot=12, proposer_index=34))
     raw_json = msgspec.json.encode({"version": "electra", "data": reference.to_obj()})
 
     with ElectraBeaconBlockContentsMainnet.from_json(raw_json) as value:
@@ -102,7 +92,7 @@ def test_block_contents_json_ssz_signing_and_projections() -> None:
             signed = value.sign(signature)
         try:
             signed_reference = SignedBlockContents(
-                signed_block=electra.SignedBeaconBlock(
+                signed_block=SignedBeaconBlock(
                     message=reference.block,
                     signature=signature,
                 )
@@ -130,7 +120,7 @@ def test_block_contents_json_ssz_signing_and_projections() -> None:
 
 
 def test_block_contents_accepts_arbitrary_response_metadata() -> None:
-    reference = BlockContents(block=electra.BeaconBlock())
+    reference = BlockContents(block=BeaconBlock())
     raw_json = msgspec.json.encode(
         {
             "data": reference.to_obj(),
@@ -146,7 +136,7 @@ def test_block_contents_accepts_arbitrary_response_metadata() -> None:
 
 
 def test_block_contents_rejects_unrecognized_data_field() -> None:
-    reference = BlockContents(block=electra.BeaconBlock())
+    reference = BlockContents(block=BeaconBlock())
     data = reference.to_obj()
     data["block"]["unknown_field"] = True
     raw_json = msgspec.json.encode(
@@ -244,12 +234,15 @@ def test_blinded_block_ssz_rejects_out_of_order_header_offset() -> None:
     ("reference", "fulu_type", "signed_type"),
     [
         (
-            BlockContents(block=electra.BeaconBlock(slot=12)),
+            BlockContents(block=BeaconBlock(slot=12)),
             FuluBeaconBlockContentsMainnet,
             FuluSignedBeaconBlockContentsMainnet,
         ),
         (
-            BlindedBlock(slot=34),
+            BlindedBlock(
+                slot=34,
+                body=BlindedBody(client_data=bytes(range(32))),
+            ),
             FuluBlindedBeaconBlockMainnet,
             FuluSignedBlindedBeaconBlockMainnet,
         ),

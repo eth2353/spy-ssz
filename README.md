@@ -265,6 +265,10 @@ All concrete objects inherit from `SszObject` and expose:
 
 Fulu types reuse the unchanged Electra wire layouts with Fulu class identity,
 schema IDs, and object metadata.
+The shared Electra/Fulu `BeaconBlockBody` layout includes the trailing
+`client_data: Bytes32` field proposed by EIP-8359 (renamed from the draft's
+`reporting` field). It is included in JSON, SSZ, projections, and tree roots;
+all 32-byte values are accepted without interpreting the reporting payload.
 The generated type catalog covers every named mainnet SSZ type in
 `eth-consensus-specs` 1.7.0a12 for Electra and Fulu, but most cataloged types
 do not yet have executable codecs.

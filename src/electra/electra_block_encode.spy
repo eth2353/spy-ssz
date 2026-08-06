@@ -305,7 +305,7 @@ def ssz_block_body(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i3
     payload_size = ssz_execution_payload(obj, payload, data, 0, 0)
     change_size = ssz_bls_changes(obj, changes, data, 0, 0)
     commitment_size = ssz_commitments(obj, commitments, data, 0, 0)
-    running: i32 = 332 + obj.sync_committee_size // 8
+    running: i32 = 364 + obj.sync_committee_size // 8
     pos = ssz_fixed_bytes(obj, child(obj, node, 0), data, cap, pos)
     pos = ssz_eth1_data(obj, child(obj, node, 1), data, cap, pos)
     pos = ssz_fixed_bytes(obj, child(obj, node, 2), data, cap, pos)
@@ -327,6 +327,7 @@ def ssz_block_body(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i3
     pos = put_u32(data, cap, pos, running)
     running = running + commitment_size
     pos = put_u32(data, cap, pos, running)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 13), data, cap, pos)
     pos = ssz_proposer_slashings(obj, proposer, data, cap, pos)
     pos = ssz_variable_attester_slashings(obj, attester, data, cap, pos)
     pos = ssz_attestations(obj, attestations, data, cap, pos)
@@ -868,6 +869,9 @@ def json_block_body(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i
     pos = put(data, cap, pos, u8(44))
     pos = json_key(data, cap, pos, b"execution_requests")
     pos = json_execution_requests(obj, child(obj, node, 12), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"client_data")
+    pos = json_hex_node(obj, child(obj, node, 13), data, cap, pos)
     return put(data, cap, pos, u8(125))
 
 

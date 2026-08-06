@@ -50,7 +50,7 @@ def execution_payload_header(document: raw_ptr[SszDocument], start: i32, end: i3
 def blinded_body(document: raw_ptr[SszDocument], start: i32, end: i32, obj: raw_ptr[SszObject]) -> i32:
     sync_size = obj.sync_committee_size // 8
     header_position = 316 + sync_size
-    fixed_size = header_position + 16
+    fixed_size = header_position + 48
     proposer = first_variable_offset(document, start, end, 200, fixed_size)
     attester = variable_offset(document, start, end, 204, fixed_size)
     attestations = variable_offset(document, start, end, 208, fixed_size)
@@ -66,7 +66,7 @@ def blinded_body(document: raw_ptr[SszDocument], start: i32, end: i32, obj: raw_
         obj.status = DECODE_STATUS_MALFORMED_INPUT
     if commitments < changes or requests < commitments:
         obj.status = DECODE_STATUS_MALFORMED_INPUT
-    first = reserve_edges(obj, 13)
+    first = reserve_edges(obj, 14)
     set_edge(obj, first, 0, ssz_fixed_bytes(document, start, 96, obj))
     set_edge(obj, first, 1, eth1_data(document, start + 96, obj))
     set_edge(obj, first, 2, ssz_fixed_bytes(document, start + 168, 32, obj))
@@ -80,7 +80,8 @@ def blinded_body(document: raw_ptr[SszDocument], start: i32, end: i32, obj: raw_
     set_edge(obj, first, 10, bls_change_list(document, changes, commitments, obj))
     set_edge(obj, first, 11, fixed_bytes_list(document, commitments, requests, obj.max_blob_commitments_per_block, 48, obj))
     set_edge(obj, first, 12, execution_requests(document, requests, end, obj))
-    return add_composite_node(obj, KIND_CONTAINER, first, 13, 13, 0, 0)
+    set_edge(obj, first, 13, ssz_fixed_bytes(document, start + header_position + 16, 32, obj))
+    return add_composite_node(obj, KIND_CONTAINER, first, 14, 14, 0, 0)
 
 
 def blinded_block(document: raw_ptr[SszDocument], start: i32, end: i32, obj: raw_ptr[SszObject]) -> i32:

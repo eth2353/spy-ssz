@@ -53,7 +53,7 @@ def execution_payload_header(document: raw_ptr[JsonDocument], value: i32, obj: r
 
 
 def blinded_body(document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]) -> i32:
-    first = reserve_edges(obj, 13)
+    first = reserve_edges(obj, 14)
     set_edge(obj, first, 0, json_fixed_bytes(document, object_get(document, value, b"randao_reveal"), obj, 96))
     set_edge(obj, first, 1, eth1_data(document, object_get(document, value, b"eth1_data"), obj))
     set_edge(obj, first, 2, json_fixed_bytes(document, object_get(document, value, b"graffiti"), obj, 32))
@@ -67,7 +67,8 @@ def blinded_body(document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszOb
     set_edge(obj, first, 10, bls_change_list(document, object_get(document, value, b"bls_to_execution_changes"), obj))
     set_edge(obj, first, 11, fixed_bytes_list(document, object_get(document, value, b"blob_kzg_commitments"), obj, obj.max_blob_commitments_per_block, 48))
     set_edge(obj, first, 12, execution_requests(document, object_get(document, value, b"execution_requests"), obj))
-    return add_composite_node(obj, KIND_CONTAINER, first, 13, 13, 0, 0)
+    set_edge(obj, first, 13, json_fixed_bytes(document, object_get(document, value, b"client_data"), obj, 32))
+    return add_composite_node(obj, KIND_CONTAINER, first, 14, 14, 0, 0)
 
 
 def blinded_block(document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]) -> i32:

@@ -436,7 +436,7 @@ def block_body(
 ) -> i32:
     sync_size = obj.sync_committee_size // 8
     payload_position = 316 + sync_size
-    fixed_size = payload_position + 16
+    fixed_size = payload_position + 48
     if end - start < fixed_size:
         obj.status = DECODE_STATUS_MALFORMED_INPUT
     proposer = first_variable_offset(document, start, end, 200, fixed_size)
@@ -455,7 +455,7 @@ def block_body(
     if commitments < changes or requests < commitments:
         obj.status = DECODE_STATUS_MALFORMED_INPUT
 
-    first = reserve_edges(obj, 13)
+    first = reserve_edges(obj, 14)
     set_edge(obj, first, 0, ssz_fixed_bytes(document, start, 96, obj))
     set_edge(obj, first, 1, eth1_data(document, start + 96, obj))
     set_edge(obj, first, 2, ssz_fixed_bytes(document, start + 168, 32, obj))
@@ -469,7 +469,8 @@ def block_body(
     set_edge(obj, first, 10, bls_change_list(document, changes, commitments, obj))
     set_edge(obj, first, 11, fixed_bytes_list(document, commitments, requests, obj.max_blob_commitments_per_block, 48, obj))
     set_edge(obj, first, 12, execution_requests(document, requests, end, obj))
-    return add_composite_node(obj, KIND_CONTAINER, first, 13, 13, 0, 0)
+    set_edge(obj, first, 13, ssz_fixed_bytes(document, start + payload_position + 16, 32, obj))
+    return add_composite_node(obj, KIND_CONTAINER, first, 14, 14, 0, 0)
 
 
 def beacon_block(

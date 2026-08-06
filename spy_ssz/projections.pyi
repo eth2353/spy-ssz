@@ -124,6 +124,7 @@ class BeaconBlockBody(Projection):
         bls_to_execution_changes: tuple[SignedBLSToExecutionChange, ...],
         blob_kzg_commitments: tuple[bytes, ...],
         execution_requests: ExecutionRequests,
+        client_data: bytes,
     ) -> None: ...
     @property
     def randao_reveal(self) -> bytes: ...
@@ -151,6 +152,8 @@ class BeaconBlockBody(Projection):
     def blob_kzg_commitments(self) -> tuple[bytes, ...]: ...
     @property
     def execution_requests(self) -> ExecutionRequests: ...
+    @property
+    def client_data(self) -> bytes: ...
 
 class BeaconBlockHeader(Projection):
     def __init__(
