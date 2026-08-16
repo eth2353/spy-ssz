@@ -36,6 +36,8 @@ object_kinds:
   PAYLOAD_ATTESTATION_MESSAGE: 23
   PROPOSER_PREFERENCES: 24
   SIGNED_PROPOSER_PREFERENCES: 25
+  EXECUTION_PAYLOAD_ENVELOPE: 26
+  SIGNED_EXECUTION_PAYLOAD_ENVELOPE: 27
 
 codecs:
   electra_block: electra
@@ -46,6 +48,7 @@ codecs:
   fulu_block_containers: fulu
   gloas_signing: gloas
   gloas_block: gloas
+  gloas_payload_envelope: gloas
 
 schemas:
   - name: ELECTRA_SIGNED_BEACON_BLOCK
@@ -511,4 +514,20 @@ schemas:
     consensus_type: SignedProposerPreferences
     codec: gloas_signing
     python_type: SignedProposerPreferencesGloas
+    presets: [mainnet, minimal, gnosis]
+  - name: GLOAS_EXECUTION_PAYLOAD_ENVELOPE
+    id: 726
+    fork: GLOAS
+    kind: EXECUTION_PAYLOAD_ENVELOPE
+    consensus_type: ExecutionPayloadEnvelope
+    codec: gloas_payload_envelope
+    python_type: ExecutionPayloadEnvelopeGloas
+    presets: [mainnet, minimal, gnosis]
+  - name: GLOAS_SIGNED_EXECUTION_PAYLOAD_ENVELOPE
+    id: 727
+    fork: GLOAS
+    kind: SIGNED_EXECUTION_PAYLOAD_ENVELOPE
+    consensus_type: SignedExecutionPayloadEnvelope
+    codec: gloas_payload_envelope
+    python_type: SignedExecutionPayloadEnvelopeGloas
     presets: [mainnet, minimal, gnosis]

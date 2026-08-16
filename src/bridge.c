@@ -17,6 +17,9 @@
 #include "gloas_block.h"
 #include "gloas_block_encode.h"
 #include "gloas_block_ssz.h"
+#include "gloas_payload_envelope.h"
+#include "gloas_payload_envelope_encode.h"
+#include "gloas_payload_envelope_ssz.h"
 #include "gloas_signing.h"
 #include "ssz_object.h"
 #include "ssz_reader.h"
@@ -147,6 +150,26 @@ spy_raw_ssz_ptr spy_schema_gloas_block_decode_ssz_owned(
     return result.object;
 }
 
+spy_raw_ssz_ptr spy_schema_gloas_payload_envelope_decode_json_owned(
+    spy_BytesObject *source, int32_t fork, int32_t kind, int32_t schema,
+    int32_t preset) {
+    spy_json_lowering$JsonDecodeResult result =
+        spy_gloas_payload_envelope$decode_gloas_payload_envelope_json(
+            source, fork, kind, schema, preset);
+    spy_json_document_destroy(result.temporary);
+    return result.object;
+}
+
+spy_raw_ssz_ptr spy_schema_gloas_payload_envelope_decode_ssz_owned(
+    spy_BytesObject *source, int32_t fork, int32_t kind, int32_t schema,
+    int32_t preset) {
+    spy_ssz_lowering$SszDecodeResult result =
+        spy_gloas_payload_envelope_ssz$decode_gloas_payload_envelope_ssz(
+            source, fork, kind, schema, preset);
+    spy_ssz_document_destroy(result.temporary);
+    return result.object;
+}
+
 spy_raw_ssz_ptr spy_schema_block_containers_decode_json_owned(
     spy_BytesObject *source, int32_t fork, int32_t kind, int32_t schema,
     int32_t preset) {
@@ -187,6 +210,10 @@ int32_t spy_ssz_object_hash_tree_root(
 #define spy_schema_gloas_encode_ssz spy_gloas_block_encode$gloas_encode_ssz
 #define spy_schema_gloas_json_size spy_gloas_block_encode$gloas_json_size
 #define spy_schema_gloas_encode_json spy_gloas_block_encode$gloas_encode_json
+#define spy_schema_gloas_payload_envelope_ssz_size spy_gloas_payload_envelope_encode$gloas_payload_envelope_ssz_size
+#define spy_schema_gloas_payload_envelope_encode_ssz spy_gloas_payload_envelope_encode$gloas_payload_envelope_encode_ssz
+#define spy_schema_gloas_payload_envelope_json_size spy_gloas_payload_envelope_encode$gloas_payload_envelope_json_size
+#define spy_schema_gloas_payload_envelope_encode_json spy_gloas_payload_envelope_encode$gloas_payload_envelope_encode_json
 #define spy_schema_block_containers_json_size spy_electra_block_containers_encode$block_container_json_size
 #define spy_schema_block_containers_encode_json spy_electra_block_containers_encode$block_container_encode_json
 #define spy_ssz_object_clone_and_sign_block spy_ssz_object$clone_and_sign_block

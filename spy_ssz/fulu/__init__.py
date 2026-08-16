@@ -1,7 +1,7 @@
 """First-class Fulu types backed by unchanged Electra wire codecs."""
 
 from .. import _spy
-from ..electra import _BlockProjection
+from ..block import BlockProjection
 from ..preset import Preset
 from ..schema import Fork, ObjectKind, get_schema, schema_definitions
 from ..ssz import (
@@ -33,7 +33,7 @@ _DEFINITIONS = {
 
 for _definition in _DEFINITIONS.values():
     _source_base = (
-        _BlockProjection if _definition.kind in _PROJECTION_KINDS else SszObject
+        BlockProjection if _definition.kind in _PROJECTION_KINDS else SszObject
     )
     _attributes = {
         "expected_fork": _definition.fork,

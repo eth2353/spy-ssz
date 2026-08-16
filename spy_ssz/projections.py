@@ -147,7 +147,7 @@ class BeaconBlockBodyElectra(Projection):
     deposits: tuple[Deposit, ...]
     voluntary_exits: tuple[SignedVoluntaryExit, ...]
     sync_aggregate: SyncAggregate
-    execution_payload: ExecutionPayload
+    execution_payload: ExecutionPayloadElectra
     bls_to_execution_changes: tuple[SignedBLSToExecutionChange, ...]
     blob_kzg_commitments: tuple[bytes, ...]
     execution_requests: ExecutionRequestsElectra
@@ -164,7 +164,7 @@ class BeaconBlockBodyFulu(Projection):
     deposits: tuple[Deposit, ...]
     voluntary_exits: tuple[SignedVoluntaryExit, ...]
     sync_aggregate: SyncAggregate
-    execution_payload: ExecutionPayload
+    execution_payload: ExecutionPayloadFulu
     bls_to_execution_changes: tuple[SignedBLSToExecutionChange, ...]
     blob_kzg_commitments: tuple[bytes, ...]
     execution_requests: ExecutionRequestsFulu
@@ -288,7 +288,23 @@ class Eth1Data(Projection):
 
 
 @dataclass(frozen=True, slots=True, repr=False)
-class ExecutionPayload(Projection):
+class ExecutionPayloadBid(Projection):
+    parent_block_hash: bytes
+    parent_block_root: bytes
+    block_hash: bytes
+    prev_randao: bytes
+    fee_recipient: bytes
+    gas_limit: int
+    builder_index: int
+    slot: int
+    value: int
+    execution_payment: int
+    blob_kzg_commitments: tuple[bytes, ...]
+    execution_requests_root: bytes
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class ExecutionPayloadElectra(Projection):
     parent_hash: bytes
     fee_recipient: bytes
     state_root: bytes
@@ -309,19 +325,56 @@ class ExecutionPayload(Projection):
 
 
 @dataclass(frozen=True, slots=True, repr=False)
-class ExecutionPayloadBid(Projection):
-    parent_block_hash: bytes
-    parent_block_root: bytes
-    block_hash: bytes
-    prev_randao: bytes
-    fee_recipient: bytes
-    gas_limit: int
+class ExecutionPayloadEnvelope(Projection):
+    payload: ExecutionPayloadGloas
+    execution_requests: ExecutionRequestsGloas
     builder_index: int
-    slot: int
-    value: int
-    execution_payment: int
-    blob_kzg_commitments: tuple[bytes, ...]
-    execution_requests_root: bytes
+    beacon_block_root: bytes
+    parent_beacon_block_root: bytes
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class ExecutionPayloadFulu(Projection):
+    parent_hash: bytes
+    fee_recipient: bytes
+    state_root: bytes
+    receipts_root: bytes
+    logs_bloom: bytes
+    prev_randao: bytes
+    block_number: int
+    gas_limit: int
+    gas_used: int
+    timestamp: int
+    extra_data: bytes
+    base_fee_per_gas: int
+    block_hash: bytes
+    transactions: tuple[bytes, ...]
+    withdrawals: tuple[Withdrawal, ...]
+    blob_gas_used: int
+    excess_blob_gas: int
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class ExecutionPayloadGloas(Projection):
+    parent_hash: bytes
+    fee_recipient: bytes
+    state_root: bytes
+    receipts_root: bytes
+    logs_bloom: bytes
+    prev_randao: bytes
+    block_number: int
+    gas_limit: int
+    gas_used: int
+    timestamp: int
+    extra_data: bytes
+    base_fee_per_gas: int
+    block_hash: bytes
+    transactions: tuple[bytes, ...]
+    withdrawals: tuple[Withdrawal, ...]
+    blob_gas_used: int
+    excess_blob_gas: int
+    block_access_list: bytes
+    slot_number: int
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -466,6 +519,12 @@ class SignedExecutionPayloadBid(Projection):
 
 
 @dataclass(frozen=True, slots=True, repr=False)
+class SignedExecutionPayloadEnvelope(Projection):
+    message: ExecutionPayloadEnvelope
+    signature: bytes
+
+
+@dataclass(frozen=True, slots=True, repr=False)
 class SignedProposerPreferences(Projection):
     message: ProposerPreferences
     signature: bytes
@@ -552,7 +611,7 @@ _PROJECTION_TYPES = {
     (Fork.ELECTRA, 65): BLSToExecutionChange,
     (Fork.ELECTRA, 66): SignedBLSToExecutionChange,
     (Fork.ELECTRA, 72): Withdrawal,
-    (Fork.ELECTRA, 73): ExecutionPayload,
+    (Fork.ELECTRA, 73): ExecutionPayloadElectra,
     (Fork.ELECTRA, 110): AttestationElectra,
     (Fork.ELECTRA, 112): AggregateAndProofElectra,
     (Fork.ELECTRA, 113): SignedAggregateAndProofElectra,
@@ -584,7 +643,7 @@ _PROJECTION_TYPES = {
     (Fork.FULU, 69): BLSToExecutionChange,
     (Fork.FULU, 70): SignedBLSToExecutionChange,
     (Fork.FULU, 76): Withdrawal,
-    (Fork.FULU, 77): ExecutionPayload,
+    (Fork.FULU, 77): ExecutionPayloadFulu,
     (Fork.FULU, 115): AttestationFulu,
     (Fork.FULU, 117): AggregateAndProofFulu,
     (Fork.FULU, 118): SignedAggregateAndProofFulu,
@@ -622,6 +681,7 @@ _PROJECTION_TYPES = {
     (Fork.GLOAS, 84): WithdrawalRequest,
     (Fork.GLOAS, 85): BLSToExecutionChange,
     (Fork.GLOAS, 86): SignedBLSToExecutionChange,
+    (Fork.GLOAS, 89): Withdrawal,
     (Fork.GLOAS, 99): ExecutionPayloadBid,
     (Fork.GLOAS, 126): SignedExecutionPayloadBid,
     (Fork.GLOAS, 130): AttestationGloas,
@@ -633,6 +693,9 @@ _PROJECTION_TYPES = {
     (Fork.GLOAS, 159): BeaconBlockBodyGloas,
     (Fork.GLOAS, 167): BeaconBlockGloas,
     (Fork.GLOAS, 168): SignedBeaconBlockGloas,
+    (Fork.GLOAS, 170): ExecutionPayloadGloas,
+    (Fork.GLOAS, 175): ExecutionPayloadEnvelope,
+    (Fork.GLOAS, 176): SignedExecutionPayloadEnvelope,
 }
 
 

@@ -1,0 +1,144 @@
+"""Gloas execution payload envelope SSZ decoder."""
+
+from unsafe import raw_ptr
+from decode_status import DECODE_STATUS_MALFORMED_INPUT, DECODE_STATUS_VALID
+from metadata import OBJECT_SIGNED_EXECUTION_PAYLOAD_ENVELOPE
+from ssz_lowering import SszDecodeResult, ssz_byte_list, ssz_fixed_bytes, ssz_uint, withdrawal
+from ssz_reader import SszDocument, decode_ssz, first_variable_offset, read_u32, variable_offset
+from gloas_block_ssz import execution_requests
+from gloas_signing import promote_container
+from ssz_object import KIND_CONTAINER, KIND_PROGRESSIVE_BASIC_LIST, KIND_PROGRESSIVE_LIST, SszObject, add_composite_node, configure_preset, new_object, reserve_edges, set_edge
+
+
+def progressive_transactions(
+    document: raw_ptr[SszDocument], start: i32, end: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    if start == end:
+        first = reserve_edges(obj, 0)
+        return add_composite_node(obj, KIND_PROGRESSIVE_LIST, first, 0, 0, 0, 0)
+    first_offset = read_u32(document, start)
+    if first_offset <= 0 or first_offset % 4 != 0 or start + first_offset > end:
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
+        first = reserve_edges(obj, 0)
+        return add_composite_node(obj, KIND_PROGRESSIVE_LIST, first, 0, 0, 0, 0)
+    count = first_offset // 4
+    first = reserve_edges(obj, count)
+    i: i32 = 0
+    while i < count:
+        item_start = start + read_u32(document, start + i * 4)
+        item_end = end
+        if i + 1 < count:
+            item_end = start + read_u32(document, start + (i + 1) * 4)
+        if item_start < start + first_offset or item_end < item_start or item_end > end:
+            obj.status = DECODE_STATUS_MALFORMED_INPUT
+        transaction = ssz_byte_list(document, item_start, item_end, 2147483647, obj)
+        obj.nodes[transaction].kind = KIND_PROGRESSIVE_BASIC_LIST
+        obj.nodes[transaction].active_length = 1
+        set_edge(obj, first, i, transaction)
+        i = i + 1
+    return add_composite_node(obj, KIND_PROGRESSIVE_LIST, first, count, 0, 0, 0)
+
+
+def progressive_withdrawals(
+    document: raw_ptr[SszDocument], start: i32, end: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    length = end - start
+    if length < 0 or length % 44 != 0:
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
+        length = 0
+    count = length // 44
+    first = reserve_edges(obj, count)
+    i: i32 = 0
+    while i < count:
+        set_edge(obj, first, i, withdrawal(document, start + i * 44, obj))
+        i = i + 1
+    return add_composite_node(obj, KIND_PROGRESSIVE_LIST, first, count, 0, 0, 0)
+
+
+def execution_payload(
+    document: raw_ptr[SszDocument], start: i32, end: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    if end - start < 540:
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
+    extra = first_variable_offset(document, start, end, 436, 540)
+    transactions = variable_offset(document, start, end, 504, 540)
+    withdrawals = variable_offset(document, start, end, 508, 540)
+    access_list = variable_offset(document, start, end, 528, 540)
+    if transactions < extra or withdrawals < transactions or access_list < withdrawals:
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
+    first = reserve_edges(obj, 19)
+    set_edge(obj, first, 0, ssz_fixed_bytes(document, start, 32, obj))
+    set_edge(obj, first, 1, ssz_fixed_bytes(document, start + 32, 20, obj))
+    set_edge(obj, first, 2, ssz_fixed_bytes(document, start + 52, 32, obj))
+    set_edge(obj, first, 3, ssz_fixed_bytes(document, start + 84, 32, obj))
+    set_edge(obj, first, 4, ssz_fixed_bytes(document, start + 116, 256, obj))
+    set_edge(obj, first, 5, ssz_fixed_bytes(document, start + 372, 32, obj))
+    set_edge(obj, first, 6, ssz_uint(document, start + 404, 8, obj))
+    set_edge(obj, first, 7, ssz_uint(document, start + 412, 8, obj))
+    set_edge(obj, first, 8, ssz_uint(document, start + 420, 8, obj))
+    set_edge(obj, first, 9, ssz_uint(document, start + 428, 8, obj))
+    set_edge(obj, first, 10, ssz_byte_list(document, extra, transactions, 32, obj))
+    set_edge(obj, first, 11, ssz_uint(document, start + 440, 32, obj))
+    set_edge(obj, first, 12, ssz_fixed_bytes(document, start + 472, 32, obj))
+    transaction_node = progressive_transactions(document, transactions, withdrawals, obj)
+    set_edge(obj, first, 13, transaction_node)
+    withdrawal_node = progressive_withdrawals(document, withdrawals, access_list, obj)
+    set_edge(obj, first, 14, withdrawal_node)
+    set_edge(obj, first, 15, ssz_uint(document, start + 512, 8, obj))
+    set_edge(obj, first, 16, ssz_uint(document, start + 520, 8, obj))
+    access_node = ssz_byte_list(document, access_list, end, 2147483647, obj)
+    obj.nodes[access_node].kind = KIND_PROGRESSIVE_BASIC_LIST
+    obj.nodes[access_node].active_length = 1
+    set_edge(obj, first, 17, access_node)
+    set_edge(obj, first, 18, ssz_uint(document, start + 532, 8, obj))
+    node = add_composite_node(obj, KIND_CONTAINER, first, 19, 19, 0, 0)
+    promote_container(obj, node)
+    return node
+
+
+def execution_payload_envelope(
+    document: raw_ptr[SszDocument], start: i32, end: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    if end - start < 80:
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
+    payload = first_variable_offset(document, start, end, 0, 80)
+    requests = variable_offset(document, start, end, 4, 80)
+    if requests < payload:
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
+    first = reserve_edges(obj, 5)
+    set_edge(obj, first, 0, execution_payload(document, payload, requests, obj))
+    set_edge(obj, first, 1, execution_requests(document, requests, end, obj))
+    set_edge(obj, first, 2, ssz_uint(document, start + 8, 8, obj))
+    set_edge(obj, first, 3, ssz_fixed_bytes(document, start + 16, 32, obj))
+    set_edge(obj, first, 4, ssz_fixed_bytes(document, start + 48, 32, obj))
+    node = add_composite_node(obj, KIND_CONTAINER, first, 5, 5, 0, 0)
+    promote_container(obj, node)
+    return node
+
+
+def signed_execution_payload_envelope(
+    document: raw_ptr[SszDocument], obj: raw_ptr[SszObject]
+) -> i32:
+    if document.length < 100:
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
+    message = first_variable_offset(document, 0, document.length, 0, 100)
+    first = reserve_edges(obj, 2)
+    set_edge(obj, first, 0, execution_payload_envelope(document, message, document.length, obj))
+    set_edge(obj, first, 1, ssz_fixed_bytes(document, 4, 96, obj))
+    return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
+
+
+def decode_gloas_payload_envelope_ssz(
+    source: bytes, fork: i32, kind: i32, schema_id: i32, preset: i32
+) -> SszDecodeResult:
+    document = decode_ssz(source)
+    capacity = document.length // 4 + 4096
+    obj = new_object(fork, kind, schema_id, capacity, capacity, document.length * 3 + 32768)
+    configure_preset(obj, preset)
+    if kind == OBJECT_SIGNED_EXECUTION_PAYLOAD_ENVELOPE:
+        obj.root_node = signed_execution_payload_envelope(document, obj)
+    else:
+        obj.root_node = execution_payload_envelope(document, 0, document.length, obj)
+    if document.status != DECODE_STATUS_VALID:
+        obj.status = DECODE_STATUS_MALFORMED_INPUT
+    return SszDecodeResult(obj, document)

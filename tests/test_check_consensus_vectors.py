@@ -12,7 +12,7 @@ def test_vector_definitions_cover_all_implemented_forks() -> None:
         Fork.FULU,
         Fork.GLOAS,
     }
-    assert len(definitions) == 51
+    assert len(definitions) == 53
 
 
 def test_required_gloas_validator_types_include_beacon_blocks() -> None:

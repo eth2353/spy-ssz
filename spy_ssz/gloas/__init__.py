@@ -1,11 +1,12 @@
 """First-class Gloas validator-client containers and beacon blocks."""
 
 from .. import _spy
-from ..electra import _BlockProjection
+from ..block import BlockProjection, signature_bytes
 from ..preset import Preset
 from ..schema import Fork, ObjectKind, get_schema, schema_definitions
 from ..ssz import (
     SszObject,
+    _spy_bytes,
     bind_decoder,
     register_json_array_encoder,
     register_json_decoder,
@@ -23,7 +24,7 @@ _DEFINITIONS = {
 
 for _definition in _DEFINITIONS.values():
     _source_base = (
-        _BlockProjection if _definition.kind is ObjectKind.BEACON_BLOCK else SszObject
+        BlockProjection if _definition.kind is ObjectKind.BEACON_BLOCK else SszObject
     )
     _attributes = {
         "expected_fork": _definition.fork,
@@ -36,7 +37,10 @@ for _definition in _DEFINITIONS.values():
         )
     elif _definition.kind is ObjectKind.BEACON_BLOCK:
         _attributes.update(json_output_envelope_key="data")
-    elif _definition.kind is ObjectKind.SIGNED_BEACON_BLOCK:
+    elif _definition.kind in {
+        ObjectKind.SIGNED_BEACON_BLOCK,
+        ObjectKind.SIGNED_EXECUTION_PAYLOAD_ENVELOPE,
+    }:
         _attributes.update(
             json_input_envelope_key="data",
             json_output_envelope_key=None,
@@ -63,6 +67,39 @@ _BEACON_BLOCK.signed_types_by_preset = {
 }
 
 
+def _sign_execution_payload_envelope(
+    self: SszObject, signature: str | bytes
+) -> SszObject:
+    signed_type = _SIGNED_ENVELOPE_TYPES[self.expected_preset]
+    signature_obj, signature_view = _spy_bytes(signature_bytes(signature))
+    with self._use_handle() as source_handle:
+        handle = _spy.lib.spy_ssz_object_clone_and_sign_block(
+            source_handle,
+            signature_obj,
+            signed_type.expected_kind,
+            _SIGNED_ENVELOPE.schema_id,
+            False,
+        )
+    assert signature_view
+    if not handle.p or not _spy.lib.spy_ssz_object_is_valid(handle):
+        if handle.p:
+            _spy.lib.spy_ssz_object_destroy(handle)
+        raise ValueError("SPy execution payload envelope signing failed")
+    return signed_type(handle)
+
+
+_ENVELOPE = get_schema(Fork.GLOAS, ObjectKind.EXECUTION_PAYLOAD_ENVELOPE)
+_SIGNED_ENVELOPE = get_schema(Fork.GLOAS, ObjectKind.SIGNED_EXECUTION_PAYLOAD_ENVELOPE)
+_SIGNED_ENVELOPE_TYPES = {
+    preset: globals()[f"SignedExecutionPayloadEnvelopeGloas{preset.name.title()}"]
+    for preset in Preset
+}
+for _preset in Preset:
+    globals()[
+        f"ExecutionPayloadEnvelopeGloas{_preset.name.title()}"
+    ].sign = _sign_execution_payload_envelope
+
+
 for _definition in _DEFINITIONS.values():
     for _preset_name in _definition.presets:
         _preset = Preset[_preset_name.upper()]
@@ -85,6 +122,25 @@ for _definition in _DEFINITIONS.values():
             _json_encoder = _spy.lib.spy_schema_gloas_encode_json
             _ssz_sizer = _spy.lib.spy_schema_gloas_ssz_size
             _ssz_encoder = _spy.lib.spy_schema_gloas_encode_ssz
+        elif _definition.codec == "gloas_payload_envelope":
+            _json_decoder = bind_decoder(
+                _spy.lib.spy_schema_gloas_payload_envelope_decode_json_owned,
+                _definition.fork,
+                _definition.kind,
+                _definition.schema_id,
+                _preset,
+            )
+            _ssz_decoder = bind_decoder(
+                _spy.lib.spy_schema_gloas_payload_envelope_decode_ssz_owned,
+                _definition.fork,
+                _definition.kind,
+                _definition.schema_id,
+                _preset,
+            )
+            _json_sizer = _spy.lib.spy_schema_gloas_payload_envelope_json_size
+            _json_encoder = _spy.lib.spy_schema_gloas_payload_envelope_encode_json
+            _ssz_sizer = _spy.lib.spy_schema_gloas_payload_envelope_ssz_size
+            _ssz_encoder = _spy.lib.spy_schema_gloas_payload_envelope_encode_ssz
         else:
             _json_decoder = bind_decoder(
                 _spy.lib.spy_schema_gloas_signing_decode_json_owned,

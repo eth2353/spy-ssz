@@ -37,5 +37,13 @@ from gloas_block_encode import (
     gloas_json_size,
     gloas_ssz_size,
 )
+from gloas_payload_envelope import decode_gloas_payload_envelope_json
+from gloas_payload_envelope_ssz import decode_gloas_payload_envelope_ssz
+from gloas_payload_envelope_encode import (
+    gloas_payload_envelope_encode_json,
+    gloas_payload_envelope_encode_ssz,
+    gloas_payload_envelope_json_size,
+    gloas_payload_envelope_ssz_size,
+)
 from gloas_signing import decode_gloas_signing_json, decode_gloas_signing_ssz
 from ssz_object import clone_and_sign_block, object_hash_tree_root, object_node_hash_tree_root

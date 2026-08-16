@@ -99,7 +99,7 @@ def test_gloas_resolver_returns_first_class_gloas_types() -> None:
         for definition in schema_definitions()
         if definition.fork is Fork.GLOAS
     ]
-    assert len(gloas_definitions) == 21
+    assert len(gloas_definitions) == 23
     for definition in gloas_definitions:
         for preset in Preset:
             gloas_type = get_ssz_type(Fork.GLOAS, definition.kind, preset)

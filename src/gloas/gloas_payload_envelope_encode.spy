@@ -1,0 +1,240 @@
+"""Gloas execution payload envelope JSON and SSZ encoders."""
+
+from _bytes import BytesObject
+from unsafe import gc_ptr, raw_ptr
+from metadata import OBJECT_SIGNED_EXECUTION_PAYLOAD_ENVELOPE
+from writer import child, json_hex_node, json_key, json_uint, put, put_literal, put_u32, ssz_byte_list, ssz_fixed_bytes, ssz_uint
+from gloas_block_encode import json_execution_requests, ssz_execution_requests
+from ssz_object import SszObject
+
+
+def ssz_transactions(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    count = obj.nodes[node].child_count
+    running = count * 4
+    i: i32 = 0
+    while i < count:
+        pos = put_u32(data, cap, pos, running)
+        transaction = child(obj, node, i)
+        running = running + obj.nodes[transaction].data_length
+        i = i + 1
+    i = 0
+    while i < count:
+        pos = ssz_byte_list(obj, child(obj, node, i), data, cap, pos)
+        i = i + 1
+    return pos
+
+
+def ssz_withdrawals(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    i: i32 = 0
+    while i < obj.nodes[node].child_count:
+        item = child(obj, node, i)
+        pos = ssz_uint(obj, child(obj, item, 0), 8, data, cap, pos)
+        pos = ssz_uint(obj, child(obj, item, 1), 8, data, cap, pos)
+        pos = ssz_fixed_bytes(obj, child(obj, item, 2), data, cap, pos)
+        pos = ssz_uint(obj, child(obj, item, 3), 8, data, cap, pos)
+        i = i + 1
+    return pos
+
+
+def ssz_execution_payload(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    extra = child(obj, node, 10)
+    transactions = child(obj, node, 13)
+    withdrawals = child(obj, node, 14)
+    access_list = child(obj, node, 17)
+    transaction_size = ssz_transactions(obj, transactions, data, 0, 0)
+    withdrawal_size = ssz_withdrawals(obj, withdrawals, data, 0, 0)
+    running: i32 = 540
+    pos = ssz_fixed_bytes(obj, child(obj, node, 0), data, cap, pos)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 1), data, cap, pos)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 2), data, cap, pos)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 3), data, cap, pos)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 4), data, cap, pos)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 5), data, cap, pos)
+    pos = ssz_uint(obj, child(obj, node, 6), 8, data, cap, pos)
+    pos = ssz_uint(obj, child(obj, node, 7), 8, data, cap, pos)
+    pos = ssz_uint(obj, child(obj, node, 8), 8, data, cap, pos)
+    pos = ssz_uint(obj, child(obj, node, 9), 8, data, cap, pos)
+    pos = put_u32(data, cap, pos, running)
+    running = running + obj.nodes[extra].data_length
+    pos = ssz_uint(obj, child(obj, node, 11), 32, data, cap, pos)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 12), data, cap, pos)
+    pos = put_u32(data, cap, pos, running)
+    running = running + transaction_size
+    pos = put_u32(data, cap, pos, running)
+    running = running + withdrawal_size
+    pos = ssz_uint(obj, child(obj, node, 15), 8, data, cap, pos)
+    pos = ssz_uint(obj, child(obj, node, 16), 8, data, cap, pos)
+    pos = put_u32(data, cap, pos, running)
+    pos = ssz_uint(obj, child(obj, node, 18), 8, data, cap, pos)
+    pos = ssz_byte_list(obj, extra, data, cap, pos)
+    pos = ssz_transactions(obj, transactions, data, cap, pos)
+    pos = ssz_withdrawals(obj, withdrawals, data, cap, pos)
+    return ssz_byte_list(obj, access_list, data, cap, pos)
+
+
+def ssz_execution_payload_envelope(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    payload = child(obj, node, 0)
+    requests = child(obj, node, 1)
+    payload_size = ssz_execution_payload(obj, payload, data, 0, 0)
+    pos = put_u32(data, cap, pos, 80)
+    pos = put_u32(data, cap, pos, 80 + payload_size)
+    pos = ssz_uint(obj, child(obj, node, 2), 8, data, cap, pos)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 3), data, cap, pos)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 4), data, cap, pos)
+    pos = ssz_execution_payload(obj, payload, data, cap, pos)
+    return ssz_execution_requests(obj, requests, data, cap, pos)
+
+
+def ssz_signed_execution_payload_envelope(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put_u32(data, cap, pos, 100)
+    pos = ssz_fixed_bytes(obj, child(obj, node, 1), data, cap, pos)
+    return ssz_execution_payload_envelope(obj, child(obj, node, 0), data, cap, pos)
+
+
+def json_transactions(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put(data, cap, pos, u8(91))
+    i: i32 = 0
+    while i < obj.nodes[node].child_count:
+        if i > 0:
+            pos = put(data, cap, pos, u8(44))
+        pos = json_hex_node(obj, child(obj, node, i), data, cap, pos)
+        i = i + 1
+    return put(data, cap, pos, u8(93))
+
+
+def json_withdrawals(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put(data, cap, pos, u8(91))
+    i: i32 = 0
+    while i < obj.nodes[node].child_count:
+        if i > 0:
+            pos = put(data, cap, pos, u8(44))
+        item = child(obj, node, i)
+        pos = put(data, cap, pos, u8(123))
+        pos = json_key(data, cap, pos, b"index")
+        pos = json_uint(obj, child(obj, item, 0), data, cap, pos)
+        pos = put(data, cap, pos, u8(44))
+        pos = json_key(data, cap, pos, b"validator_index")
+        pos = json_uint(obj, child(obj, item, 1), data, cap, pos)
+        pos = put(data, cap, pos, u8(44))
+        pos = json_key(data, cap, pos, b"address")
+        pos = json_hex_node(obj, child(obj, item, 2), data, cap, pos)
+        pos = put(data, cap, pos, u8(44))
+        pos = json_key(data, cap, pos, b"amount")
+        pos = json_uint(obj, child(obj, item, 3), data, cap, pos)
+        pos = put(data, cap, pos, u8(125))
+        i = i + 1
+    return put(data, cap, pos, u8(93))
+
+
+def json_execution_payload(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put(data, cap, pos, u8(123))
+    i: i32 = 0
+    while i < 19:
+        if i > 0:
+            pos = put(data, cap, pos, u8(44))
+        if i == 0:
+            pos = json_key(data, cap, pos, b"parent_hash")
+        elif i == 1:
+            pos = json_key(data, cap, pos, b"fee_recipient")
+        elif i == 2:
+            pos = json_key(data, cap, pos, b"state_root")
+        elif i == 3:
+            pos = json_key(data, cap, pos, b"receipts_root")
+        elif i == 4:
+            pos = json_key(data, cap, pos, b"logs_bloom")
+        elif i == 5:
+            pos = json_key(data, cap, pos, b"prev_randao")
+        elif i == 6:
+            pos = json_key(data, cap, pos, b"block_number")
+        elif i == 7:
+            pos = json_key(data, cap, pos, b"gas_limit")
+        elif i == 8:
+            pos = json_key(data, cap, pos, b"gas_used")
+        elif i == 9:
+            pos = json_key(data, cap, pos, b"timestamp")
+        elif i == 10:
+            pos = json_key(data, cap, pos, b"extra_data")
+        elif i == 11:
+            pos = json_key(data, cap, pos, b"base_fee_per_gas")
+        elif i == 12:
+            pos = json_key(data, cap, pos, b"block_hash")
+        elif i == 13:
+            pos = json_key(data, cap, pos, b"transactions")
+        elif i == 14:
+            pos = json_key(data, cap, pos, b"withdrawals")
+        elif i == 15:
+            pos = json_key(data, cap, pos, b"blob_gas_used")
+        elif i == 16:
+            pos = json_key(data, cap, pos, b"excess_blob_gas")
+        elif i == 17:
+            pos = json_key(data, cap, pos, b"block_access_list")
+        else:
+            pos = json_key(data, cap, pos, b"slot_number")
+        if i == 13:
+            pos = json_transactions(obj, child(obj, node, i), data, cap, pos)
+        elif i == 14:
+            pos = json_withdrawals(obj, child(obj, node, i), data, cap, pos)
+        elif i == 6 or i == 7 or i == 8 or i == 9 or i == 11 or i == 15 or i == 16 or i == 18:
+            pos = json_uint(obj, child(obj, node, i), data, cap, pos)
+        else:
+            pos = json_hex_node(obj, child(obj, node, i), data, cap, pos)
+        i = i + 1
+    return put(data, cap, pos, u8(125))
+
+
+def json_execution_payload_envelope(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put(data, cap, pos, u8(123))
+    pos = json_key(data, cap, pos, b"payload")
+    pos = json_execution_payload(obj, child(obj, node, 0), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"execution_requests")
+    pos = json_execution_requests(obj, child(obj, node, 1), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"builder_index")
+    pos = json_uint(obj, child(obj, node, 2), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"beacon_block_root")
+    pos = json_hex_node(obj, child(obj, node, 3), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"parent_beacon_block_root")
+    pos = json_hex_node(obj, child(obj, node, 4), data, cap, pos)
+    return put(data, cap, pos, u8(125))
+
+
+def json_signed_execution_payload_envelope(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+    pos = put_literal(data, cap, pos, b"{\"message\":")
+    pos = json_execution_payload_envelope(obj, child(obj, node, 0), data, cap, pos)
+    pos = put(data, cap, pos, u8(44))
+    pos = json_key(data, cap, pos, b"signature")
+    pos = json_hex_node(obj, child(obj, node, 1), data, cap, pos)
+    return put(data, cap, pos, u8(125))
+
+
+def gloas_payload_envelope_ssz_size(obj: raw_ptr[SszObject]) -> i32:
+    if obj.object_kind == OBJECT_SIGNED_EXECUTION_PAYLOAD_ENVELOPE:
+        return ssz_signed_execution_payload_envelope(obj, obj.root_node, obj.root.data, 0, 0)
+    return ssz_execution_payload_envelope(obj, obj.root_node, obj.root.data, 0, 0)
+
+
+def gloas_payload_envelope_encode_ssz(obj: raw_ptr[SszObject], output: bytes) -> i32:
+    out = BytesObject.from_bytes(output)
+    if obj.object_kind == OBJECT_SIGNED_EXECUTION_PAYLOAD_ENVELOPE:
+        return ssz_signed_execution_payload_envelope(obj, obj.root_node, out.data, out.length, 0)
+    return ssz_execution_payload_envelope(obj, obj.root_node, out.data, out.length, 0)
+
+
+def gloas_payload_envelope_json_size(obj: raw_ptr[SszObject]) -> i32:
+    if obj.object_kind == OBJECT_SIGNED_EXECUTION_PAYLOAD_ENVELOPE:
+        return json_signed_execution_payload_envelope(obj, obj.root_node, obj.root.data, 0, 0)
+    pos = put_literal(obj.root.data, 0, 0, b"{\"data\":")
+    pos = json_execution_payload_envelope(obj, obj.root_node, obj.root.data, 0, pos)
+    return put(obj.root.data, 0, pos, u8(125))
+
+
+def gloas_payload_envelope_encode_json(obj: raw_ptr[SszObject], output: bytes) -> i32:
+    out = BytesObject.from_bytes(output)
+    if obj.object_kind == OBJECT_SIGNED_EXECUTION_PAYLOAD_ENVELOPE:
+        return json_signed_execution_payload_envelope(obj, obj.root_node, out.data, out.length, 0)
+    pos = put_literal(out.data, out.length, 0, b"{\"data\":")
+    pos = json_execution_payload_envelope(obj, obj.root_node, out.data, out.length, pos)
+    return put(out.data, out.length, pos, u8(125))

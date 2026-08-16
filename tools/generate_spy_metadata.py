@@ -657,6 +657,26 @@ def _render_gloas_stub(
             f"    def signed_type(cls) -> type[SignedBeaconBlockGloas{preset}]: ..."
             + ("\n" if preset == "Minimal" else ""),
         )
+    rendered = rendered.replace(
+        "class ExecutionPayloadEnvelopeGloas(SszObject):",
+        "class ExecutionPayloadEnvelopeGloas(SszObject):\n"
+        "    def sign(self, signature: str | bytes) -> SignedExecutionPayloadEnvelopeGloas: ...",
+    )
+    for preset in ("Minimal", "Gnosis"):
+        separator = "\n" if preset == "Minimal" else ""
+        rendered = rendered.replace(
+            f"class ExecutionPayloadEnvelopeGloas{preset}(ExecutionPayloadEnvelopeGloas): ...",
+            f"class ExecutionPayloadEnvelopeGloas{preset}(ExecutionPayloadEnvelopeGloas):\n"
+            "    def sign(\n"
+            "        self, signature: str | bytes\n"
+            f"    ) -> SignedExecutionPayloadEnvelopeGloas{preset}: ...{separator}",
+        )
+        rendered = rendered.replace(
+            f"class SignedExecutionPayloadEnvelopeGloas{preset}(SignedExecutionPayloadEnvelopeGloas): ...",
+            f"class SignedExecutionPayloadEnvelopeGloas{preset}(\n"
+            "    SignedExecutionPayloadEnvelopeGloas\n"
+            "): ...",
+        )
     return rendered
 
 

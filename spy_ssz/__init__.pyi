@@ -212,6 +212,14 @@ from .gloas import (
     SignedProposerPreferencesGloasMainnet as SignedProposerPreferencesGloasMainnet,
     SignedProposerPreferencesGloasMinimal as SignedProposerPreferencesGloasMinimal,
     SignedProposerPreferencesGloasGnosis as SignedProposerPreferencesGloasGnosis,
+    ExecutionPayloadEnvelopeGloas as ExecutionPayloadEnvelopeGloas,
+    ExecutionPayloadEnvelopeGloasMainnet as ExecutionPayloadEnvelopeGloasMainnet,
+    ExecutionPayloadEnvelopeGloasMinimal as ExecutionPayloadEnvelopeGloasMinimal,
+    ExecutionPayloadEnvelopeGloasGnosis as ExecutionPayloadEnvelopeGloasGnosis,
+    SignedExecutionPayloadEnvelopeGloas as SignedExecutionPayloadEnvelopeGloas,
+    SignedExecutionPayloadEnvelopeGloasMainnet as SignedExecutionPayloadEnvelopeGloasMainnet,
+    SignedExecutionPayloadEnvelopeGloasMinimal as SignedExecutionPayloadEnvelopeGloasMinimal,
+    SignedExecutionPayloadEnvelopeGloasGnosis as SignedExecutionPayloadEnvelopeGloasGnosis,
 )
 
 from .signing import (

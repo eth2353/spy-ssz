@@ -1,0 +1,114 @@
+"""Gloas execution payload envelope JSON decoder."""
+
+from unsafe import raw_ptr
+from decode_status import DECODE_STATUS_VALID
+from json_parser import JsonDocument, array_get, array_length, decode_json, ignore_unrecognized_object_fields, object_get, require_recognized_object_fields
+from json_lowering import JsonDecodeResult, json_byte_list, json_fixed_bytes, json_uint, json_uint64, withdrawal
+from metadata import OBJECT_SIGNED_EXECUTION_PAYLOAD_ENVELOPE
+from gloas_block import execution_requests
+from gloas_signing import promote_container
+from ssz_object import KIND_CONTAINER, KIND_PROGRESSIVE_BASIC_LIST, KIND_PROGRESSIVE_LIST, SszObject, add_composite_node, configure_preset, new_object, reserve_edges, set_edge
+
+
+def progressive_transactions(
+    document: raw_ptr[JsonDocument], values: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    count = array_length(document, values)
+    first = reserve_edges(obj, count)
+    i: i32 = 0
+    while i < count:
+        transaction = json_byte_list(document, array_get(document, values, i), obj, 2147483647)
+        obj.nodes[transaction].kind = KIND_PROGRESSIVE_BASIC_LIST
+        obj.nodes[transaction].active_length = 1
+        set_edge(obj, first, i, transaction)
+        i = i + 1
+    return add_composite_node(obj, KIND_PROGRESSIVE_LIST, first, count, 0, 0, 0)
+
+
+def progressive_withdrawals(
+    document: raw_ptr[JsonDocument], values: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    count = array_length(document, values)
+    first = reserve_edges(obj, count)
+    i: i32 = 0
+    while i < count:
+        set_edge(obj, first, i, withdrawal(document, array_get(document, values, i), obj))
+        i = i + 1
+    return add_composite_node(obj, KIND_PROGRESSIVE_LIST, first, count, 0, 0, 0)
+
+
+def execution_payload(
+    document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    first = reserve_edges(obj, 19)
+    set_edge(obj, first, 0, json_fixed_bytes(document, object_get(document, value, b"parent_hash"), obj, 32))
+    set_edge(obj, first, 1, json_fixed_bytes(document, object_get(document, value, b"fee_recipient"), obj, 20))
+    set_edge(obj, first, 2, json_fixed_bytes(document, object_get(document, value, b"state_root"), obj, 32))
+    set_edge(obj, first, 3, json_fixed_bytes(document, object_get(document, value, b"receipts_root"), obj, 32))
+    set_edge(obj, first, 4, json_fixed_bytes(document, object_get(document, value, b"logs_bloom"), obj, 256))
+    set_edge(obj, first, 5, json_fixed_bytes(document, object_get(document, value, b"prev_randao"), obj, 32))
+    set_edge(obj, first, 6, json_uint64(document, object_get(document, value, b"block_number"), obj))
+    set_edge(obj, first, 7, json_uint64(document, object_get(document, value, b"gas_limit"), obj))
+    set_edge(obj, first, 8, json_uint64(document, object_get(document, value, b"gas_used"), obj))
+    set_edge(obj, first, 9, json_uint64(document, object_get(document, value, b"timestamp"), obj))
+    set_edge(obj, first, 10, json_byte_list(document, object_get(document, value, b"extra_data"), obj, 32))
+    set_edge(obj, first, 11, json_uint(document, object_get(document, value, b"base_fee_per_gas"), obj))
+    set_edge(obj, first, 12, json_fixed_bytes(document, object_get(document, value, b"block_hash"), obj, 32))
+    transactions = progressive_transactions(document, object_get(document, value, b"transactions"), obj)
+    set_edge(obj, first, 13, transactions)
+    withdrawals = progressive_withdrawals(document, object_get(document, value, b"withdrawals"), obj)
+    set_edge(obj, first, 14, withdrawals)
+    set_edge(obj, first, 15, json_uint64(document, object_get(document, value, b"blob_gas_used"), obj))
+    set_edge(obj, first, 16, json_uint64(document, object_get(document, value, b"excess_blob_gas"), obj))
+    access_list = json_byte_list(document, object_get(document, value, b"block_access_list"), obj, 2147483647)
+    obj.nodes[access_list].kind = KIND_PROGRESSIVE_BASIC_LIST
+    obj.nodes[access_list].active_length = 1
+    set_edge(obj, first, 17, access_list)
+    set_edge(obj, first, 18, json_uint64(document, object_get(document, value, b"slot_number"), obj))
+    node = add_composite_node(obj, KIND_CONTAINER, first, 19, 19, 0, 0)
+    promote_container(obj, node)
+    return node
+
+
+def execution_payload_envelope(
+    document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    first = reserve_edges(obj, 5)
+    set_edge(obj, first, 0, execution_payload(document, object_get(document, value, b"payload"), obj))
+    set_edge(obj, first, 1, execution_requests(document, object_get(document, value, b"execution_requests"), obj))
+    set_edge(obj, first, 2, json_uint64(document, object_get(document, value, b"builder_index"), obj))
+    set_edge(obj, first, 3, json_fixed_bytes(document, object_get(document, value, b"beacon_block_root"), obj, 32))
+    set_edge(obj, first, 4, json_fixed_bytes(document, object_get(document, value, b"parent_beacon_block_root"), obj, 32))
+    node = add_composite_node(obj, KIND_CONTAINER, first, 5, 5, 0, 0)
+    promote_container(obj, node)
+    return node
+
+
+def signed_execution_payload_envelope(
+    document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
+) -> i32:
+    first = reserve_edges(obj, 2)
+    set_edge(obj, first, 0, execution_payload_envelope(document, object_get(document, value, b"message"), obj))
+    set_edge(obj, first, 1, json_fixed_bytes(document, object_get(document, value, b"signature"), obj, 96))
+    return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
+
+
+def decode_gloas_payload_envelope_json(
+    source: bytes, fork: i32, kind: i32, schema_id: i32, preset: i32
+) -> JsonDecodeResult:
+    document = decode_json(source)
+    capacity = document.token_count + 2048
+    obj = new_object(fork, kind, schema_id, capacity, capacity, document.json_length * 2 + 16384)
+    configure_preset(obj, preset)
+    value = object_get(document, 0, b"data")
+    if kind == OBJECT_SIGNED_EXECUTION_PAYLOAD_ENVELOPE:
+        obj.root_node = signed_execution_payload_envelope(document, value, obj)
+    else:
+        obj.root_node = execution_payload_envelope(document, value, obj)
+    ignore_unrecognized_object_fields(document, 0)
+    require_recognized_object_fields(document)
+    if document.status != DECODE_STATUS_VALID:
+        obj.status = document.status
+        obj.error_start = document.error_start
+        obj.error_end = document.error_end
+    return JsonDecodeResult(obj, document)
