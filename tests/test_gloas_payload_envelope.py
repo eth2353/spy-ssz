@@ -4,6 +4,7 @@ from eth_consensus_specs.gloas import mainnet as gloas
 from spy_ssz import ObjectKind
 from spy_ssz.gloas import (
     ExecutionPayloadEnvelopeGloasMainnet,
+    PayloadAttestationDataGloasMainnet,
     SignedExecutionPayloadEnvelopeGloasMainnet,
 )
 
@@ -67,7 +68,8 @@ def test_execution_payload_envelope_json_ssz_and_projections() -> None:
     ) as envelope:
         assert envelope.hash_tree_root() == reference.hash_tree_root()
         encoded = msgspec.json.decode(envelope.to_json())
-        assert set(encoded) == {"data"}
+        assert encoded["version"] == "gloas"
+        assert set(encoded) == {"version", "data"}
         assert (
             gloas.ExecutionPayloadEnvelope.from_obj(encoded["data"]).hash_tree_root()
             == reference.hash_tree_root()
@@ -114,3 +116,28 @@ def test_signed_execution_payload_envelope_accepts_response_metadata() -> None:
     with SignedExecutionPayloadEnvelopeGloasMainnet.from_json(response) as signed:
         assert signed.to_ssz() == expected.encode_bytes()
         assert signed.hash_tree_root() == expected.hash_tree_root()
+
+
+def test_payload_attestation_data_uses_versioned_response_envelope() -> None:
+    expected = gloas.PayloadAttestationData(slot=12, payload_present=True)
+    response = msgspec.json.encode(
+        {
+            "version": "gloas",
+            "data": expected.to_obj(),
+            "future_metadata": {"ignored": True},
+        }
+    )
+
+    with PayloadAttestationDataGloasMainnet.from_json(response) as data:
+        assert data.to_ssz() == expected.encode_bytes()
+        assert data.hash_tree_root() == expected.hash_tree_root()
+        encoded = msgspec.json.decode(data.to_json())
+        assert set(encoded) == {"version", "data"}
+        assert encoded["version"] == "gloas"
+        assert (
+            gloas.PayloadAttestationData.from_obj(encoded["data"]).hash_tree_root()
+            == expected.hash_tree_root()
+        )
+
+    with PayloadAttestationDataGloasMainnet.from_obj(expected.to_obj()) as data:
+        assert data.hash_tree_root() == expected.hash_tree_root()

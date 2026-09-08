@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from contextlib import ExitStack, contextmanager
 from copy import deepcopy
 from enum import IntEnum
 from importlib import import_module
 from threading import RLock
-from typing import Any, Callable, ClassVar, Iterable, Iterator, Self, TypeVar
+from typing import Any, ClassVar, Self, TypeVar
 
 import msgspec
 
@@ -185,6 +186,9 @@ class SszObject:
     expected_preset: ClassVar[Preset] = Preset.MAINNET
     json_input_envelope_key: ClassVar[str | None] = "data"
     json_output_envelope_key: ClassVar[str | None] = "data"
+    json_decoder_handles_envelope: ClassVar[bool] = True
+    json_encoder_handles_envelope: ClassVar[bool] = True
+    json_output_metadata: ClassVar[Mapping[str, Any] | None] = None
 
     def __init__(self, handle: Any = None, **fields: Any):
         self._lock = RLock()
@@ -259,7 +263,17 @@ class SszObject:
 
     @classmethod
     def from_json(cls, data: bytes | bytearray | memoryview) -> Self:
-        return cls._decode(data, _JSON_DECODERS, "JSON")
+        source = bytes(data)
+        envelope_key = cls.json_input_envelope_key
+        if envelope_key is not None and not cls.json_decoder_handles_envelope:
+            try:
+                value = msgspec.json.decode(source)
+            except msgspec.DecodeError:
+                pass
+            else:
+                if isinstance(value, dict) and envelope_key in value:
+                    source = msgspec.json.encode(value[envelope_key])
+        return cls._decode(source, _JSON_DECODERS, "JSON")
 
     @classmethod
     def from_ssz(cls, data: bytes | bytearray | memoryview) -> Self:
@@ -422,7 +436,20 @@ class SszObject:
 
     def to_json(self) -> bytes:
         """Encode the compact Beacon API JSON representation for this object."""
-        return self._encode(_JSON_ENCODERS, "JSON")
+        encoded = self._encode(_JSON_ENCODERS, "JSON")
+        envelope_key = type(self).json_output_envelope_key
+        metadata = type(self).json_output_metadata
+        if envelope_key is None or (
+            type(self).json_encoder_handles_envelope and metadata is None
+        ):
+            return encoded
+
+        value = msgspec.json.decode(encoded)
+        if not type(self).json_encoder_handles_envelope:
+            value = {envelope_key: value}
+        if metadata is not None:
+            value = {**metadata, **value}
+        return msgspec.json.encode(value)
 
     def _encode(
         self,

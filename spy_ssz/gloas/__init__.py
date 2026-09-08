@@ -15,7 +15,6 @@ from ..ssz import (
     register_ssz_encoder,
 )
 
-
 _DEFINITIONS = {
     definition.kind: definition
     for definition in schema_definitions()
@@ -35,8 +34,18 @@ for _definition in _DEFINITIONS.values():
             json_input_envelope_key=None,
             json_output_envelope_key=None,
         )
+        if _definition.kind is ObjectKind.PAYLOAD_ATTESTATION_DATA:
+            _attributes.update(
+                json_input_envelope_key="data",
+                json_output_envelope_key="data",
+                json_decoder_handles_envelope=False,
+                json_encoder_handles_envelope=False,
+                json_output_metadata={"version": "gloas"},
+            )
     elif _definition.kind is ObjectKind.BEACON_BLOCK:
         _attributes.update(json_output_envelope_key="data")
+    elif _definition.kind is ObjectKind.EXECUTION_PAYLOAD_ENVELOPE:
+        _attributes.update(json_output_metadata={"version": "gloas"})
     elif _definition.kind in {
         ObjectKind.SIGNED_BEACON_BLOCK,
         ObjectKind.SIGNED_EXECUTION_PAYLOAD_ENVELOPE,
