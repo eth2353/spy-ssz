@@ -132,10 +132,14 @@ def test_payload_attestation_data_uses_versioned_response_envelope() -> None:
         assert data.to_ssz() == expected.encode_bytes()
         assert data.hash_tree_root() == expected.hash_tree_root()
         encoded = msgspec.json.decode(data.to_json())
-        assert set(encoded) == {"version", "data"}
-        assert encoded["version"] == "gloas"
+        assert set(encoded) == {
+            "beacon_block_root",
+            "slot",
+            "payload_present",
+            "blob_data_available",
+        }
         assert (
-            gloas.PayloadAttestationData.from_obj(encoded["data"]).hash_tree_root()
+            gloas.PayloadAttestationData.from_obj(encoded).hash_tree_root()
             == expected.hash_tree_root()
         )
 
