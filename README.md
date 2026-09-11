@@ -297,8 +297,8 @@ required `data` field; metadata from a different endpoint is rejected.
 - `spy_ssz/ssz.py` owns Python lifetimes and codec dispatch.
 
 Fork identifiers follow consensus chronology: Phase0 is `0`, Altair is `1`,
-Bellatrix is `2`, Capella is `3`, Deneb is `4`, Electra is `5`, and Fulu is
-`6`.
+Bellatrix is `2`, Capella is `3`, Deneb is `4`, Electra is `5`, Fulu is `6`,
+and Gloas is `7`.
 
 ## Development and benchmarks
 
@@ -309,8 +309,8 @@ uvx pre-commit run --all-files
 uv run python -m pytest -q
 ```
 
-Check the implemented Electra and Fulu codecs against extracted
-`consensus-specs` SSZ static vectors:
+Check the implemented codecs against extracted `consensus-specs` SSZ static
+vectors:
 
 ```bash
 uv run --with python-snappy python tools/check_consensus_vectors.py \
@@ -319,13 +319,13 @@ uv run --with python-snappy python tools/check_consensus_vectors.py \
 
 The path may be the extraction root containing `tests/minimal` and
 `tests/mainnet`, or the `tests` directory itself. Use `--preset minimal` or
-`--preset mainnet` to check only one preset, and `--fork electra` or
-`--fork fulu` to narrow the automatically discovered implemented forks. The
-runner verifies SSZ decode, canonical re-encoding, and hash-tree roots for
-every vector matching an implemented codec. Upstream consensus-spec tests only
-publish static vectors for the `minimal` and `mainnet` presets, so the
-supported `gnosis` codec variants are covered by the regular test suite rather
-than this runner.
+`--preset mainnet` to check only one preset, and `--fork electra`, `--fork
+fulu`, or `--fork gloas` to narrow the automatically discovered implemented
+forks. The runner verifies SSZ decode, canonical re-encoding, and hash-tree
+roots for every vector matching an implemented codec. Upstream consensus-spec
+tests only publish static vectors for the `minimal` and `mainnet` presets, so
+the supported `gnosis` codec variants are covered by the regular test suite
+rather than this runner.
 
 The upstream archives are hundreds of megabytes, so this check is intended for
 scheduled or release CI rather than the per-commit pre-commit suite.
