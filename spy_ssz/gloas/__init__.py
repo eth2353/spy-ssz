@@ -38,7 +38,6 @@ for _definition in _DEFINITIONS.values():
             _attributes.update(
                 json_input_envelope_key="data",
                 json_output_envelope_key="data",
-                json_decoder_handles_envelope=False,
                 json_encoder_handles_envelope=False,
                 json_output_metadata={"version": "gloas"},
             )
