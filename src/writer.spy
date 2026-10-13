@@ -320,5 +320,10 @@ def ssz_variable_sequence(encode_item):
             pos = put_u32(data, cap, pos, running)
             running = running + encode_item(obj, child(obj, node, i), data, 0, 0)
             i = i + 1
-        return ssz_sequence[encode_item](obj, node, data, cap, pos)
+        # Reuse the count for the payload pass as well as the offset table.
+        i = 0
+        while i < count:
+            pos = encode_item(obj, child(obj, node, i), data, cap, pos)
+            i = i + 1
+        return pos
     return encode
