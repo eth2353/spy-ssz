@@ -1,4 +1,5 @@
-include tools/build_extension.py
-include tools/generate_spy_metadata.py
+include CONTRIBUTING.md
+include src/README.md
+include tools/*.py
 recursive-include src *.c *.h *.spy
 prune src/build

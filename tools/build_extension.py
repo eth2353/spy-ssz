@@ -8,6 +8,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import sysconfig
 import tempfile
 from pathlib import Path
 
@@ -126,6 +127,12 @@ def build(spy_root: Path) -> Path:
     env["PATH"] = f"{Path(sys.executable).parent}:{env.get('PATH', '')}"
     env.setdefault("ZIG_GLOBAL_CACHE_DIR", "/tmp/spy-zig-global-cache")
     env.setdefault("ZIG_LOCAL_CACHE_DIR", "/tmp/spy-zig-local-cache")
+    if sys.platform == "darwin":
+        # distutils applies Python's deployment target to the extension. The
+        # separately built libspy must use the same target, not the host OS.
+        deployment_target = sysconfig.get_config_var("MACOSX_DEPLOYMENT_TARGET")
+        if deployment_target:
+            env.setdefault("MACOSX_DEPLOYMENT_TARGET", str(deployment_target))
     sanitize = sanitizer_enabled()
 
     generate_metadata()
@@ -140,7 +147,8 @@ def build(spy_root: Path) -> Path:
     native_build_type = "debug" if sanitize else "release"
     native_make = [
         "make",
-        *(["-B"] if sanitize else []),
+        # make does not track changes to sanitizer or deployment-target flags.
+        *(["-B"] if sanitize or sys.platform == "darwin" else []),
         "-C",
         str(libspy),
         "TARGET=native",
