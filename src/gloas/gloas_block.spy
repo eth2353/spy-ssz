@@ -56,11 +56,6 @@ def promote_attester_slashings(obj: raw_ptr[SszObject], node: i32) -> None:
         i = i + 1
 
 
-def progressive_list(obj: raw_ptr[SszObject], node: i32) -> i32:
-    obj.nodes[node].kind = KIND_PROGRESSIVE_LIST
-    return node
-
-
 def commitment_list(
     document: raw_ptr[JsonDocument], values: i32, obj: raw_ptr[SszObject]
 ) -> i32:

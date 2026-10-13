@@ -331,14 +331,6 @@ def add_basic_list_node(
     )
 
 
-def add_progressive_bitlist_node(
-    obj: raw_ptr[SszObject], data_offset: i32, bit_length: i32
-) -> i32:
-    return add_node(
-        obj, KIND_PROGRESSIVE_BITLIST, data_offset, bit_length, 0, 0, 0, 0, 0
-    )
-
-
 def add_composite_node(
     obj: raw_ptr[SszObject],
     kind: i32,

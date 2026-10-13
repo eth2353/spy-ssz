@@ -235,17 +235,6 @@ def hash_pair_into(
         i = i + 1
 
 
-def merkleize_in_place(work: bytes, leaf_count: i32, state: bytes, schedule: bytes) -> None:
-    count = leaf_count
-    while count > 1:
-        parent_count = count // 2
-        i: i32 = 0
-        while i < parent_count:
-            hash_pair_into(work, i * 64, work, i * 32, state, schedule)
-            i = i + 1
-        count = parent_count
-
-
 def merkleize_at(
     work: bytes,
     base_offset: i32,
