@@ -67,6 +67,38 @@ def test_public_type_resolver_is_complete_and_coherent() -> None:
             assert resolved is expected
             assert resolved is getattr(spy_ssz, expected.__name__)
             assert issubclass(resolved, SszObject)
+            assert resolved.__module__ == module.__name__
+            assert resolved.expected_fork is definition.fork
+            assert resolved.expected_kind is definition.kind
+            assert resolved.expected_preset is preset
+
+
+@pytest.mark.parametrize(
+    "definition",
+    [value for value in schema_definitions() if value.consensus_type is not None],
+    ids=lambda value: value.name,
+)
+@pytest.mark.parametrize("preset", [Preset.MAINNET, Preset.MINIMAL])
+def test_every_schema_matches_consensus_codecs(definition, preset) -> None:
+    reference_module = import_module(
+        f"eth_consensus_specs.{definition.fork.name.lower()}.{preset.name.lower()}"
+    )
+    reference = getattr(reference_module, definition.consensus_type)()
+    concrete = get_ssz_type(definition.fork, definition.kind, preset)
+    encoded = reference.encode_bytes()
+    with (
+        concrete.from_ssz(encoded) as from_ssz,
+        concrete.from_obj(reference.to_obj()) as from_json,
+    ):
+        for value in (from_ssz, from_json):
+            assert value.fork is definition.fork
+            assert value.object_kind is definition.kind
+            assert value.preset is preset
+            assert value.schema_id == definition.schema_id
+            assert value.to_ssz() == encoded
+            assert value.hash_tree_root() == reference.hash_tree_root()
+        with concrete.from_obj(from_ssz.to_obj()) as roundtrip:
+            assert roundtrip.to_ssz() == encoded
 
 
 def test_public_type_resolver_rejects_unsupported_combination() -> None:

@@ -2,25 +2,42 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from contextlib import ExitStack, contextmanager
 from copy import deepcopy
 from enum import IntEnum
 from importlib import import_module
 from threading import RLock
-from typing import Any, ClassVar, Self, TypeVar
+from typing import Any, ClassVar, Self
 
 import msgspec
 
 from . import _spy
 from ._repr import format_container
+from ._codecs import (
+    CodecKey,
+    Decoder,
+    Sizer,
+    Encoder,
+    _JSON_DECODERS,
+    _SSZ_DECODERS,
+    _SSZ_ENCODERS,
+    _JSON_ENCODERS,
+    _JSON_ARRAY_ENCODERS,
+    _lookup_codec,
+    bind_decoder as bind_decoder,
+    register_json_decoder as register_json_decoder,
+    register_ssz_decoder as register_ssz_decoder,
+    register_json_encoder as register_json_encoder,
+    register_ssz_encoder as register_ssz_encoder,
+    register_json_array_encoder as register_json_array_encoder,
+)
 from .preset import Preset
 from .schema import (
     Fork,
     ObjectKind,
     get_schema,
     module_for_codec,
-    schema_definitions,
 )
 
 
@@ -40,15 +57,6 @@ def _compose_typed_fields(cls: type[SszObject], fields: dict[str, Any]) -> Any |
     return composer(cls, fields)
 
 
-Decoder = Callable[[Any], Any]
-Sizer = Callable[[Any], int]
-Encoder = Callable[[Any, Any], int]
-ArraySizer = Callable[[Any, int], int]
-ArrayEncoder = Callable[[Any, int, Any], int]
-CodecKey = tuple[Fork, ObjectKind, Preset]
-Codec = TypeVar("Codec")
-
-
 class _DecodeStatus(IntEnum):
     UNRECOGNIZED_FIELD = _spy.lib.SPY_SSZ_DECODE_UNRECOGNIZED_FIELD
     MALFORMED_INPUT = _spy.lib.SPY_SSZ_DECODE_MALFORMED_INPUT
@@ -59,109 +67,6 @@ class _DecodeStatus(IntEnum):
 # lengths and offsets are signed 32-bit integers.
 _MAX_NATIVE_SIZE = (1 << 31) - 1
 _MAX_NATIVE_INPUT_LENGTH = (_MAX_NATIVE_SIZE - 16 * 1024) // 3
-_JSON_DECODERS: dict[CodecKey, Decoder] = {}
-_SSZ_DECODERS: dict[CodecKey, Decoder] = {}
-_SSZ_ENCODERS: dict[CodecKey, tuple[Sizer, Encoder]] = {}
-_JSON_ENCODERS: dict[CodecKey, tuple[Sizer, Encoder]] = {}
-_JSON_ARRAY_ENCODERS: dict[CodecKey, tuple[ArraySizer, ArrayEncoder]] = {}
-
-
-def bind_decoder(decoder: Callable[..., Any], *arguments: int) -> Decoder:
-    """Bind integer schema metadata after a compiled decoder's source argument."""
-
-    def bound(source: Any) -> Any:
-        return decoder(source, *arguments)
-
-    return bound
-
-
-def _register(
-    registry: dict[CodecKey, Codec],
-    key: CodecKey,
-    value: Codec,
-    encoding: str,
-) -> None:
-    if key in registry:
-        fork, kind, preset = key
-        raise ValueError(
-            f"{encoding} codec already registered for "
-            f"{fork.name}/{kind.name}/{preset.name}"
-        )
-    registry[key] = value
-
-
-def _lookup_codec(
-    registry: dict[CodecKey, Codec], key: CodecKey, operation: str
-) -> Codec:
-    codec = registry.get(key)
-    if codec is None:
-        fork, _, _ = key
-        _load_builtin_codecs(fork)
-        codec = registry.get(key)
-    if codec is None:
-        fork, kind, preset = key
-        raise NotImplementedError(
-            f"no SPy {operation} for {fork.name}/{kind.name}/{preset.name}"
-        )
-    return codec
-
-
-def register_json_decoder(
-    fork: Fork, kind: ObjectKind, decoder: Decoder, preset: Preset = Preset.MAINNET
-) -> None:
-    key = (fork, kind, preset)
-    _register(_JSON_DECODERS, key, decoder, "JSON")
-
-
-def register_ssz_decoder(
-    fork: Fork, kind: ObjectKind, decoder: Decoder, preset: Preset = Preset.MAINNET
-) -> None:
-    _register(_SSZ_DECODERS, (fork, kind, preset), decoder, "SSZ")
-
-
-def register_ssz_encoder(
-    fork: Fork,
-    kind: ObjectKind,
-    sizer: Sizer,
-    encoder: Encoder,
-    preset: Preset = Preset.MAINNET,
-) -> None:
-    _register(_SSZ_ENCODERS, (fork, kind, preset), (sizer, encoder), "SSZ")
-
-
-def register_json_encoder(
-    fork: Fork,
-    kind: ObjectKind,
-    sizer: Sizer,
-    encoder: Encoder,
-    preset: Preset = Preset.MAINNET,
-) -> None:
-    _register(_JSON_ENCODERS, (fork, kind, preset), (sizer, encoder), "JSON")
-
-
-def register_json_array_encoder(
-    fork: Fork,
-    kind: ObjectKind,
-    sizer: ArraySizer,
-    encoder: ArrayEncoder,
-    preset: Preset = Preset.MAINNET,
-) -> None:
-    _register(
-        _JSON_ARRAY_ENCODERS,
-        (fork, kind, preset),
-        (sizer, encoder),
-        "JSON array",
-    )
-
-
-def _load_builtin_codecs(fork: Fork) -> None:
-    modules = {
-        module_for_codec(value.codec)
-        for value in schema_definitions()
-        if value.fork is fork
-    }
-    for module in modules:
-        import_module(f"{__package__}.{module}")
 
 
 class SszObject:

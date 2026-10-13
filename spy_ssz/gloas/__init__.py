@@ -4,16 +4,9 @@ from .. import _spy
 from ..block import BlockProjection, signature_bytes
 from ..preset import Preset
 from ..schema import Fork, ObjectKind, get_schema, schema_definitions
-from ..ssz import (
-    SszObject,
-    _spy_bytes,
-    bind_decoder,
-    register_json_array_encoder,
-    register_json_decoder,
-    register_json_encoder,
-    register_ssz_decoder,
-    register_ssz_encoder,
-)
+from .._codecs import register_schema
+from .._variants import export_preset_types
+from ..ssz import SszObject, _spy_bytes
 
 _DEFINITIONS = {
     definition.kind: definition
@@ -55,16 +48,7 @@ for _definition in _DEFINITIONS.values():
             json_output_envelope_key=None,
         )
     _base = type(_definition.python_type, (_source_base,), _attributes)
-    globals()[_definition.python_type] = _base
-    for _preset_name in _definition.presets:
-        _preset = Preset[_preset_name.upper()]
-        _name = f"{_definition.python_type}{_preset.name.title()}"
-        globals()[_name] = (
-            _base
-            if _preset is Preset.MAINNET
-            else type(_name, (_base,), {"expected_preset": _preset})
-        )
-
+    export_preset_types(globals(), _base, _definition)
 
 _BEACON_BLOCK = globals()["BeaconBlockGloas"]
 _BEACON_BLOCK.signed_schema_id = get_schema(
@@ -110,89 +94,4 @@ for _preset in Preset:
 
 
 for _definition in _DEFINITIONS.values():
-    for _preset_name in _definition.presets:
-        _preset = Preset[_preset_name.upper()]
-        if _definition.codec == "gloas_block":
-            _json_decoder = bind_decoder(
-                _spy.lib.spy_schema_gloas_block_decode_json_owned,
-                _definition.fork,
-                _definition.kind,
-                _definition.schema_id,
-                _preset,
-            )
-            _ssz_decoder = bind_decoder(
-                _spy.lib.spy_schema_gloas_block_decode_ssz_owned,
-                _definition.fork,
-                _definition.kind,
-                _definition.schema_id,
-                _preset,
-            )
-            _json_sizer = _spy.lib.spy_schema_gloas_json_size
-            _json_encoder = _spy.lib.spy_schema_gloas_encode_json
-            _ssz_sizer = _spy.lib.spy_schema_gloas_ssz_size
-            _ssz_encoder = _spy.lib.spy_schema_gloas_encode_ssz
-        elif _definition.codec == "gloas_payload_envelope":
-            _json_decoder = bind_decoder(
-                _spy.lib.spy_schema_gloas_payload_envelope_decode_json_owned,
-                _definition.fork,
-                _definition.kind,
-                _definition.schema_id,
-                _preset,
-            )
-            _ssz_decoder = bind_decoder(
-                _spy.lib.spy_schema_gloas_payload_envelope_decode_ssz_owned,
-                _definition.fork,
-                _definition.kind,
-                _definition.schema_id,
-                _preset,
-            )
-            _json_sizer = _spy.lib.spy_schema_gloas_payload_envelope_json_size
-            _json_encoder = _spy.lib.spy_schema_gloas_payload_envelope_encode_json
-            _ssz_sizer = _spy.lib.spy_schema_gloas_payload_envelope_ssz_size
-            _ssz_encoder = _spy.lib.spy_schema_gloas_payload_envelope_encode_ssz
-        else:
-            _json_decoder = bind_decoder(
-                _spy.lib.spy_schema_gloas_signing_decode_json_owned,
-                _definition.fork,
-                _definition.kind,
-                _definition.schema_id,
-                _preset,
-            )
-            _ssz_decoder = bind_decoder(
-                _spy.lib.spy_schema_gloas_signing_decode_ssz_owned,
-                _definition.fork,
-                _definition.kind,
-                _definition.schema_id,
-                _preset,
-            )
-            _json_sizer = _spy.lib.spy_schema_signing_json_size
-            _json_encoder = _spy.lib.spy_schema_signing_encode_json
-            _ssz_sizer = _spy.lib.spy_schema_signing_ssz_size
-            _ssz_encoder = _spy.lib.spy_schema_signing_encode_ssz
-
-        register_json_decoder(
-            _definition.fork, _definition.kind, _json_decoder, _preset
-        )
-        register_ssz_decoder(_definition.fork, _definition.kind, _ssz_decoder, _preset)
-        register_json_encoder(
-            _definition.fork,
-            _definition.kind,
-            _json_sizer,
-            _json_encoder,
-            _preset,
-        )
-        if _definition.codec == "gloas_signing":
-            register_json_array_encoder(
-                _definition.fork,
-                _definition.kind,
-                _spy.lib.spy_schema_signing_json_array_size,
-                _spy.lib.spy_schema_signing_encode_json_array,
-                _preset,
-            )
-        register_ssz_encoder(
-            _definition.fork,
-            _definition.kind,
-            _ssz_sizer,
-            _ssz_encoder,
-            _preset,
-        )
+    register_schema(_definition)

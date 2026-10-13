@@ -3,17 +3,9 @@
 from typing import Any
 
 from . import _spy
-from .ssz import (
-    SszObject,
-    _spy_bytes,
-    bind_decoder,
-    register_json_decoder,
-    register_json_array_encoder,
-    register_json_encoder,
-    register_ssz_decoder,
-    register_ssz_encoder,
-)
-from .preset import Preset
+from ._codecs import register_schema
+from ._variants import export_preset_types
+from .ssz import SszObject, _spy_bytes
 from .schema import ObjectKind, get_schema, schemas_for
 
 
@@ -29,65 +21,8 @@ for _definition in _SCHEMAS.values():
             "json_output_envelope_key": None,
         },
     )
-    globals()[_definition.python_type] = _base
-    for _preset_name in _definition.presets:
-        _preset = Preset[_preset_name.upper()]
-        _name = f"{_definition.python_type}{_preset.name.title()}"
-        globals()[_name] = (
-            _base
-            if _preset is Preset.MAINNET
-            else type(_name, (_base,), {"expected_preset": _preset})
-        )
-
-
-for _kind, _definition in _SCHEMAS.items():
-    for _preset_name in _definition.presets:
-        _preset = Preset[_preset_name.upper()]
-        register_json_decoder(
-            _definition.fork,
-            _kind,
-            bind_decoder(
-                _spy.lib.spy_schema_signing_decode_json_owned,
-                _definition.fork,
-                _kind,
-                _definition.schema_id,
-                _preset,
-            ),
-            _preset,
-        )
-        register_ssz_decoder(
-            _definition.fork,
-            _kind,
-            bind_decoder(
-                _spy.lib.spy_schema_signing_decode_ssz_owned,
-                _definition.fork,
-                _kind,
-                _definition.schema_id,
-                _preset,
-            ),
-            _preset,
-        )
-        register_json_encoder(
-            _definition.fork,
-            _kind,
-            _spy.lib.spy_schema_signing_json_size,
-            _spy.lib.spy_schema_signing_encode_json,
-            _preset,
-        )
-        register_json_array_encoder(
-            _definition.fork,
-            _kind,
-            _spy.lib.spy_schema_signing_json_array_size,
-            _spy.lib.spy_schema_signing_encode_json_array,
-            _preset,
-        )
-        register_ssz_encoder(
-            _definition.fork,
-            _kind,
-            _spy.lib.spy_schema_signing_ssz_size,
-            _spy.lib.spy_schema_signing_encode_ssz,
-            _preset,
-        )
+    export_preset_types(globals(), _base, _definition)
+    register_schema(_definition)
 
 
 _COMPOSITION_FIELDS = {
