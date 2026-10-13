@@ -184,30 +184,32 @@ class SszObject:
     ) -> Self:
         if cls.expected_fork is None or cls.expected_kind is None:
             raise TypeError("use a registered concrete SPy SSZ class")
-        if not isinstance(data, (bytes, bytearray, memoryview)):
-            raise TypeError(f"{encoding} input must be bytes, bytearray, or memoryview")
         # len(memoryview) counts elements, which need not be single bytes.
         # Validate before copying or parsing a Python-managed JSON envelope.
-        length = data.nbytes if isinstance(data, memoryview) else len(data)
+        if type(data) is bytes:
+            length = len(data)
+        elif isinstance(data, memoryview):
+            length = data.nbytes
+        elif isinstance(data, (bytes, bytearray)):
+            length = len(data)
+        else:
+            raise TypeError(f"{encoding} input must be bytes, bytearray, or memoryview")
         if length > _MAX_NATIVE_INPUT_LENGTH:
             raise ValueError(
                 f"{encoding} input exceeds the {_MAX_NATIVE_INPUT_LENGTH}-byte "
                 "implementation limit"
             )
-        source = bytes(data)
-        envelope_key = cls.json_input_envelope_key
-        if (
-            encoding == "JSON"
-            and envelope_key is not None
-            and not cls.json_decoder_handles_envelope
-        ):
-            try:
-                value = msgspec.json.decode(source)
-            except msgspec.DecodeError:
-                pass
-            else:
-                if isinstance(value, dict) and envelope_key in value:
-                    source = msgspec.json.encode(value[envelope_key])
+        source = data if type(data) is bytes else bytes(data)
+        if encoding == "JSON":
+            envelope_key = cls.json_input_envelope_key
+            if envelope_key is not None and not cls.json_decoder_handles_envelope:
+                try:
+                    value = msgspec.json.decode(source)
+                except msgspec.DecodeError:
+                    pass
+                else:
+                    if isinstance(value, dict) and envelope_key in value:
+                        source = msgspec.json.encode(value[envelope_key])
         source_obj, source_view = _spy_bytes(source)
         key = (cls.expected_fork, cls.expected_kind, cls.expected_preset)
         decoder = _lookup_codec(decoders, key, f"{encoding} decoder")
