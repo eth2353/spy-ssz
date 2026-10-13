@@ -764,12 +764,14 @@ def generate(*, check: bool = False) -> None:
         for path, value in outputs.items()
         if not path.exists() or path.read_text() != value
     ]
-    if check and stale:
-        raise SystemExit(
-            "generated SPy metadata is stale: " + ", ".join(map(str, stale))
-        )
-    for path, value in outputs.items():
-        path.write_text(value)
+    if check:
+        if stale:
+            raise SystemExit(
+                "generated SPy metadata is stale: " + ", ".join(map(str, stale))
+            )
+        return
+    for path in stale:
+        path.write_text(outputs[path])
 
 
 def main() -> None:

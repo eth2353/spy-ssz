@@ -5,6 +5,7 @@ from pathlib import Path
 from spy_ssz.consensus_types import get_type_definition
 from spy_ssz.schema import schema_definitions
 from tools.build_extension import generate_metadata
+from tools import generate_spy_metadata
 
 
 ROOT = Path(__file__).parents[1]
@@ -24,6 +25,14 @@ def test_spy_metadata_matches_authoritative_yaml() -> None:
         cwd=ROOT,
         check=True,
     )
+
+
+def test_metadata_check_never_writes_files(monkeypatch) -> None:
+    def fail(*args, **kwargs) -> None:
+        raise AssertionError("checking generated metadata must be read-only")
+
+    monkeypatch.setattr(Path, "write_text", fail)
+    generate_spy_metadata.generate(check=True)
 
 
 def test_runtime_consensus_types_exist_in_generated_catalog() -> None:

@@ -69,11 +69,15 @@ def stage_spy_sources() -> Path:
 
 
 def resolve_spy_root(value: str | Path | None = None) -> Path:
-    candidates = [Path(value)] if value else []
-    candidates.append(ROOT / ".deps" / "spy")
-    for candidate in candidates:
-        if (candidate / "spy" / "libspy" / "Makefile").is_file():
-            return candidate.resolve()
+    if value is not None:
+        candidate = Path(value).expanduser().resolve()
+        if not (candidate / "spy" / "libspy" / "Makefile").is_file():
+            raise ValueError(f"not a SPy source checkout: {candidate}")
+        return candidate
+
+    local = ROOT / ".deps" / "spy"
+    if (local / "spy" / "libspy" / "Makefile").is_file():
+        return local.resolve()
 
     checkout = Path(tempfile.gettempdir()) / f"spy-ssz-{SPY_REVISION[:12]}"
     if not (checkout / "spy" / "libspy" / "Makefile").is_file():
