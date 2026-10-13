@@ -356,8 +356,18 @@ uv run python -m benchmarks.benchmark_corpus \
 ```
 
 Use `--csv timings.csv` for per-block results, `--limit` for a quick sample,
-`--fork electra` or `--fork fulu` when a standalone file's fork cannot be
-inferred, or `--no-spy` to measure only the consensus-spec codecs.
+`--fork electra`, `--fork fulu`, or `--fork gloas` when a standalone file's fork
+cannot be inferred, or `--no-spy` to measure only the consensus-spec codecs.
+Use an explicit fork for testnets: slot-based inference uses mainnet's schedule.
+Incomplete runs exit with a failure status after reporting skipped blocks.
+
+For comparisons between installed native builds, use
+`benchmarks/benchmark_native.py` with each environment's Python in isolated
+mode (`-I`). It reads paired JSON/SSZ block manifests, checks file hashes and
+round trips before timing, and records every block's decode, encode, fresh
+hash, and cached hash timings. See the
+[native cleanup comparison](benchmarks/results/native-cleanup-2026-10-13.md)
+for the corpus format, commands, and results.
 
 ### Performance
 
