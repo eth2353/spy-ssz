@@ -12,7 +12,7 @@ import msgspec
 from eth_consensus_specs.electra import mainnet as electra
 
 from spy_ssz import encode_json_array
-from spy_ssz.signing import AttestationData
+from spy_ssz.signing import AttestationDataElectra
 from spy_ssz.ssz import _JSON_ARRAY_ENCODERS
 
 
@@ -28,9 +28,9 @@ def percentile(values: list[int], fraction: float) -> float:
 class _WithoutNativeBatch:
     def __enter__(self) -> None:
         self.key = (
-            AttestationData.expected_fork,
-            AttestationData.expected_kind,
-            AttestationData.expected_preset,
+            AttestationDataElectra.expected_fork,
+            AttestationDataElectra.expected_kind,
+            AttestationDataElectra.expected_preset,
         )
         self.codec = _JSON_ARRAY_ENCODERS.pop(self.key)
 
@@ -42,7 +42,7 @@ def benchmark(
     size: int, warmup: int, rounds: int, *, native_batch: bool
 ) -> tuple[int, int, float]:
     values = [
-        AttestationData.from_obj(electra.AttestationData(slot=index).to_obj())
+        AttestationDataElectra.from_obj(electra.AttestationData(slot=index).to_obj())
         for index in range(size)
     ]
     try:
