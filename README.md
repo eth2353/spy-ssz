@@ -4,8 +4,8 @@
 Beacon API JSON and canonical SSZ directly into [SPy](https://github.com/spylang/spy)-owned C object graphs, so
 hashing and encoding do not traverse ordinary Python objects.
 
-This is currently a proof of concept focused on the operations needed by
-validator clients. It is not yet a complete replacement for
+The library focuses on the operations needed by validator clients.
+It is not a complete replacement for
 `eth-remerkleable`; see [Current scope](#current-scope).
 
 ## Install
@@ -57,6 +57,9 @@ with SignedBeaconBlockElectra.from_ssz(ssz_bytes) as block:
 
 Objects own compiled memory. Prefer a context manager as shown above, or call
 `close()` explicitly. Accessing a closed object raises `RuntimeError`.
+`copy.copy()` and `copy.deepcopy()` create independent owners by round-tripping
+canonical SSZ; closing one copy does not invalidate another. Native operations
+and `close()` on the same object are serialized by its ownership lock.
 
 ## Bitfields
 
@@ -77,6 +80,8 @@ assert aggregation_bits.to_hex() == "0x0d"
 Bitvectors are zero-filled to their declared length. Bitlists use the number of
 provided values as their length, enforce the declared limit, and include the
 SSZ termination bit in `to_hex()` and `to_obj()`.
+Direct `Bitfield(data, length)` construction requires immutable bytes of the
+exact packed length, with unused padding bits set to zero.
 
 ## Presets
 
@@ -150,9 +155,9 @@ Electra signing objects accept bare JSON objects rather than a Beacon API
 projection, and tree hashing:
 
 ```python
-from spy_ssz import AttestationData
+from spy_ssz import AttestationDataElectra
 
-with AttestationData.from_obj(
+with AttestationDataElectra.from_obj(
     {
         "slot": "123",
         "index": "0",
@@ -165,7 +170,7 @@ with AttestationData.from_obj(
     root = data.hash_tree_root()
 ```
 
-Available signing classes are:
+Available signing object families are:
 
 - `AttestationData`
 - `Attestation`
@@ -182,20 +187,23 @@ Available signing classes are:
 - `SignedBeaconBlockHeader`
 - `ProposerSlashing`
 
-Each also has `Minimal` and `Gnosis` variants, such as
-`AttestationMinimal` and `AttestationGnosis`.
+Class names include a fork suffix (`Electra`, `Fulu`, or `Gloas`) and an
+optional preset suffix (`Mainnet`, `Minimal`, or `Gnosis`). For example,
+`AttestationElectra`, `AttestationFuluMinimal`, and `AttestationGloasGnosis`.
 
 Compatible typed children can be passed directly to the common composition
 containers. The child graph is cloned natively, so this does not encode or
 decode JSON and the resulting parent owns its memory independently:
 
 ```python
-aggregate_and_proof = AggregateAndProof(
+from spy_ssz import AggregateAndProofElectra, SignedAggregateAndProofElectra
+
+aggregate_and_proof = AggregateAndProofElectra(
     aggregator_index=validator_index,
     aggregate=attestation,
     selection_proof=selection_proof,
 )
-signed = SignedAggregateAndProof(
+signed = SignedAggregateAndProofElectra(
     message=aggregate_and_proof,
     signature=signature,
 )
@@ -263,11 +271,13 @@ All concrete objects inherit from `SszObject` and expose:
 | Fulu signing objects | yes | yes | yes | yes |
 | Electra block contents and blinded blocks | yes | yes | yes | yes |
 | Fulu block contents and blinded blocks | yes | yes | yes | yes |
+| Gloas beacon blocks and signing objects | yes | yes | yes | yes |
+| Gloas execution payload envelopes | yes | yes | yes | yes |
 
 Fulu types reuse the unchanged Electra wire layouts with Fulu class identity,
 schema IDs, and object metadata.
 The generated type catalog covers every named mainnet SSZ type in
-`eth-consensus-specs` 1.7.0a12 for Electra and Fulu, but most cataloged types
+`eth-consensus-specs` 1.7.0a12 for Electra, Fulu, and Gloas, but most cataloged types
 do not yet have executable codecs.
 
 Generalized-index views and mutation APIs are also not implemented yet.
@@ -276,6 +286,8 @@ JSON and SSZ inputs are limited to 715,822,421 bytes. This keeps the largest
 native arena-capacity calculation within the signed 32-bit positions and
 offsets used by the compiled decoder. Larger inputs are rejected at the Python
 boundary before native decoding.
+Decoders accept `bytes`, `bytearray`, and `memoryview`; limits count bytes,
+including for memoryviews with elements wider than one byte.
 
 JSON decoding rejects duplicate and unrecognized object fields. Standard
 endpoint-specific Beacon API response metadata is recognized alongside the
@@ -292,9 +304,15 @@ required `data` field; metadata from a different endpoint is rejected.
 - `src/ssz_object.spy` owns typed nodes, SSZ hashing, and the root cache.
 - `src/json_parser.spy` and `src/ssz_reader.spy` decode JSON and SSZ input.
 - `src/writer.spy` provides JSON and SSZ output primitives.
-- `src/schema_*.spy` implements concrete fork/object codecs.
+- `src/electra/` and `src/gloas/` implement concrete fork/object codecs;
+  Fulu reuses Electra's wire layouts.
 - `src/bridge.c` is the ownership and CFFI boundary.
-- `spy_ssz/ssz.py` owns Python lifetimes and codec dispatch.
+- `spy_ssz/_codecs.py` owns native codec registration and lazy dispatch.
+- `spy_ssz/_variants.py` exports preset classes for the four type modules.
+- `spy_ssz/ssz.py` owns Python lifetimes, encoding, decoding, and value semantics.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for dependency boundaries, generated
+sources, and release checks.
 
 Fork identifiers follow consensus chronology: Phase0 is `0`, Altair is `1`,
 Bellatrix is `2`, Capella is `3`, Deneb is `4`, Electra is `5`, Fulu is `6`,

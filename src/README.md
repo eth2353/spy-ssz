@@ -6,9 +6,10 @@ arena, Merkle workspace, and cached root. Composite nodes point to ordered
 child edges; scalar nodes point into the arena.
 
 `json_parser.spy` and `ssz_reader.spy` are temporary input infrastructure used
-only while a schema lowerer runs. The C ownership wrapper destroys their source
-copy before the opaque SSZ object reaches Python. JSON and SSZ therefore create
-the same retained graph layout.
+only while a schema lowerer runs. Their documents borrow the Python-owned input
+for the synchronous native call. The C ownership wrapper destroys those
+temporary documents before the opaque SSZ object reaches Python. JSON and SSZ
+therefore create the same retained graph layout.
 
 Fulu's unchanged wire schemas use the Electra lowerers with the logical fork
 and schema ID supplied as decoder parameters. Shared JSON and SSZ lowering
