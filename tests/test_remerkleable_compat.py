@@ -58,6 +58,45 @@ def test_decode_rejects_inputs_over_native_size_limit(
         method(b"xxxxxxxxxxx")
 
 
+@pytest.mark.parametrize(
+    "method", [AttestationDataElectra.from_json, AttestationDataElectra.from_ssz]
+)
+def test_decode_limit_counts_bytes_in_typed_memoryviews(monkeypatch, method) -> None:
+    data = memoryview(bytes(16)).cast("I")
+    assert len(data) == 4
+    monkeypatch.setattr("spy_ssz.ssz._MAX_NATIVE_INPUT_LENGTH", 10)
+    with pytest.raises(ValueError, match="input exceeds the 10-byte"):
+        method(data)
+
+
+@pytest.mark.parametrize(
+    "method", [AttestationDataElectra.from_json, AttestationDataElectra.from_ssz]
+)
+@pytest.mark.parametrize("value", [10, [0, 1], "{}", None])
+def test_decode_rejects_non_buffer_inputs(method, value) -> None:
+    with pytest.raises(
+        TypeError, match="input must be bytes, bytearray, or memoryview"
+    ):
+        method(value)
+
+
+def test_json_limit_is_checked_before_unwrapping_envelopes(monkeypatch) -> None:
+    from spy_ssz.gloas import PayloadAttestationDataGloas
+
+    monkeypatch.setattr("spy_ssz.ssz._MAX_NATIVE_INPUT_LENGTH", 10)
+    with pytest.raises(ValueError, match="JSON input exceeds the 10-byte"):
+        PayloadAttestationDataGloas.from_json(b'{"data":{},"version":"gloas"}')
+
+
+@pytest.mark.parametrize("buffer_type", [bytearray, memoryview])
+def test_decode_owns_its_input_after_buffer_mutation(buffer_type) -> None:
+    expected = electra.AttestationData(slot=123).encode_bytes()
+    source = bytearray(expected)
+    with AttestationDataElectra.from_ssz(buffer_type(source)) as value:
+        source[:] = bytes(len(source))
+        assert value.to_ssz() == expected
+
+
 def _root(byte: int) -> bytes:
     return bytes([byte]) * 32
 

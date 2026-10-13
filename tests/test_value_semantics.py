@@ -1,3 +1,4 @@
+from copy import copy, deepcopy
 from threading import Event, Thread
 from unittest import mock
 
@@ -12,6 +13,32 @@ from spy_ssz.signing import (
     SyncCommitteeContributionElectra,
 )
 from spy_ssz.ssz import _JSON_ENCODERS, _SSZ_ENCODERS
+
+
+@pytest.mark.parametrize("copier", [copy, deepcopy])
+def test_copies_own_native_memory_independently(copier) -> None:
+    reference = electra.AttestationData(slot=123)
+    with AttestationDataElectra.from_ssz(reference.encode_bytes()) as original:
+        original.to_obj()  # Include populated Python caches in the copy case.
+        clone = copier(original)
+        assert clone is not original
+        assert clone == original
+    with clone:
+        assert clone.slot == 123
+        assert clone.to_ssz() == reference.encode_bytes()
+        assert clone.hash_tree_root() == reference.hash_tree_root()
+
+
+def test_deepcopy_preserves_repeated_references() -> None:
+    with AttestationDataElectra.from_ssz(
+        electra.AttestationData().encode_bytes()
+    ) as value:
+        first, second = deepcopy([value, value])
+        try:
+            assert first is second
+            assert first is not value
+        finally:
+            first.close()
 
 
 def test_ssz_objects_have_schema_and_preset_scoped_value_semantics() -> None:

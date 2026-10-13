@@ -77,6 +77,6 @@ def test_bitfields_have_deterministic_nested_repr() -> None:
     with AttestationElectra.from_obj(electra.Attestation().to_obj()) as value:
         rendered = repr(value)
 
-    assert "aggregation_bits=Bitfield(length=0, data=0x00)" in rendered
+    assert "aggregation_bits=Bitfield(length=0, data=0x)" in rendered
     assert "committee_bits=Bitfield(length=64, data=0x" + "00" * 8 in rendered
     assert "object at 0x" not in rendered

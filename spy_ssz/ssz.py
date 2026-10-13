@@ -97,6 +97,7 @@ class SszObject:
 
     def __init__(self, handle: Any = None, **fields: Any):
         self._lock = RLock()
+        self._handle = None
         self._json_size_cache = None
         self._obj_cache: Any = None
         self._ssz_size_cache = None
@@ -168,17 +169,7 @@ class SszObject:
 
     @classmethod
     def from_json(cls, data: bytes | bytearray | memoryview) -> Self:
-        source = bytes(data)
-        envelope_key = cls.json_input_envelope_key
-        if envelope_key is not None and not cls.json_decoder_handles_envelope:
-            try:
-                value = msgspec.json.decode(source)
-            except msgspec.DecodeError:
-                pass
-            else:
-                if isinstance(value, dict) and envelope_key in value:
-                    source = msgspec.json.encode(value[envelope_key])
-        return cls._decode(source, _JSON_DECODERS, "JSON")
+        return cls._decode(data, _JSON_DECODERS, "JSON")
 
     @classmethod
     def from_ssz(cls, data: bytes | bytearray | memoryview) -> Self:
@@ -193,12 +184,30 @@ class SszObject:
     ) -> Self:
         if cls.expected_fork is None or cls.expected_kind is None:
             raise TypeError("use a registered concrete SPy SSZ class")
-        if len(data) > _MAX_NATIVE_INPUT_LENGTH:
+        if not isinstance(data, (bytes, bytearray, memoryview)):
+            raise TypeError(f"{encoding} input must be bytes, bytearray, or memoryview")
+        # len(memoryview) counts elements, which need not be single bytes.
+        # Validate before copying or parsing a Python-managed JSON envelope.
+        length = data.nbytes if isinstance(data, memoryview) else len(data)
+        if length > _MAX_NATIVE_INPUT_LENGTH:
             raise ValueError(
                 f"{encoding} input exceeds the {_MAX_NATIVE_INPUT_LENGTH}-byte "
                 "implementation limit"
             )
         source = bytes(data)
+        envelope_key = cls.json_input_envelope_key
+        if (
+            encoding == "JSON"
+            and envelope_key is not None
+            and not cls.json_decoder_handles_envelope
+        ):
+            try:
+                value = msgspec.json.decode(source)
+            except msgspec.DecodeError:
+                pass
+            else:
+                if isinstance(value, dict) and envelope_key in value:
+                    source = msgspec.json.encode(value[envelope_key])
         source_obj, source_view = _spy_bytes(source)
         key = (cls.expected_fork, cls.expected_kind, cls.expected_preset)
         decoder = _lookup_codec(decoders, key, f"{encoding} decoder")
@@ -321,6 +330,15 @@ class SszObject:
     def __hash__(self) -> int:
         return hash(self._value_key())
 
+    def __copy__(self) -> Self:
+        """Copy the value into an independently owned native allocation."""
+        return type(self).from_ssz(self.to_ssz())
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
+        result = self.__copy__()
+        memo[id(self)] = result
+        return result
+
     def _hash_tree_root_path(self, first: int, second: int, depth: int) -> bytes:
         output = bytearray(32)
         output_obj, output_view = _spy_bytes(output)
@@ -422,6 +440,13 @@ class Bitfield:
     __slots__ = ("_bitlist", "_data", "_length")
 
     def __init__(self, data: bytes, length: int, *, bitlist: bool = False):
+        length = self._size(length, "bitfield length")
+        if not isinstance(data, bytes):
+            raise TypeError("bitfield data must be bytes")
+        if len(data) != (length + 7) // 8:
+            raise ValueError("bitfield data does not match its declared length")
+        if length % 8 and data[-1] >> (length % 8):
+            raise ValueError("bitfield padding bits must be zero")
         self._bitlist = bitlist
         self._data = data
         self._length = length
@@ -488,6 +513,8 @@ class Bitfield:
             marker = data[-1].bit_length() - 1
             length = (len(data) - 1) * 8 + marker
             data[-1] &= (1 << marker) - 1
+            if marker == 0:
+                data.pop()
         return cls(bytes(data), length, bitlist=bitlist)
 
     def to_hex(self) -> str:
