@@ -1,6 +1,7 @@
 """Gloas execution payload envelope JSON and SSZ encoders."""
 
 from _bytes import BytesObject
+from writer import json_sequence, ssz_variable_sequence
 from unsafe import gc_ptr, raw_ptr
 from metadata import OBJECT_SIGNED_EXECUTION_PAYLOAD_ENVELOPE
 from writer import child, json_hex_node, json_key, json_uint, put, put_literal, put_u32, ssz_byte_list, ssz_fixed_bytes, ssz_uint
@@ -9,19 +10,7 @@ from ssz_object import SszObject
 
 
 def ssz_transactions(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    count = obj.nodes[node].child_count
-    running = count * 4
-    i: i32 = 0
-    while i < count:
-        pos = put_u32(data, cap, pos, running)
-        transaction = child(obj, node, i)
-        running = running + obj.nodes[transaction].data_length
-        i = i + 1
-    i = 0
-    while i < count:
-        pos = ssz_byte_list(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return pos
+    return ssz_variable_sequence[ssz_byte_list](obj, node, data, cap, pos)
 
 
 def ssz_withdrawals(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
@@ -92,14 +81,7 @@ def ssz_signed_execution_payload_envelope(obj: raw_ptr[SszObject], node: i32, da
 
 
 def json_transactions(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    pos = put(data, cap, pos, u8(91))
-    i: i32 = 0
-    while i < obj.nodes[node].child_count:
-        if i > 0:
-            pos = put(data, cap, pos, u8(44))
-        pos = json_hex_node(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return put(data, cap, pos, u8(93))
+    return json_sequence[json_hex_node](obj, node, data, cap, pos)
 
 
 def json_withdrawals(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:

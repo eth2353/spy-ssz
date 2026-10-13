@@ -281,3 +281,44 @@ def json_uint(
     return json_uint_range(
         obj, node.data_offset, 32, data, capacity, position
     )
+
+
+# Blue factories specialize each loop at compile time. Item encoders remain
+# direct calls in generated C, including the capacity=0 sizing pass.
+@blue.generic
+def json_sequence(encode_item):
+    def encode(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+        pos = put(data, cap, pos, u8(91))
+        i: i32 = 0
+        while i < obj.nodes[node].child_count:
+            if i > 0:
+                pos = put(data, cap, pos, u8(44))
+            pos = encode_item(obj, child(obj, node, i), data, cap, pos)
+            i = i + 1
+        return put(data, cap, pos, u8(93))
+    return encode
+
+
+@blue.generic
+def ssz_sequence(encode_item):
+    def encode(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+        i: i32 = 0
+        while i < obj.nodes[node].child_count:
+            pos = encode_item(obj, child(obj, node, i), data, cap, pos)
+            i = i + 1
+        return pos
+    return encode
+
+
+@blue.generic
+def ssz_variable_sequence(encode_item):
+    def encode(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
+        count = obj.nodes[node].child_count
+        running = count * 4
+        i: i32 = 0
+        while i < count:
+            pos = put_u32(data, cap, pos, running)
+            running = running + encode_item(obj, child(obj, node, i), data, 0, 0)
+            i = i + 1
+        return ssz_sequence[encode_item](obj, node, data, cap, pos)
+    return encode

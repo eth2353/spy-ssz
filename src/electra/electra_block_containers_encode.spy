@@ -1,6 +1,7 @@
 """SPy output encoding for block contents and blinded blocks."""
 
 from _bytes import BytesObject
+from writer import json_sequence, ssz_sequence
 from unsafe import gc_ptr, raw_ptr
 from metadata import OBJECT_BEACON_BLOCK_CONTENTS, OBJECT_BLINDED_BEACON_BLOCK, OBJECT_SIGNED_BEACON_BLOCK_CONTENTS
 from writer import child, json_hex_node, json_key, json_uint, put, put_literal, put_u32, ssz_byte_list, ssz_fixed_bytes, ssz_uint
@@ -34,22 +35,11 @@ from ssz_object import SszObject
 
 
 def ssz_fixed_list(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    i: i32 = 0
-    while i < obj.nodes[node].child_count:
-        pos = ssz_fixed_bytes(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return pos
+    return ssz_sequence[ssz_fixed_bytes](obj, node, data, cap, pos)
 
 
 def json_fixed_list(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    pos = put(data, cap, pos, u8(91))
-    i: i32 = 0
-    while i < obj.nodes[node].child_count:
-        if i > 0:
-            pos = put(data, cap, pos, u8(44))
-        pos = json_hex_node(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return put(data, cap, pos, u8(93))
+    return json_sequence[json_hex_node](obj, node, data, cap, pos)
 
 
 def ssz_execution_payload_header(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:

@@ -1,6 +1,7 @@
 """Gloas beacon-block JSON and SSZ encoders."""
 
 from _bytes import BytesObject
+from writer import json_sequence, ssz_sequence
 from unsafe import gc_ptr, raw_ptr
 from metadata import OBJECT_SIGNED_BEACON_BLOCK
 from writer import child, json_hex_node, json_key, json_uint, put, put_literal, put_u32, ssz_fixed_bytes, ssz_uint
@@ -33,11 +34,7 @@ from ssz_object import SszObject
 
 
 def ssz_commitments(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    i: i32 = 0
-    while i < obj.nodes[node].child_count:
-        pos = ssz_fixed_bytes(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return pos
+    return ssz_sequence[ssz_fixed_bytes](obj, node, data, cap, pos)
 
 
 def ssz_execution_payload_bid(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
@@ -114,11 +111,7 @@ def ssz_execution_requests(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8],
 
 
 def ssz_payload_attestations(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    i: i32 = 0
-    while i < obj.nodes[node].child_count:
-        pos = ssz_payload_attestation(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return pos
+    return ssz_sequence[ssz_payload_attestation](obj, node, data, cap, pos)
 
 
 def ssz_block_body(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
@@ -201,14 +194,7 @@ def gloas_encode_ssz(obj: raw_ptr[SszObject], output: bytes) -> i32:
 
 
 def json_commitments(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    pos = put(data, cap, pos, u8(91))
-    i: i32 = 0
-    while i < obj.nodes[node].child_count:
-        if i > 0:
-            pos = put(data, cap, pos, u8(44))
-        pos = json_hex_node(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return put(data, cap, pos, u8(93))
+    return json_sequence[json_hex_node](obj, node, data, cap, pos)
 
 
 def json_execution_payload_bid(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
@@ -327,14 +313,7 @@ def json_execution_requests(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8]
 
 
 def json_payload_attestations(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    pos = put(data, cap, pos, u8(91))
-    i: i32 = 0
-    while i < obj.nodes[node].child_count:
-        if i > 0:
-            pos = put(data, cap, pos, u8(44))
-        pos = json_payload_attestation(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return put(data, cap, pos, u8(93))
+    return json_sequence[json_payload_attestation](obj, node, data, cap, pos)
 
 
 def json_block_body(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:

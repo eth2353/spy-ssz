@@ -1,6 +1,7 @@
 """SPy JSON and SSZ output encoding for shared Electra/Fulu blocks."""
 
 from _bytes import BytesObject
+from writer import json_sequence, ssz_sequence, ssz_variable_sequence
 from unsafe import gc_ptr, raw_ptr
 from writer import (
     child,
@@ -54,12 +55,7 @@ def ssz_proposer_slashing(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], 
 
 
 def ssz_proposer_slashings(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    count = obj.nodes[node].child_count
-    i: i32 = 0
-    while i < count:
-        pos = ssz_proposer_slashing(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return pos
+    return ssz_sequence[ssz_proposer_slashing](obj, node, data, cap, pos)
 
 
 def ssz_indexed_attestation(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
@@ -79,18 +75,7 @@ def ssz_attester_slashing(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], 
 
 
 def ssz_variable_attester_slashings(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    count = obj.nodes[node].child_count
-    running = count * 4
-    i: i32 = 0
-    while i < count:
-        pos = put_u32(data, cap, pos, running)
-        running = running + ssz_attester_slashing(obj, child(obj, node, i), data, 0, 0)
-        i = i + 1
-    i = 0
-    while i < count:
-        pos = ssz_attester_slashing(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return pos
+    return ssz_variable_sequence[ssz_attester_slashing](obj, node, data, cap, pos)
 
 
 def ssz_attestation(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
@@ -102,18 +87,7 @@ def ssz_attestation(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i
 
 
 def ssz_attestations(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    count = obj.nodes[node].child_count
-    running = count * 4
-    i: i32 = 0
-    while i < count:
-        pos = put_u32(data, cap, pos, running)
-        running = running + ssz_attestation(obj, child(obj, node, i), data, 0, 0)
-        i = i + 1
-    i = 0
-    while i < count:
-        pos = ssz_attestation(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return pos
+    return ssz_variable_sequence[ssz_attestation](obj, node, data, cap, pos)
 
 
 def ssz_deposit_data(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
@@ -133,11 +107,7 @@ def ssz_deposit(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, 
 
 
 def ssz_deposits(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    i: i32 = 0
-    while i < obj.nodes[node].child_count:
-        pos = ssz_deposit(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return pos
+    return ssz_sequence[ssz_deposit](obj, node, data, cap, pos)
 
 
 def ssz_signed_exit(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
@@ -148,11 +118,7 @@ def ssz_signed_exit(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i
 
 
 def ssz_exits(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    i: i32 = 0
-    while i < obj.nodes[node].child_count:
-        pos = ssz_signed_exit(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return pos
+    return ssz_sequence[ssz_signed_exit](obj, node, data, cap, pos)
 
 
 def ssz_sync_aggregate(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
@@ -168,27 +134,11 @@ def ssz_withdrawal(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i3
 
 
 def ssz_withdrawals(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    i: i32 = 0
-    while i < obj.nodes[node].child_count:
-        pos = ssz_withdrawal(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return pos
+    return ssz_sequence[ssz_withdrawal](obj, node, data, cap, pos)
 
 
 def ssz_transactions(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    count = obj.nodes[node].child_count
-    running = count * 4
-    i: i32 = 0
-    while i < count:
-        pos = put_u32(data, cap, pos, running)
-        transaction = child(obj, node, i)
-        running = running + obj.nodes[transaction].data_length
-        i = i + 1
-    i = 0
-    while i < count:
-        pos = ssz_byte_list(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return pos
+    return ssz_variable_sequence[ssz_byte_list](obj, node, data, cap, pos)
 
 
 def ssz_execution_payload(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
@@ -228,19 +178,11 @@ def ssz_signed_bls_change(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], 
 
 
 def ssz_bls_changes(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    i: i32 = 0
-    while i < obj.nodes[node].child_count:
-        pos = ssz_signed_bls_change(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return pos
+    return ssz_sequence[ssz_signed_bls_change](obj, node, data, cap, pos)
 
 
 def ssz_commitments(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    i: i32 = 0
-    while i < obj.nodes[node].child_count:
-        pos = ssz_fixed_bytes(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return pos
+    return ssz_sequence[ssz_fixed_bytes](obj, node, data, cap, pos)
 
 
 def ssz_deposit_request(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
@@ -437,14 +379,7 @@ def json_proposer_slashing(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8],
 
 
 def json_proposer_slashings(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    pos = put(data, cap, pos, u8(91))
-    i: i32 = 0
-    while i < obj.nodes[node].child_count:
-        if i > 0:
-            pos = put(data, cap, pos, u8(44))
-        pos = json_proposer_slashing(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return put(data, cap, pos, u8(93))
+    return json_sequence[json_proposer_slashing](obj, node, data, cap, pos)
 
 
 def json_attesting_indices(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
@@ -484,14 +419,7 @@ def json_attester_slashing(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8],
 
 
 def json_attester_slashings(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    pos = put(data, cap, pos, u8(91))
-    i: i32 = 0
-    while i < obj.nodes[node].child_count:
-        if i > 0:
-            pos = put(data, cap, pos, u8(44))
-        pos = json_attester_slashing(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return put(data, cap, pos, u8(93))
+    return json_sequence[json_attester_slashing](obj, node, data, cap, pos)
 
 
 def json_attestation(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
@@ -511,14 +439,7 @@ def json_attestation(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: 
 
 
 def json_attestations(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    pos = put(data, cap, pos, u8(91))
-    i: i32 = 0
-    while i < obj.nodes[node].child_count:
-        if i > 0:
-            pos = put(data, cap, pos, u8(44))
-        pos = json_attestation(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return put(data, cap, pos, u8(93))
+    return json_sequence[json_attestation](obj, node, data, cap, pos)
 
 
 def json_deposit_data(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
@@ -556,14 +477,7 @@ def json_deposit(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32,
 
 
 def json_deposits(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    pos = put(data, cap, pos, u8(91))
-    i: i32 = 0
-    while i < obj.nodes[node].child_count:
-        if i > 0:
-            pos = put(data, cap, pos, u8(44))
-        pos = json_deposit(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return put(data, cap, pos, u8(93))
+    return json_sequence[json_deposit](obj, node, data, cap, pos)
 
 
 def json_signed_exit(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
@@ -581,14 +495,7 @@ def json_signed_exit(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: 
 
 
 def json_exits(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    pos = put(data, cap, pos, u8(91))
-    i: i32 = 0
-    while i < obj.nodes[node].child_count:
-        if i > 0:
-            pos = put(data, cap, pos, u8(44))
-        pos = json_signed_exit(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return put(data, cap, pos, u8(93))
+    return json_sequence[json_signed_exit](obj, node, data, cap, pos)
 
 
 def json_sync_aggregate(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
@@ -618,25 +525,11 @@ def json_withdrawal(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i
 
 
 def json_withdrawals(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    pos = put(data, cap, pos, u8(91))
-    i: i32 = 0
-    while i < obj.nodes[node].child_count:
-        if i > 0:
-            pos = put(data, cap, pos, u8(44))
-        pos = json_withdrawal(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return put(data, cap, pos, u8(93))
+    return json_sequence[json_withdrawal](obj, node, data, cap, pos)
 
 
 def json_transactions(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    pos = put(data, cap, pos, u8(91))
-    i: i32 = 0
-    while i < obj.nodes[node].child_count:
-        if i > 0:
-            pos = put(data, cap, pos, u8(44))
-        pos = json_hex_node(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return put(data, cap, pos, u8(93))
+    return json_sequence[json_hex_node](obj, node, data, cap, pos)
 
 
 def json_execution_payload(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
@@ -712,25 +605,11 @@ def json_signed_bls_change(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8],
 
 
 def json_bls_changes(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    pos = put(data, cap, pos, u8(91))
-    i: i32 = 0
-    while i < obj.nodes[node].child_count:
-        if i > 0:
-            pos = put(data, cap, pos, u8(44))
-        pos = json_signed_bls_change(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return put(data, cap, pos, u8(93))
+    return json_sequence[json_signed_bls_change](obj, node, data, cap, pos)
 
 
 def json_commitments(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
-    pos = put(data, cap, pos, u8(91))
-    i: i32 = 0
-    while i < obj.nodes[node].child_count:
-        if i > 0:
-            pos = put(data, cap, pos, u8(44))
-        pos = json_hex_node(obj, child(obj, node, i), data, cap, pos)
-        i = i + 1
-    return put(data, cap, pos, u8(93))
+    return json_sequence[json_hex_node](obj, node, data, cap, pos)
 
 
 def json_deposit_request(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:
