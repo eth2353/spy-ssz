@@ -197,20 +197,7 @@ def withdrawal_list(
     end: i32,
     obj: raw_ptr[SszObject],
 ) -> i32:
-    length = end - start
-    if length < 0 or length % 44 != 0:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-        return empty_list(obj, obj.max_withdrawals_per_payload)
-    count = length // 44
-    if count > obj.max_withdrawals_per_payload:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-        return empty_list(obj, obj.max_withdrawals_per_payload)
-    first = reserve_edges(obj, count)
-    i: i32 = 0
-    while i < count:
-        set_edge(obj, first, i, withdrawal(document, start + i * 44, obj))
-        i = i + 1
-    return add_composite_node(obj, KIND_LIST, first, count, obj.max_withdrawals_per_payload, 0, 0)
+    return ssz_fixed_composite_list[withdrawal, KIND_LIST](document, start, end, 44, obj.max_withdrawals_per_payload, obj)
 
 
 def transaction_list(
@@ -319,3 +306,57 @@ def sync_aggregate(
     set_edge(obj, first, 0, ssz_bitvector(document, start, obj.sync_committee_size, obj))
     set_edge(obj, first, 1, ssz_fixed_bytes(document, start + bits_size, 96, obj))
     return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
+
+
+@blue.generic
+def ssz_fixed_composite_list(decode_item, list_kind):
+    def decode(document: raw_ptr[SszDocument], start: i32, end: i32, item_size: i32, limit: i32, obj: raw_ptr[SszObject]) -> i32:
+        length = end - start
+        if not require_range(document, start, end) or length % item_size != 0:
+            obj.status = DECODE_STATUS_MALFORMED_INPUT
+            length = 0
+        count = length // item_size
+        if list_kind == KIND_LIST and count > limit:
+            obj.status = DECODE_STATUS_MALFORMED_INPUT
+            count = 0
+        first = reserve_edges(obj, count)
+        i: i32 = 0
+        while i < count:
+            set_edge(obj, first, i, decode_item(document, start + i * item_size, obj))
+            i = i + 1
+        return add_composite_node(obj, list_kind, first, count, limit, 0, 0)
+    return decode
+
+
+@blue.generic
+def ssz_variable_composite_list(decode_item, list_kind):
+    def decode(document: raw_ptr[SszDocument], start: i32, end: i32, limit: i32, obj: raw_ptr[SszObject]) -> i32:
+        count: i32 = 0
+        length = end - start
+        first_offset: i32 = 0
+        if not require_range(document, start, end):
+            obj.status = DECODE_STATUS_MALFORMED_INPUT
+        elif length != 0:
+            first_offset = read_u32(document, start)
+            if first_offset <= 0 or first_offset % 4 != 0 or first_offset > length:
+                obj.status = DECODE_STATUS_MALFORMED_INPUT
+            else:
+                count = first_offset // 4
+        if list_kind == KIND_LIST and count > limit:
+            obj.status = DECODE_STATUS_MALFORMED_INPUT
+            count = 0
+        first = reserve_edges(obj, count)
+        i: i32 = 0
+        while i < count:
+            item_start = read_u32(document, start + i * 4)
+            item_end = length
+            if i + 1 < count:
+                item_end = read_u32(document, start + (i + 1) * 4)
+            # Validate relative offsets before adding the container's start.
+            if item_start < first_offset or item_end < item_start or item_end > length:
+                obj.status = DECODE_STATUS_MALFORMED_INPUT
+                return add_composite_node(obj, list_kind, first, 0, limit, 0, 0)
+            set_edge(obj, first, i, decode_item(document, start + item_start, start + item_end, obj))
+            i = i + 1
+        return add_composite_node(obj, list_kind, first, count, limit, 0, 0)
+    return decode

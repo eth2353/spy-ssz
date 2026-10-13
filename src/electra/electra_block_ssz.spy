@@ -4,10 +4,11 @@ from unsafe import raw_ptr
 from decode_status import DECODE_STATUS_MALFORMED_INPUT, DECODE_STATUS_VALID
 from metadata import OBJECT_SIGNED_BEACON_BLOCK
 from ssz_lowering import (
+    ssz_fixed_composite_list,
+    ssz_variable_composite_list,
     SszDecodeResult,
     attestation_data,
     copy_data,
-    empty_list,
     eth1_data,
     execution_payload,
     fixed_bytes_list,
@@ -17,14 +18,13 @@ from ssz_lowering import (
     ssz_uint,
     sync_aggregate,
 )
-from ssz_reader import SszDocument, decode_ssz, first_variable_offset, read_u32, require_range, variable_offset
+from ssz_reader import SszDocument, decode_ssz, first_variable_offset, variable_offset
 from ssz_object import (
     KIND_CONTAINER,
     KIND_LIST,
     SszObject,
     add_basic_list_node,
     add_composite_node,
-    alloc_data,
     configure_preset,
     new_object,
     reserve_edges,
@@ -68,20 +68,7 @@ def proposer_slashing_list(
     end: i32,
     obj: raw_ptr[SszObject],
 ) -> i32:
-    length = end - start
-    if length < 0 or length % 416 != 0:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-        return empty_list(obj, obj.max_proposer_slashings)
-    count = length // 416
-    if count > obj.max_proposer_slashings:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-        return empty_list(obj, obj.max_proposer_slashings)
-    first = reserve_edges(obj, count)
-    i: i32 = 0
-    while i < count:
-        set_edge(obj, first, i, proposer_slashing(document, start + i * 416, obj))
-        i = i + 1
-    return add_composite_node(obj, KIND_LIST, first, count, obj.max_proposer_slashings, 0, 0)
+    return ssz_fixed_composite_list[proposer_slashing, KIND_LIST](document, start, end, 416, obj.max_proposer_slashings, obj)
 
 
 def attesting_indices(
@@ -144,15 +131,7 @@ def attester_slashing_list(
     end: i32,
     obj: raw_ptr[SszObject],
 ) -> i32:
-    if start == end:
-        return empty_list(obj, obj.max_attester_slashings_electra)
-    first_offset = read_u32(document, start)
-    if first_offset != 4:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-        return empty_list(obj, obj.max_attester_slashings_electra)
-    first = reserve_edges(obj, 1)
-    set_edge(obj, first, 0, attester_slashing(document, start + 4, end, obj))
-    return add_composite_node(obj, KIND_LIST, first, 1, obj.max_attester_slashings_electra, 0, 0)
+    return ssz_variable_composite_list[attester_slashing, KIND_LIST](document, start, end, obj.max_attester_slashings_electra, obj)
 
 
 def attestation(
@@ -180,28 +159,7 @@ def attestation_list(
     end: i32,
     obj: raw_ptr[SszObject],
 ) -> i32:
-    if start == end:
-        return empty_list(obj, obj.max_attestations_electra)
-    first_offset = read_u32(document, start)
-    if first_offset <= 0 or first_offset % 4 != 0:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-        return empty_list(obj, obj.max_attestations_electra)
-    count = first_offset // 4
-    if count > obj.max_attestations_electra or start + first_offset > end:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-        return empty_list(obj, obj.max_attestations_electra)
-    first = reserve_edges(obj, count)
-    i: i32 = 0
-    while i < count:
-        item_start = start + read_u32(document, start + i * 4)
-        item_end = end
-        if i + 1 < count:
-            item_end = start + read_u32(document, start + (i + 1) * 4)
-        if item_start < start + first_offset or item_end < item_start or item_end > end:
-            obj.status = DECODE_STATUS_MALFORMED_INPUT
-        set_edge(obj, first, i, attestation(document, item_start, item_end, obj))
-        i = i + 1
-    return add_composite_node(obj, KIND_LIST, first, count, obj.max_attestations_electra, 0, 0)
+    return ssz_variable_composite_list[attestation, KIND_LIST](document, start, end, obj.max_attestations_electra, obj)
 
 
 def decode_electra_attestation(
@@ -243,20 +201,7 @@ def deposit_list(
     end: i32,
     obj: raw_ptr[SszObject],
 ) -> i32:
-    length = end - start
-    if length < 0 or length % 1240 != 0:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-        return empty_list(obj, obj.max_deposits)
-    count = length // 1240
-    if count > obj.max_deposits:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-        return empty_list(obj, obj.max_deposits)
-    first = reserve_edges(obj, count)
-    i: i32 = 0
-    while i < count:
-        set_edge(obj, first, i, deposit(document, start + i * 1240, obj))
-        i = i + 1
-    return add_composite_node(obj, KIND_LIST, first, count, obj.max_deposits, 0, 0)
+    return ssz_fixed_composite_list[deposit, KIND_LIST](document, start, end, 1240, obj.max_deposits, obj)
 
 
 def signed_voluntary_exit(
@@ -278,20 +223,7 @@ def voluntary_exit_list(
     end: i32,
     obj: raw_ptr[SszObject],
 ) -> i32:
-    length = end - start
-    if length < 0 or length % 112 != 0:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-        return empty_list(obj, obj.max_voluntary_exits)
-    count = length // 112
-    if count > obj.max_voluntary_exits:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-        return empty_list(obj, obj.max_voluntary_exits)
-    first = reserve_edges(obj, count)
-    i: i32 = 0
-    while i < count:
-        set_edge(obj, first, i, signed_voluntary_exit(document, start + i * 112, obj))
-        i = i + 1
-    return add_composite_node(obj, KIND_LIST, first, count, obj.max_voluntary_exits, 0, 0)
+    return ssz_fixed_composite_list[signed_voluntary_exit, KIND_LIST](document, start, end, 112, obj.max_voluntary_exits, obj)
 
 
 def signed_bls_change(
@@ -314,20 +246,7 @@ def bls_change_list(
     end: i32,
     obj: raw_ptr[SszObject],
 ) -> i32:
-    length = end - start
-    if length < 0 or length % 172 != 0:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-        return empty_list(obj, obj.max_bls_to_execution_changes)
-    count = length // 172
-    if count > obj.max_bls_to_execution_changes:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-        return empty_list(obj, obj.max_bls_to_execution_changes)
-    first = reserve_edges(obj, count)
-    i: i32 = 0
-    while i < count:
-        set_edge(obj, first, i, signed_bls_change(document, start + i * 172, obj))
-        i = i + 1
-    return add_composite_node(obj, KIND_LIST, first, count, obj.max_bls_to_execution_changes, 0, 0)
+    return ssz_fixed_composite_list[signed_bls_change, KIND_LIST](document, start, end, 172, obj.max_bls_to_execution_changes, obj)
 
 
 def deposit_request(
@@ -376,51 +295,9 @@ def execution_requests(
     if withdrawals < deposits or consolidations < withdrawals:
         obj.status = DECODE_STATUS_MALFORMED_INPUT
 
-    deposit_length = withdrawals - deposits
-    if deposit_length < 0 or deposit_length % 192 != 0:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-        deposit_length = 0
-    deposit_count = deposit_length // 192
-    if deposit_count > obj.max_deposit_requests_per_payload:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-        deposit_count = 0
-    deposit_first = reserve_edges(obj, deposit_count)
-    i: i32 = 0
-    while i < deposit_count:
-        set_edge(obj, deposit_first, i, deposit_request(document, deposits + i * 192, obj))
-        i = i + 1
-    deposit_node = add_composite_node(obj, KIND_LIST, deposit_first, deposit_count, obj.max_deposit_requests_per_payload, 0, 0)
-
-    withdrawal_length = consolidations - withdrawals
-    if withdrawal_length < 0 or withdrawal_length % 76 != 0:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-        withdrawal_length = 0
-    withdrawal_count = withdrawal_length // 76
-    if withdrawal_count > obj.max_withdrawal_requests_per_payload:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-        withdrawal_count = 0
-    withdrawal_first = reserve_edges(obj, withdrawal_count)
-    i = 0
-    while i < withdrawal_count:
-        set_edge(obj, withdrawal_first, i, withdrawal_request(document, withdrawals + i * 76, obj))
-        i = i + 1
-    withdrawal_node = add_composite_node(obj, KIND_LIST, withdrawal_first, withdrawal_count, obj.max_withdrawal_requests_per_payload, 0, 0)
-
-    consolidation_length = end - consolidations
-    if consolidation_length < 0 or consolidation_length % 116 != 0:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-        consolidation_length = 0
-    consolidation_count = consolidation_length // 116
-    if consolidation_count > obj.max_consolidation_requests_per_payload:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-        consolidation_count = 0
-    consolidation_first = reserve_edges(obj, consolidation_count)
-    i = 0
-    while i < consolidation_count:
-        set_edge(obj, consolidation_first, i, consolidation_request(document, consolidations + i * 116, obj))
-        i = i + 1
-    consolidation_node = add_composite_node(obj, KIND_LIST, consolidation_first, consolidation_count, obj.max_consolidation_requests_per_payload, 0, 0)
-
+    deposit_node = ssz_fixed_composite_list[deposit_request, KIND_LIST](document, deposits, withdrawals, 192, obj.max_deposit_requests_per_payload, obj)
+    withdrawal_node = ssz_fixed_composite_list[withdrawal_request, KIND_LIST](document, withdrawals, consolidations, 76, obj.max_withdrawal_requests_per_payload, obj)
+    consolidation_node = ssz_fixed_composite_list[consolidation_request, KIND_LIST](document, consolidations, end, 116, obj.max_consolidation_requests_per_payload, obj)
     first = reserve_edges(obj, 3)
     set_edge(obj, first, 0, deposit_node)
     set_edge(obj, first, 1, withdrawal_node)

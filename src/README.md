@@ -27,6 +27,14 @@ and schema IDs before values cross the C bridge. They cover every block
 operation family and execution-request list. `electra/electra_block_encode.spy`
 provides their shared JSON and SSZ output path.
 
+Repeated list loops are compile-time specializations: `writer.spy` supplies
+JSON, fixed-item SSZ, and variable-item SSZ sequence writers; the lowering
+modules supply composite-list readers. Each specialization calls its item
+codec directly. Bounded lists retain preset limits, while progressive lists
+retain their distinct node kind. Variable-item readers check relative offsets
+before converting them to positions in the input. Keep schema field layouts
+explicit, and add shared helpers only for patterns used in more than two places.
+
 The pinned SPy compiler does not yet support packages, so module basenames are
 globally unique even inside fork directories. The extension build flattens
 those source modules into a temporary build input; the repository layout

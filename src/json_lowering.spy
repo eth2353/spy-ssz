@@ -287,15 +287,7 @@ def withdrawal(
 def withdrawal_list(
     document: raw_ptr[JsonDocument], values: i32, obj: raw_ptr[SszObject]
 ) -> i32:
-    count = array_length(document, values)
-    if count > obj.max_withdrawals_per_payload:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-    first = reserve_edges(obj, count)
-    i: i32 = 0
-    while i < count:
-        set_edge(obj, first, i, withdrawal(document, array_get(document, values, i), obj))
-        i = i + 1
-    return add_composite_node(obj, KIND_LIST, first, count, obj.max_withdrawals_per_payload, 0, 0)
+    return json_composite_list[withdrawal, KIND_LIST](document, values, obj.max_withdrawals_per_payload, obj)
 
 
 def transaction_list(
@@ -367,3 +359,20 @@ def sync_aggregate(
     set_edge(obj, first, 0, json_bitvector(document, object_get(document, value, b"sync_committee_bits"), obj, obj.sync_committee_size))
     set_edge(obj, first, 1, json_fixed_bytes(document, object_get(document, value, b"sync_committee_signature"), obj, 96))
     return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
+
+
+@blue.generic
+def json_composite_list(decode_item, list_kind):
+    def decode(document: raw_ptr[JsonDocument], values: i32, limit: i32, obj: raw_ptr[SszObject]) -> i32:
+        count = array_length(document, values)
+        if list_kind == KIND_LIST and count > limit:
+            obj.status = DECODE_STATUS_MALFORMED_INPUT
+            document.status = DECODE_STATUS_MALFORMED_INPUT
+            count = 0
+        first = reserve_edges(obj, count)
+        i: i32 = 0
+        while i < count:
+            set_edge(obj, first, i, decode_item(document, array_get(document, values, i), obj))
+            i = i + 1
+        return add_composite_node(obj, list_kind, first, count, limit, 0, 0)
+    return decode
