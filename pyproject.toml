@@ -38,6 +38,8 @@ dev = [
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "--strict-config --strict-markers"
 
 [[tool.mypy.overrides]]
 module = ["cffi", "remerkleable", "remerkleable.*", "setuptools", "setuptools.*"]
