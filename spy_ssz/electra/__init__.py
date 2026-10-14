@@ -14,6 +14,7 @@ SignedBeaconBlockElectra = type(
     _SIGNED_BLOCK.python_type,
     (SszObject,),
     {
+        "__slots__": (),
         "expected_fork": _SIGNED_BLOCK.fork,
         "expected_kind": _SIGNED_BLOCK.kind,
         "json_input_envelope_key": "data",
@@ -31,12 +32,16 @@ _SIGNED_BLINDED = get_schema(Fork.ELECTRA, ObjectKind.SIGNED_BLINDED_BEACON_BLOC
 
 
 class BeaconBlockContentsElectra(BlockProjection):
+    __slots__ = ()
+
     expected_fork = _CONTENTS.fork
     expected_kind = _CONTENTS.kind
     signed_schema_id = _SIGNED_CONTENTS.schema_id
 
 
 class SignedBeaconBlockContentsElectra(SszObject):
+    __slots__ = ()
+
     expected_fork = _SIGNED_CONTENTS.fork
     expected_kind = _SIGNED_CONTENTS.kind
     json_input_envelope_key = "data"
@@ -44,12 +49,16 @@ class SignedBeaconBlockContentsElectra(SszObject):
 
 
 class BlindedBeaconBlockElectra(BlockProjection):
+    __slots__ = ()
+
     expected_fork = _BLINDED.fork
     expected_kind = _BLINDED.kind
     signed_schema_id = _SIGNED_BLINDED.schema_id
 
 
 class SignedBlindedBeaconBlockElectra(SszObject):
+    __slots__ = ()
+
     expected_fork = _SIGNED_BLINDED.fork
     expected_kind = _SIGNED_BLINDED.kind
     json_input_envelope_key = "data"

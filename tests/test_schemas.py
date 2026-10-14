@@ -73,6 +73,17 @@ def test_public_type_resolver_is_complete_and_coherent() -> None:
             assert resolved.expected_preset is preset
 
 
+def test_public_native_types_do_not_gain_instance_dictionaries() -> None:
+    for definition in schema_definitions():
+        module = import_module(f"spy_ssz.{module_for_codec(definition.codec)}")
+        names = [definition.python_type]
+        names.extend(
+            f"{definition.python_type}{preset.title()}" for preset in definition.presets
+        )
+        for name in names:
+            assert getattr(module, name).__dictoffset__ == 0, name
+
+
 @pytest.mark.parametrize(
     "definition",
     [value for value in schema_definitions() if value.consensus_type is not None],
@@ -95,6 +106,15 @@ def test_every_schema_matches_consensus_codecs(definition, preset) -> None:
             assert value.object_kind is definition.kind
             assert value.preset is preset
             assert value.schema_id == definition.schema_id
+            assert value.to_ssz() == encoded
+            assert value.hash_tree_root() == reference.hash_tree_root()
+            # Every projected native field must remain coherent with canonical
+            # bytes and roots, even after an attempted Python assignment.
+            for name in reference.to_obj():
+                original = repr(getattr(value, name))
+                with pytest.raises(AttributeError):
+                    setattr(value, name, object())
+                assert repr(getattr(value, name)) == original
             assert value.to_ssz() == encoded
             assert value.hash_tree_root() == reference.hash_tree_root()
         with concrete.from_obj(from_ssz.to_obj()) as roundtrip:

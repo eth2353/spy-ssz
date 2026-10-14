@@ -19,6 +19,8 @@ def export_preset_types(
     # module, breaking introspection and import-based class lookup.
     base.__module__ = namespace["__name__"]
     namespace[definition.python_type] = base
+    # Every public subclass stays slotted so Python attributes cannot shadow
+    # the read-only native fields exposed by SszObject.__getattr__.
     for preset_name in definition.presets:
         preset = Preset[preset_name.upper()]
         name = f"{definition.python_type}{preset.name.title()}"
@@ -28,6 +30,10 @@ def export_preset_types(
             else type(
                 name,
                 (base,),
-                {"expected_preset": preset, "__module__": namespace["__name__"]},
+                {
+                    "__slots__": (),
+                    "expected_preset": preset,
+                    "__module__": namespace["__name__"],
+                },
             )
         )

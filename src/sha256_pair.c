@@ -6,8 +6,6 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "ssz_kernels.h"
-
 #if defined(__APPLE__)
 #include <CommonCrypto/CommonDigest.h>
 #elif defined(__linux__)
@@ -153,20 +151,4 @@ void spy_sha256_pair(const uint8_t *source, uint8_t *output) {
         output[offset + 3U] = (uint8_t)value;
     }
 #endif
-}
-
-void spy_ssz_kernels$hash_pair_into(
-    spy_BytesObject *source,
-    int32_t source_offset,
-    spy_BytesObject *output,
-    int32_t output_offset,
-    spy_BytesObject *unused_state,
-    spy_BytesObject *unused_schedule
-) {
-    (void)unused_state;
-    (void)unused_schedule;
-    spy_sha256_pair(
-        source->data.p + source_offset,
-        output->data.p + output_offset
-    );
 }

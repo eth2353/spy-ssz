@@ -489,8 +489,6 @@ void spy_ssz_object_destroy(spy_raw_ssz_ptr opaque) {
     free(obj->arena.p);
     free(obj->work.p);
     free(obj->zeros.p);
-    free(obj->state.p);
-    free(obj->schedule.p);
     free(obj->root.p);
     free(obj->node_roots.p);
     free(obj->node_root_valid.p);

@@ -301,7 +301,8 @@ required `data` field; metadata from a different endpoint is rejected.
   copied from the consensus specification repositories.
 - `tools/generate_spy_metadata.py` derives Python, SPy, and C constants from
   those definitions during builds.
-- `src/ssz_object.spy` owns typed nodes, SSZ hashing, and the root cache.
+- `src/ssz_object.spy` owns the typed graph and object storage; `src/merkle.c`
+  implements SSZ hashing and populates the object's root and node caches.
 - `src/json_parser.spy` and `src/ssz_reader.spy` decode JSON and SSZ input.
 - `src/writer.spy` provides JSON and SSZ output primitives.
 - `src/electra/` and `src/gloas/` implement concrete fork/object codecs;

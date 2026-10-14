@@ -1,4 +1,4 @@
-"""Fork-independent typed SSZ object graph and hashing engine."""
+"""Fork-independent typed SSZ object graph and writer storage."""
 
 from _bytes import BytesObject
 from unsafe import gc_ptr, raw_alloc, raw_ptr
@@ -24,7 +24,7 @@ from preset_config import (
     preset_sync_committee_size,
     preset_ptc_size,
 )
-from ssz_kernels import ZERO_HASHES, hash_pair_into, merkleize_at
+from ssz_kernels import ZERO_HASHES
 from decode_status import (
     DECODE_STATUS_MALFORMED_INPUT,
     DECODE_STATUS_VALID,
@@ -100,11 +100,7 @@ class SszObject:
     error_start: i32
     error_end: i32
     work: gc_ptr[BytesObject]
-    work_capacity: i32
-    work_cursor: i32
     zeros: gc_ptr[BytesObject]
-    state: gc_ptr[BytesObject]
-    schedule: gc_ptr[BytesObject]
     root: gc_ptr[BytesObject]
     root_valid: bool
     node_roots: raw_ptr[u8]
@@ -152,18 +148,14 @@ def new_object(
     # Public hashing uses the bounded-stack C merkleizer. The SPy writer only
     # needs scratch space for the decimal representation of a 256-bit integer
     # (32 working bytes plus at most 78 digits).
-    work_capacity = UINT256_DECIMAL_WORK_CAPACITY
-    obj.work = new_bytes(work_capacity, False)
-    obj.work_capacity = work_capacity
-    obj.work_cursor = 0
+    obj.work = new_bytes(UINT256_DECIMAL_WORK_CAPACITY, False)
+    # The C Merkleizer also uses these precomputed zero-subtree roots.
     obj.zeros = new_bytes(len(ZERO_HASHES), False)
     zero_hashes = BytesObject.from_bytes(ZERO_HASHES)
     zero_index: i32 = 0
     while zero_index < zero_hashes.length:
         obj.zeros.data[zero_index] = zero_hashes.data[zero_index]
         zero_index = zero_index + 1
-    obj.state = new_bytes(32, False)
-    obj.schedule = new_bytes(256, False)
     obj.root = new_bytes(32, False)
     obj.root_valid = False
     # The C merkleizer allocates these caches on first use, sized to the actual
@@ -356,273 +348,6 @@ def add_composite_node(
         active_offset,
         active_length,
     )
-
-
-def next_power(count: i32) -> i32:
-    width: i32 = 1
-    while width < count:
-        width = width * 2
-    return width
-
-
-def ceil_depth(limit: i32) -> i32:
-    depth: i32 = 0
-    width: i32 = 1
-    while width < limit:
-        width = width * 2
-        depth = depth + 1
-    return depth
-
-
-def alloc_work(obj: raw_ptr[SszObject], length: i32) -> i32:
-    offset = obj.work_cursor
-    if offset + length > obj.work_capacity:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-        return 0
-    obj.work_cursor = offset + length
-    i: i32 = 0
-    while i < length:
-        obj.work.data[offset + i] = u8(0)
-        i = i + 1
-    return offset
-
-
-def copy_work32(obj: raw_ptr[SszObject], source: i32, destination: i32) -> None:
-    i: i32 = 0
-    while i < 32:
-        obj.work.data[destination + i] = obj.work.data[source + i]
-        i = i + 1
-
-
-def copy_zero(obj: raw_ptr[SszObject], level: i32, destination: i32) -> None:
-    i: i32 = 0
-    while i < 32:
-        obj.work.data[destination + i] = obj.zeros.data[level * 32 + i]
-        i = i + 1
-
-
-def pair_hash(obj: raw_ptr[SszObject], base: i32) -> None:
-    hash_pair_into(
-        BytesObject.to_bytes(obj.work),
-        base,
-        BytesObject.to_bytes(obj.work),
-        base,
-        BytesObject.to_bytes(obj.state),
-        BytesObject.to_bytes(obj.schedule),
-    )
-
-
-def merkleize_limit(
-    obj: raw_ptr[SszObject], base: i32, count: i32, limit: i32
-) -> None:
-    target_depth = ceil_depth(limit)
-    if count == 0:
-        copy_zero(obj, target_depth, base)
-        return
-    width = next_power(count)
-    merkleize_at(
-        BytesObject.to_bytes(obj.work),
-        base,
-        width,
-        BytesObject.to_bytes(obj.state),
-        BytesObject.to_bytes(obj.schedule),
-    )
-    level = ceil_depth(width)
-    while level < target_depth:
-        copy_zero(obj, level, base + 32)
-        pair_hash(obj, base)
-        level = level + 1
-
-
-def mix_length(obj: raw_ptr[SszObject], root: i32, length: i32) -> i32:
-    base = alloc_work(obj, 64)
-    copy_work32(obj, root, base)
-    value = length
-    i: i32 = 0
-    while i < 4:
-        obj.work.data[base + 32 + i] = u8(value & 255)
-        value = value >> 8
-        i = i + 1
-    pair_hash(obj, base)
-    return base
-
-
-def merkleize_progressive(
-    obj: raw_ptr[SszObject], source: i32, count: i32
-) -> i32:
-    if count == 0:
-        base = alloc_work(obj, 32)
-        return base
-    group_roots = alloc_work(obj, 512)
-    group_count: i32 = 0
-    position: i32 = 0
-    group_limit: i32 = 1
-    while position < count:
-        remaining = count - position
-        take = group_limit
-        if remaining < take:
-            take = remaining
-        group = alloc_work(obj, group_limit * 32)
-        i: i32 = 0
-        while i < take:
-            copy_work32(obj, source + (position + i) * 32, group + i * 32)
-            i = i + 1
-        merkleize_limit(obj, group, take, group_limit)
-        copy_work32(obj, group, group_roots + group_count * 32)
-        group_count = group_count + 1
-        position = position + take
-        group_limit = group_limit * 4
-    root = alloc_work(obj, 32)
-    i = group_count - 1
-    while i >= 0:
-        pair = alloc_work(obj, 64)
-        copy_work32(obj, group_roots + i * 32, pair)
-        copy_work32(obj, root, pair + 32)
-        pair_hash(obj, pair)
-        root = pair
-        i = i - 1
-    return root
-
-
-def mix_active_fields(
-    obj: raw_ptr[SszObject], root: i32, offset: i32, bit_length: i32
-) -> i32:
-    base = alloc_work(obj, 64)
-    copy_work32(obj, root, base)
-    byte_length = (bit_length + 7) // 8
-    i: i32 = 0
-    while i < byte_length:
-        obj.work.data[base + 32 + i] = obj.arena[offset + i]
-        i = i + 1
-    pair_hash(obj, base)
-    return base
-
-
-def hash_node(obj: raw_ptr[SszObject], node_index: i32) -> i32:
-    node = obj.nodes[node_index]
-    i: i32 = 0
-    if node.kind == KIND_UINT:
-        base = alloc_work(obj, 32)
-        i = 0
-        while i < 32:
-            obj.work.data[base + i] = obj.arena[node.data_offset + i]
-            i = i + 1
-        return base
-    if node.kind == KIND_FIXED_BYTES:
-        chunks = (node.data_length + 31) // 32
-        base = alloc_work(obj, next_power(chunks) * 32)
-        i = 0
-        while i < node.data_length:
-            obj.work.data[base + i] = obj.arena[node.data_offset + i]
-            i = i + 1
-        merkleize_limit(obj, base, chunks, chunks)
-        return base
-    if node.kind == KIND_BYTE_LIST:
-        chunks = (node.data_length + 31) // 32
-        base = alloc_work(obj, next_power(chunks) * 32)
-        i = 0
-        while i < node.data_length:
-            obj.work.data[base + i] = obj.arena[node.data_offset + i]
-            i = i + 1
-        merkleize_limit(obj, base, chunks, (node.limit + 31) // 32)
-        return mix_length(obj, base, node.data_length)
-    if node.kind == KIND_BITLIST:
-        byte_length = (node.data_length + 7) // 8
-        chunks = (node.data_length + 255) // 256
-        base = alloc_work(obj, next_power(chunks) * 32)
-        i = 0
-        while i < byte_length:
-            obj.work.data[base + i] = obj.arena[node.data_offset + i]
-            i = i + 1
-        merkleize_limit(obj, base, chunks, (node.limit + 255) // 256)
-        return mix_length(obj, base, node.data_length)
-    if node.kind == KIND_BASIC_LIST:
-        chunks = (node.data_length + 31) // 32
-        base = alloc_work(obj, next_power(chunks) * 32)
-        i = 0
-        while i < node.data_length:
-            obj.work.data[base + i] = obj.arena[node.data_offset + i]
-            i = i + 1
-        limit_chunks = (node.limit * node.active_length + 31) // 32
-        merkleize_limit(obj, base, chunks, limit_chunks)
-        return mix_length(obj, base, node.data_length // node.active_length)
-    if node.kind == KIND_PROGRESSIVE_BASIC_LIST:
-        chunks = (node.data_length + 31) // 32
-        base = alloc_work(obj, next_power(chunks) * 32)
-        i = 0
-        while i < node.data_length:
-            obj.work.data[base + i] = obj.arena[node.data_offset + i]
-            i = i + 1
-        progressive_basic = merkleize_progressive(obj, base, chunks)
-        return mix_length(
-            obj, progressive_basic, node.data_length // node.active_length
-        )
-    if node.kind == KIND_PROGRESSIVE_BITLIST:
-        byte_length = (node.data_length + 7) // 8
-        chunks = (node.data_length + 255) // 256
-        base = alloc_work(obj, next_power(chunks) * 32)
-        i = 0
-        while i < byte_length:
-            obj.work.data[base + i] = obj.arena[node.data_offset + i]
-            i = i + 1
-        progressive_bits = merkleize_progressive(obj, base, chunks)
-        return mix_length(obj, progressive_bits, node.data_length)
-
-    count = node.child_count
-    roots = alloc_work(obj, next_power(count) * 32)
-    i = 0
-    while i < count:
-        child_root = hash_node(obj, obj.edges[node.first_edge + i])
-        copy_work32(obj, child_root, roots + i * 32)
-        i = i + 1
-    if node.kind == KIND_CONTAINER:
-        merkleize_limit(obj, roots, count, count)
-        return roots
-    if node.kind == KIND_LIST:
-        merkleize_limit(obj, roots, count, node.limit)
-        return mix_length(obj, roots, count)
-    if node.kind == KIND_PROGRESSIVE_LIST:
-        progressive = merkleize_progressive(obj, roots, count)
-        return mix_length(obj, progressive, count)
-    if node.kind == KIND_PROGRESSIVE_CONTAINER:
-        progressive = merkleize_progressive(obj, roots, count)
-        return mix_active_fields(
-            obj, progressive, node.active_offset, node.active_length
-        )
-    obj.status = DECODE_STATUS_MALFORMED_INPUT
-    return roots
-
-
-def object_hash_tree_root(
-    obj: raw_ptr[SszObject], output: bytes
-) -> i32:
-    if not obj.root_valid:
-        obj.work_cursor = 0
-        root_offset = hash_node(obj, obj.root_node)
-        i: i32 = 0
-        while i < 32:
-            obj.root.data[i] = obj.work.data[root_offset + i]
-            i = i + 1
-        obj.root_valid = True
-    out = BytesObject.from_bytes(output)
-    j: i32 = 0
-    while j < 32:
-        out.data[j] = obj.root.data[j]
-        j = j + 1
-    return obj.status
-
-
-def object_node_hash_tree_root(
-    obj: raw_ptr[SszObject], node_index: i32, output: bytes
-) -> i32:
-    obj.work_cursor = 0
-    root_offset = hash_node(obj, node_index)
-    out = BytesObject.from_bytes(output)
-    i: i32 = 0
-    while i < 32:
-        out.data[i] = obj.work.data[root_offset + i]
-        i = i + 1
-    return obj.status
 
 
 def clone_object(

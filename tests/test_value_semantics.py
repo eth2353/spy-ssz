@@ -15,6 +15,21 @@ from spy_ssz.signing import (
 from spy_ssz.ssz import _JSON_ENCODERS, _SSZ_ENCODERS
 
 
+@pytest.mark.parametrize("preset", list(Preset))
+def test_native_field_assignment_cannot_shadow_encoded_value(preset) -> None:
+    from spy_ssz import get_ssz_type
+
+    reference = electra.AttestationData(slot=123)
+    concrete = get_ssz_type(Fork.ELECTRA, ObjectKind.ATTESTATION_DATA, preset)
+    with concrete.from_ssz(reference.encode_bytes()) as value:
+        with pytest.raises(AttributeError):
+            value.slot = 456
+        assert value.slot == 123
+        assert value.to_obj()["slot"] == "123"
+        assert value.to_ssz() == reference.encode_bytes()
+        assert value.hash_tree_root() == reference.hash_tree_root()
+
+
 @pytest.mark.parametrize("copier", [copy, deepcopy])
 def test_copies_own_native_memory_independently(copier) -> None:
     reference = electra.AttestationData(slot=123)

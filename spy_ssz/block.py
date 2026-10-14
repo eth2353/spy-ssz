@@ -26,6 +26,8 @@ def signature_bytes(signature: str | bytes) -> bytes:
 
 
 class BlockProjection(SszObject):
+    __slots__ = ()
+
     json_input_envelope_key = "data"
     json_output_envelope_key = None
     signed_schema_id: int

@@ -29,6 +29,7 @@ for _definition in _DEFINITIONS.values():
         BlockProjection if _definition.kind in _PROJECTION_KINDS else SszObject
     )
     _attributes = {
+        "__slots__": (),
         "expected_fork": _definition.fork,
         "expected_kind": _definition.kind,
     }

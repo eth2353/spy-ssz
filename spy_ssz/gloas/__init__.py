@@ -19,6 +19,7 @@ for _definition in _DEFINITIONS.values():
         BlockProjection if _definition.kind is ObjectKind.BEACON_BLOCK else SszObject
     )
     _attributes = {
+        "__slots__": (),
         "expected_fork": _definition.fork,
         "expected_kind": _definition.kind,
     }

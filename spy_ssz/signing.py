@@ -15,6 +15,7 @@ for _definition in _SCHEMAS.values():
         _definition.python_type,
         (SszObject,),
         {
+            "__slots__": (),
             "expected_fork": _definition.fork,
             "expected_kind": _definition.kind,
             "json_input_envelope_key": None,
