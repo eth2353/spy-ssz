@@ -308,9 +308,14 @@ required `data` field; metadata from a different endpoint is rejected.
 - `src/electra/` and `src/gloas/` implement concrete fork/object codecs;
   Fulu reuses Electra's wire layouts.
 - `src/bridge.c` is the ownership and CFFI boundary.
-- `spy_ssz/_codecs.py` owns native codec registration and lazy dispatch.
+- `spy_ssz/_codecs.py` builds immutable native codec descriptors from schema
+  metadata, independently of public type imports.
 - `spy_ssz/_variants.py` exports preset classes for the four type modules.
-- `spy_ssz/ssz.py` owns Python lifetimes, encoding, decoding, and value semantics.
+- `spy_ssz/ssz.py` owns Python lifetimes and orchestrates codec/value operations.
+- `spy_ssz/_native.py` handles native buffers and decode allocations;
+  `_composition.py` composes typed signing graphs.
+- `spy_ssz/_json_policy.py` applies Beacon API transport envelopes; `_values.py`
+  handles JSON-backed Python projections and value conversion.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for dependency boundaries, generated
 sources, and release checks.

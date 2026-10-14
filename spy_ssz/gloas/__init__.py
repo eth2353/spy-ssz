@@ -1,12 +1,12 @@
 """First-class Gloas validator-client containers and beacon blocks."""
 
 from .. import _spy
+from .._native import _spy_bytes
+from .._variants import export_preset_types
 from ..block import BlockProjection, signature_bytes
 from ..preset import Preset
 from ..schema import Fork, ObjectKind, get_schema, schema_definitions
-from .._codecs import register_schema
-from .._variants import export_preset_types
-from ..ssz import SszObject, _spy_bytes
+from ..ssz import SszObject
 
 _DEFINITIONS = {
     definition.kind: definition
@@ -79,7 +79,7 @@ def _sign_execution_payload_envelope(
         if handle.p:
             _spy.lib.spy_ssz_object_destroy(handle)
         raise ValueError("SPy execution payload envelope signing failed")
-    return signed_type(handle)
+    return signed_type._from_owned_handle(handle)
 
 
 _ENVELOPE = get_schema(Fork.GLOAS, ObjectKind.EXECUTION_PAYLOAD_ENVELOPE)
@@ -92,7 +92,3 @@ for _preset in Preset:
     globals()[
         f"ExecutionPayloadEnvelopeGloas{_preset.name.title()}"
     ].sign = _sign_execution_payload_envelope
-
-
-for _definition in _DEFINITIONS.values():
-    register_schema(_definition)

@@ -1,3 +1,4 @@
+from dataclasses import replace
 from unittest import mock
 
 import msgspec
@@ -5,6 +6,8 @@ import pytest
 from eth_consensus_specs.electra import mainnet as electra
 from eth_consensus_specs.electra import minimal as electra_minimal
 
+from spy_ssz import Preset, encode_json_array, get_ssz_type
+from spy_ssz._codecs import _CODECS
 from spy_ssz.signing import (
     AggregateAndProofElectra,
     AttestationDataElectra,
@@ -22,9 +25,7 @@ from spy_ssz.signing import (
     SyncCommitteeContributionElectra,
     SyncCommitteeMessageElectra,
 )
-from spy_ssz import encode_json_array
-from spy_ssz import Preset, get_ssz_type
-from spy_ssz.ssz import Fork, ObjectKind, _JSON_ENCODERS, decode_json
+from spy_ssz.ssz import Fork, ObjectKind, decode_json
 
 
 @pytest.mark.parametrize(
@@ -391,7 +392,7 @@ def test_native_json_array_encoding_uses_one_output_buffer(
             spy_type.expected_kind,
             spy_type.expected_preset,
         )
-        individual_codec = _JSON_ENCODERS[key]
+        individual_codec = _CODECS[key]
         with (
             mock.patch.object(
                 spy_type,
@@ -399,21 +400,26 @@ def test_native_json_array_encoding_uses_one_output_buffer(
                 side_effect=AssertionError("batch encoding must stay native"),
             ),
             mock.patch.dict(
-                _JSON_ENCODERS,
+                _CODECS,
                 {
-                    key: (
-                        mock.Mock(
-                            side_effect=AssertionError("batch sizing must be fused")
-                        ),
-                        mock.Mock(
-                            side_effect=AssertionError("batch encoding must be fused")
+                    key: replace(
+                        individual_codec,
+                        json_encoder=(
+                            mock.Mock(
+                                side_effect=AssertionError("batch sizing must be fused")
+                            ),
+                            mock.Mock(
+                                side_effect=AssertionError(
+                                    "batch encoding must be fused"
+                                )
+                            ),
                         ),
                     )
                 },
             ),
         ):
             encoded = encode_json_array(values)
-        assert _JSON_ENCODERS[key] == individual_codec
+        assert _CODECS[key] == individual_codec
         assert msgspec.json.decode(encoded) == [value.to_obj() for value in values]
     finally:
         for value in values:

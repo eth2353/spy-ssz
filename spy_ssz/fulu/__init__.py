@@ -1,12 +1,10 @@
 """First-class Fulu types backed by unchanged Electra wire codecs."""
 
+from .._variants import export_preset_types
 from ..block import BlockProjection
 from ..preset import Preset
 from ..schema import Fork, ObjectKind, get_schema, schema_definitions
-from .._codecs import register_schema
-from .._variants import export_preset_types
 from ..ssz import SszObject
-
 
 _PROJECTION_KINDS = {
     ObjectKind.BEACON_BLOCK_CONTENTS,
@@ -71,7 +69,3 @@ _FULU_BLINDED.signed_types_by_preset = {
     preset: globals()[f"SignedBlindedBeaconBlockFulu{preset.name.title()}"]
     for preset in Preset
 }
-
-
-for _definition in _DEFINITIONS.values():
-    register_schema(_definition)

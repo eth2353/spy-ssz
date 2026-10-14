@@ -1,13 +1,10 @@
 """Electra SSZ block, block-contents, and blinded-block types."""
 
+from .._variants import export_preset_types
 from ..block import BlockProjection
 from ..preset import Preset
-from ..schema import get_schema, schema_for, schemas_for
-from .._codecs import register_schema
-from .._variants import export_preset_types
+from ..schema import Fork, ObjectKind, get_schema, schema_for
 from ..ssz import SszObject
-from ..schema import Fork, ObjectKind
-
 
 _SIGNED_BLOCK = schema_for("electra_block")
 SignedBeaconBlockElectra = type(
@@ -22,7 +19,6 @@ SignedBeaconBlockElectra = type(
     },
 )
 export_preset_types(globals(), SignedBeaconBlockElectra, _SIGNED_BLOCK)
-register_schema(_SIGNED_BLOCK)
 
 
 _CONTENTS = get_schema(Fork.ELECTRA, ObjectKind.BEACON_BLOCK_CONTENTS)
@@ -85,7 +81,3 @@ _SIGNED_BLINDED_BY_PRESET = {
 }
 BeaconBlockContentsElectra.signed_types_by_preset = _SIGNED_CONTENTS_BY_PRESET
 BlindedBeaconBlockElectra.signed_types_by_preset = _SIGNED_BLINDED_BY_PRESET
-
-
-for _definition in schemas_for("block_containers"):
-    register_schema(_definition)

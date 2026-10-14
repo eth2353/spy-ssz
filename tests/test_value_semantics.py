@@ -1,10 +1,12 @@
 from copy import copy, deepcopy
+from dataclasses import replace
 from threading import Event, Thread
 from unittest import mock
 
 import pytest
 from eth_consensus_specs.electra import mainnet as electra
 
+from spy_ssz._codecs import _CODECS
 from spy_ssz.preset import Preset
 from spy_ssz.schema import Fork, ObjectKind
 from spy_ssz.signing import (
@@ -12,7 +14,6 @@ from spy_ssz.signing import (
     AttestationDataElectraMinimal,
     SyncCommitteeContributionElectra,
 )
-from spy_ssz.ssz import _JSON_ENCODERS, _SSZ_ENCODERS
 
 
 @pytest.mark.parametrize("preset", list(Preset))
@@ -93,8 +94,8 @@ def test_immutable_objects_cache_exact_encoding_sizes() -> None:
     key = (Fork.ELECTRA, ObjectKind.ATTESTATION_DATA, Preset.MAINNET)
 
     with AttestationDataElectra.from_ssz(encoded_ssz) as value:
-        ssz_sizer, ssz_encoder = _SSZ_ENCODERS[key]
-        json_sizer, json_encoder = _JSON_ENCODERS[key]
+        ssz_sizer, ssz_encoder = _CODECS[key].ssz_encoder
+        json_sizer, json_encoder = _CODECS[key].json_encoder
         ssz_size_calls = 0
         json_size_calls = 0
 
@@ -108,9 +109,15 @@ def test_immutable_objects_cache_exact_encoding_sizes() -> None:
             json_size_calls += 1
             return json_sizer(handle)
 
-        with (
-            mock.patch.dict(_SSZ_ENCODERS, {key: (counted_ssz_size, ssz_encoder)}),
-            mock.patch.dict(_JSON_ENCODERS, {key: (counted_json_size, json_encoder)}),
+        with mock.patch.dict(
+            _CODECS,
+            {
+                key: replace(
+                    _CODECS[key],
+                    ssz_encoder=(counted_ssz_size, ssz_encoder),
+                    json_encoder=(counted_json_size, json_encoder),
+                )
+            },
         ):
             assert value.to_ssz() == encoded_ssz
             assert value.to_ssz() == encoded_ssz
@@ -125,7 +132,7 @@ def test_close_waits_for_in_flight_native_operation() -> None:
     value = AttestationDataElectra.from_obj(reference.to_obj())
     expected_json = value.to_json()
     key = (Fork.ELECTRA, ObjectKind.ATTESTATION_DATA, Preset.MAINNET)
-    sizer, encoder = _JSON_ENCODERS[key]
+    sizer, encoder = _CODECS[key].json_encoder
     encoding_started = Event()
     release_encoding = Event()
     close_started = Event()
@@ -150,7 +157,9 @@ def test_close_waits_for_in_flight_native_operation() -> None:
         value.close()
         closed.set()
 
-    with mock.patch.dict(_JSON_ENCODERS, {key: (sizer, blocking_encoder)}):
+    with mock.patch.dict(
+        _CODECS, {key: replace(_CODECS[key], json_encoder=(sizer, blocking_encoder))}
+    ):
         encode_thread = Thread(target=encode)
         close_thread = Thread(target=close)
         encode_thread.start()

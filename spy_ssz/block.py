@@ -3,10 +3,10 @@
 from typing import TypeVar
 
 from . import _spy
+from ._native import _spy_bytes
 from .preset import Preset
 from .schema import ObjectKind
-from .ssz import SszObject, _spy_bytes
-
+from .ssz import SszObject
 
 _SignedObject = TypeVar("_SignedObject", bound=SszObject)
 
@@ -69,7 +69,7 @@ class BlockProjection(SszObject):
             if handle.p:
                 _spy.lib.spy_ssz_object_destroy(handle)
             raise ValueError("SPy block signing failed")
-        return signed_type(handle)
+        return signed_type._from_owned_handle(handle)
 
     def sign(self, signature: str | bytes) -> SszObject:
         return self._sign(signature, self.signed_type(), self.signed_schema_id)

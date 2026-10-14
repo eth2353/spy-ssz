@@ -16,10 +16,12 @@ Pytest discovers only `tests/`. Downloaded upstream vectors under
 | Layer | Responsibility |
 | --- | --- |
 | Schema and preset YAML | Stable IDs, supported schemas, public names, and limits |
-| `_codecs.py` | Native symbol families, registration, and dispatch; no Python object ownership |
+| `_codecs.py` | One immutable codec descriptor per schema/preset, built independently of public types |
 | `_variants.py` | Export preset classes while preserving mainnet aliases and module identity |
-| `electra/`, `fulu/`, `gloas/`, `signing.py` | Public type definitions, JSON envelope policies, and fork-specific composition |
-| `ssz.py` | Buffer validation, native ownership, locking, and Python value operations |
+| `electra/`, `fulu/`, `gloas/`, `signing.py` | Public type definitions and historical JSON policy attributes |
+| `ssz.py` | Native ownership, locking, and orchestration of value/codec operations |
+| `_native.py`, `_composition.py` | Native buffers, decode allocations, and typed child-graph composition |
+| `_json_policy.py`, `_values.py` | Beacon API envelope transforms and JSON-backed Python values |
 | `src/` | Parsing, graph construction, hashing, and encoding |
 | `tools/` | Generation, compilation, and artifact verification |
 
@@ -30,8 +32,10 @@ fork or object kind. Preserve public names and class identity when moving code.
 Every native allocation must have one owner. Use `_use_handle()` throughout a
 native operation: CFFI releases the GIL, so retaining a Python reference alone
 does not prevent another thread from closing the object. Multiple-owner
-operations acquire locks in object-ID order. Never copy a raw handle into a
-second owner; Python copies reconstruct an independent graph from SSZ.
+operations acquire locks in object-ID order. Internal allocation sites adopt
+through `_from_owned_handle()`, which bypasses public field constructors and
+destroys failed adoptions exactly once. Never copy a raw handle into a second
+owner; Python copies reconstruct an independent graph from SSZ.
 
 ## Generated sources
 
