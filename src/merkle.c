@@ -329,7 +329,7 @@ static int spy_fast_hash_node(
     return 1;
 }
 
-static int32_t spy_ssz_fast_node_hash_tree_root(
+int32_t spy_ssz_fast_node_hash_tree_root(
     spy_unsafe$raw_ptr__ssz_object$SszObject opaque,
     int32_t node_index,
     spy_BytesObject *output

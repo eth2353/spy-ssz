@@ -301,13 +301,21 @@ def ssz_signed_block(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: 
     return ssz_beacon_block(obj, child(obj, node, 0), data, cap, pos)
 
 
+def electra_ssz_size_at(obj: raw_ptr[SszObject], node: i32) -> i32:
+    return ssz_signed_block(obj, node, obj.root.data, 0, 0)
+
+
+def electra_encode_ssz_at(obj: raw_ptr[SszObject], node: i32, output: bytes) -> i32:
+    out = BytesObject.from_bytes(output)
+    return ssz_signed_block(obj, node, out.data, out.length, 0)
+
+
 def electra_ssz_size(obj: raw_ptr[SszObject]) -> i32:
-    return ssz_signed_block(obj, obj.root_node, obj.root.data, 0, 0)
+    return electra_ssz_size_at(obj, obj.root_node)
 
 
 def electra_encode_ssz(obj: raw_ptr[SszObject], output: bytes) -> i32:
-    out = BytesObject.from_bytes(output)
-    return ssz_signed_block(obj, obj.root_node, out.data, out.length, 0)
+    return electra_encode_ssz_at(obj, obj.root_node, output)
 
 
 def json_checkpoint(obj: raw_ptr[SszObject], node: i32, data: gc_ptr[u8], cap: i32, pos: i32) -> i32:

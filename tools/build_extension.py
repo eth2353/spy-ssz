@@ -206,7 +206,14 @@ def build(spy_root: Path) -> Path:
     if not sources:
         raise SystemExit("SPy did not generate C sources")
 
-    sources.append(SOURCE / "sha256_pair.c")
+    sources.extend(
+        SOURCE / name
+        for name in (
+            "sha256_pair.c",
+            "bridge_signed_contents.c",
+            "bridge_block_header.c",
+        )
+    )
     optimization_args = (
         ["-O1", "-g", *SANITIZER_FLAGS] if sanitize else ["-O3", "-flto"]
     )

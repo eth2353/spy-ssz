@@ -43,10 +43,14 @@ remains the source of truth and no compatibility modules are maintained.
 SPy implements parsing, schema lowering, graph construction, signing by graph
 cloning, and most JSON/SSZ sizing and encoding. `bridge.c` owns transfer and
 destruction of native objects, metadata accessors, and CFFI-visible aliases.
-It also implements batch encoding, signed block-contents SSZ sizing/encoding,
-and block-header extraction. Signed block-contents encoding temporarily selects
-the signed child as `root_node` and restores the original root before returning;
-the Python ownership layer holds the object's lock throughout the native call.
+It also implements batch encoding. The independently compiled internal C modules
+`bridge_signed_contents.c` and `bridge_block_header.c` own signed block-contents
+SSZ sizing/encoding and block-header extraction. Signed block-contents encoding
+passes the signed child index explicitly to the SPy encoder without changing
+`root_node`; the public root-based encoder ABI remains available. The Python
+ownership layer holds the object's lock throughout each native call. Shared
+handle types, child access, and the internal subtree-hash declaration live in
+`bridge_internal.h`.
 
 Public object and subtree hashing use `merkle.c`, included by `bridge.c`.
 This bounded-stack C Merkleizer uses the object-owned zero-subtree roots from

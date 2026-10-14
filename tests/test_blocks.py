@@ -7,7 +7,7 @@ from eth_consensus_specs.gloas import mainnet as gloas
 from remerkleable.byte_arrays import ByteVector
 from remerkleable.complex import Container, List
 
-from spy_ssz import encode_json_array
+from spy_ssz import ObjectKind, Preset, encode_json_array, get_ssz_type, load_preset
 from spy_ssz.electra import (
     BeaconBlockContentsElectraMainnet,
     BlindedBeaconBlockElectraMainnet,
@@ -129,6 +129,56 @@ def test_block_contents_json_ssz_signing_and_projections() -> None:
             ).hash_tree_root()
             == reference.hash_tree_root()
         )
+
+
+@pytest.mark.parametrize("fork", [Fork.ELECTRA, Fork.FULU])
+@pytest.mark.parametrize("preset", list(Preset))
+@pytest.mark.parametrize("blob_count", [0, 1, 2])
+def test_signed_contents_encoding_preserves_graph_and_header(
+    fork: Fork, preset: Preset, blob_count: int
+) -> None:
+    config = load_preset(preset)
+    reference = BlockContents(block=electra.BeaconBlock(slot=12, proposer_index=34))
+    contents = reference.to_obj()
+    contents["block"]["body"]["sync_aggregate"]["sync_committee_bits"] = "0x" + "00" * (
+        config.sync_committee_size // 8
+    )
+    contents["kzg_proofs"] = ["0x" + f"{i + 1:02x}" * 48 for i in range(blob_count)]
+    contents["blobs"] = [
+        "0x" + f"{i + 3:02x}" * (config.field_elements_per_blob * 32)
+        for i in range(blob_count)
+    ]
+    unsigned_type = get_ssz_type(fork, ObjectKind.BEACON_BLOCK_CONTENTS, preset)
+    signed_type = get_ssz_type(fork, ObjectKind.SIGNED_BEACON_BLOCK_CONTENTS, preset)
+    signature = bytes(range(96))
+    with unsigned_type.from_obj(contents) as unsigned:
+        contents = unsigned.to_obj()
+        root = unsigned.hash_tree_root()
+        header = unsigned.header_dict()
+        with unsigned.sign(signature) as signed:
+            signed_root = signed.hash_tree_root()
+            expected = {
+                "signed_block": {
+                    "message": contents["block"],
+                    "signature": "0x" + signature.hex(),
+                },
+                "kzg_proofs": contents["kzg_proofs"],
+                "blobs": contents["blobs"],
+            }
+            for _ in range(3):
+                encoded = signed.to_ssz()
+                assert signed.to_obj() == expected
+                assert signed.hash_tree_root() == signed_root
+                assert unsigned.hash_tree_root() == root
+                assert unsigned.header_dict() == header
+                with signed_type.from_ssz(encoded) as decoded:
+                    assert decoded.hash_tree_root() == signed_root
+                    assert decoded.to_obj() == expected
+                    assert decoded.to_ssz() == encoded
+            if preset is Preset.MAINNET:
+                consensus = SignedBlockContents.from_obj(expected)
+                assert encoded == consensus.encode_bytes()
+                assert signed_root == consensus.hash_tree_root()
 
 
 def test_block_contents_accepts_arbitrary_response_metadata() -> None:
