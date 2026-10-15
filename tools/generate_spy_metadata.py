@@ -243,7 +243,8 @@ def render_projections(
         "from dataclasses import dataclass, fields",
         "from typing import Any",
         "",
-        "from .consensus_types import get_type_definition, get_type_shape",
+        "from .consensus_types import get_type_shape",
+        "from ._projection import field_types",
         "from ._repr import format_container",
         "from ._schema_enums import Fork",
         "",
@@ -268,6 +269,9 @@ def render_projections(
         "from typing import Any",
         "",
         "from ._schema_enums import Fork",
+        "",
+        "_PROJECTION_TYPES: dict[tuple[Fork, int], type[Any]]",
+        "_FIELD_TYPES: dict[tuple[Fork, str], dict[str, tuple[int, int]]]",
         "",
         "class Projection:",
         "    def __repr__(self) -> str: ...",
@@ -324,6 +328,18 @@ def render_projections(
     runtime.extend(["", "", "_PROJECTION_TYPES = {"])
     for (fork, type_id), name in sorted(class_names.items()):
         runtime.append(f"    (Fork.{fork.upper()}, {type_id}): {name},")
+    runtime.extend(["}", "", "", "_FIELD_TYPES = {"])
+    for schema in schemas:
+        consensus_type = schema.get("consensus_type")
+        if consensus_type is None:
+            continue
+        fork = schema["fork"].lower()
+        fork_data = catalog["forks"][fork]
+        shape = fork_data["types"][fork_data["names"][consensus_type]]
+        runtime.append(f"    (Fork.{fork.upper()}, {json.dumps(consensus_type)}): {{")
+        for index, (name, type_id) in enumerate(shape["fields"]):
+            runtime.append(f"        {json.dumps(name)}: ({index}, {type_id}),")
+        runtime.append("    },")
     runtime.extend(
         [
             "}",
@@ -352,9 +368,7 @@ def render_projections(
             "",
             "",
             "def project_field(fork: Fork, consensus_type: str, name: str, value: Any) -> Any:",
-            "    definition = get_type_definition(fork, consensus_type)",
-            '    fields_by_name = dict(definition.descriptor["fields"])',
-            "    return project_value(fork, fields_by_name[name], value)",
+            "    return project_value(fork, field_types(fork, consensus_type)[name][1], value)",
         ]
     )
     return "\n".join(runtime).rstrip() + "\n", "\n".join(stub).rstrip() + "\n"

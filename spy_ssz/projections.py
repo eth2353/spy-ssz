@@ -5,7 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, fields
 from typing import Any
 
-from .consensus_types import get_type_definition, get_type_shape
+from .consensus_types import get_type_shape
+from ._projection import field_types
 from ._repr import format_container
 from ._schema_enums import Fork
 
@@ -699,6 +700,289 @@ _PROJECTION_TYPES = {
 }
 
 
+_FIELD_TYPES = {
+    (Fork.ELECTRA, "SignedBeaconBlock"): {
+        "message": (0, 129),
+        "signature": (1, 7),
+    },
+    (Fork.ELECTRA, "Attestation"): {
+        "aggregation_bits": (0, 109),
+        "data": (1, 38),
+        "signature": (2, 7),
+        "committee_bits": (3, 111),
+    },
+    (Fork.ELECTRA, "AttestationData"): {
+        "slot": (0, 0),
+        "index": (1, 18),
+        "beacon_block_root": (2, 24),
+        "source": (3, 37),
+        "target": (4, 37),
+    },
+    (Fork.ELECTRA, "AggregateAndProof"): {
+        "aggregator_index": (0, 19),
+        "aggregate": (1, 110),
+        "selection_proof": (2, 7),
+    },
+    (Fork.ELECTRA, "SyncCommitteeContribution"): {
+        "slot": (0, 0),
+        "beacon_block_root": (1, 24),
+        "subcommittee_index": (2, 15),
+        "aggregation_bits": (3, 27),
+        "signature": (4, 7),
+    },
+    (Fork.ELECTRA, "ContributionAndProof"): {
+        "aggregator_index": (0, 19),
+        "contribution": (1, 26),
+        "selection_proof": (2, 7),
+    },
+    (Fork.ELECTRA, "SingleAttestation"): {
+        "committee_index": (0, 18),
+        "attester_index": (1, 19),
+        "data": (2, 38),
+        "signature": (3, 7),
+    },
+    (Fork.ELECTRA, "SyncCommitteeMessage"): {
+        "slot": (0, 0),
+        "beacon_block_root": (1, 24),
+        "validator_index": (2, 19),
+        "signature": (3, 7),
+    },
+    (Fork.ELECTRA, "SignedAggregateAndProof"): {
+        "message": (0, 112),
+        "signature": (1, 7),
+    },
+    (Fork.ELECTRA, "SignedContributionAndProof"): {
+        "message": (0, 28),
+        "signature": (1, 7),
+    },
+    (Fork.ELECTRA, "IndexedAttestation"): {
+        "attesting_indices": (0, 114),
+        "data": (1, 38),
+        "signature": (2, 7),
+    },
+    (Fork.ELECTRA, "AttesterSlashing"): {
+        "attestation_1": (0, 115),
+        "attestation_2": (1, 115),
+    },
+    (Fork.ELECTRA, "BeaconBlockHeader"): {
+        "slot": (0, 0),
+        "proposer_index": (1, 19),
+        "parent_root": (2, 24),
+        "state_root": (3, 24),
+        "body_root": (4, 24),
+    },
+    (Fork.ELECTRA, "SignedBeaconBlockHeader"): {
+        "message": (0, 33),
+        "signature": (1, 7),
+    },
+    (Fork.ELECTRA, "ProposerSlashing"): {
+        "signed_header_1": (0, 34),
+        "signed_header_2": (1, 34),
+    },
+    (Fork.FULU, "SignedBeaconBlock"): {
+        "message": (0, 134),
+        "signature": (1, 7),
+    },
+    (Fork.FULU, "Attestation"): {
+        "aggregation_bits": (0, 114),
+        "data": (1, 42),
+        "signature": (2, 7),
+        "committee_bits": (3, 116),
+    },
+    (Fork.FULU, "AttestationData"): {
+        "slot": (0, 0),
+        "index": (1, 21),
+        "beacon_block_root": (2, 27),
+        "source": (3, 41),
+        "target": (4, 41),
+    },
+    (Fork.FULU, "AggregateAndProof"): {
+        "aggregator_index": (0, 22),
+        "aggregate": (1, 115),
+        "selection_proof": (2, 7),
+    },
+    (Fork.FULU, "SyncCommitteeContribution"): {
+        "slot": (0, 0),
+        "beacon_block_root": (1, 27),
+        "subcommittee_index": (2, 15),
+        "aggregation_bits": (3, 31),
+        "signature": (4, 7),
+    },
+    (Fork.FULU, "ContributionAndProof"): {
+        "aggregator_index": (0, 22),
+        "contribution": (1, 30),
+        "selection_proof": (2, 7),
+    },
+    (Fork.FULU, "SingleAttestation"): {
+        "committee_index": (0, 21),
+        "attester_index": (1, 22),
+        "data": (2, 42),
+        "signature": (3, 7),
+    },
+    (Fork.FULU, "SyncCommitteeMessage"): {
+        "slot": (0, 0),
+        "beacon_block_root": (1, 27),
+        "validator_index": (2, 22),
+        "signature": (3, 7),
+    },
+    (Fork.FULU, "SignedAggregateAndProof"): {
+        "message": (0, 117),
+        "signature": (1, 7),
+    },
+    (Fork.FULU, "SignedContributionAndProof"): {
+        "message": (0, 32),
+        "signature": (1, 7),
+    },
+    (Fork.FULU, "IndexedAttestation"): {
+        "attesting_indices": (0, 119),
+        "data": (1, 42),
+        "signature": (2, 7),
+    },
+    (Fork.FULU, "AttesterSlashing"): {
+        "attestation_1": (0, 120),
+        "attestation_2": (1, 120),
+    },
+    (Fork.FULU, "BeaconBlockHeader"): {
+        "slot": (0, 0),
+        "proposer_index": (1, 22),
+        "parent_root": (2, 27),
+        "state_root": (3, 27),
+        "body_root": (4, 27),
+    },
+    (Fork.FULU, "SignedBeaconBlockHeader"): {
+        "message": (0, 37),
+        "signature": (1, 7),
+    },
+    (Fork.FULU, "ProposerSlashing"): {
+        "signed_header_1": (0, 38),
+        "signed_header_2": (1, 38),
+    },
+    (Fork.GLOAS, "SignedBeaconBlock"): {
+        "message": (0, 167),
+        "signature": (1, 7),
+    },
+    (Fork.GLOAS, "BeaconBlock"): {
+        "slot": (0, 0),
+        "proposer_index": (1, 24),
+        "parent_root": (2, 29),
+        "state_root": (3, 29),
+        "body": (4, 159),
+    },
+    (Fork.GLOAS, "Attestation"): {
+        "aggregation_bits": (0, 129),
+        "data": (1, 51),
+        "signature": (2, 7),
+        "committee_bits": (3, 131),
+    },
+    (Fork.GLOAS, "AttestationData"): {
+        "slot": (0, 0),
+        "index": (1, 23),
+        "beacon_block_root": (2, 29),
+        "source": (3, 50),
+        "target": (4, 50),
+    },
+    (Fork.GLOAS, "AggregateAndProof"): {
+        "aggregator_index": (0, 24),
+        "aggregate": (1, 130),
+        "selection_proof": (2, 7),
+    },
+    (Fork.GLOAS, "SyncCommitteeContribution"): {
+        "slot": (0, 0),
+        "beacon_block_root": (1, 29),
+        "subcommittee_index": (2, 17),
+        "aggregation_bits": (3, 40),
+        "signature": (4, 7),
+    },
+    (Fork.GLOAS, "ContributionAndProof"): {
+        "aggregator_index": (0, 24),
+        "contribution": (1, 39),
+        "selection_proof": (2, 7),
+    },
+    (Fork.GLOAS, "SingleAttestation"): {
+        "committee_index": (0, 23),
+        "attester_index": (1, 24),
+        "data": (2, 51),
+        "signature": (3, 7),
+    },
+    (Fork.GLOAS, "SyncCommitteeMessage"): {
+        "slot": (0, 0),
+        "beacon_block_root": (1, 29),
+        "validator_index": (2, 24),
+        "signature": (3, 7),
+    },
+    (Fork.GLOAS, "SignedAggregateAndProof"): {
+        "message": (0, 132),
+        "signature": (1, 7),
+    },
+    (Fork.GLOAS, "SignedContributionAndProof"): {
+        "message": (0, 41),
+        "signature": (1, 7),
+    },
+    (Fork.GLOAS, "IndexedAttestation"): {
+        "attesting_indices": (0, 134),
+        "data": (1, 51),
+        "signature": (2, 7),
+    },
+    (Fork.GLOAS, "AttesterSlashing"): {
+        "attestation_1": (0, 135),
+        "attestation_2": (1, 135),
+    },
+    (Fork.GLOAS, "BeaconBlockHeader"): {
+        "slot": (0, 0),
+        "proposer_index": (1, 24),
+        "parent_root": (2, 29),
+        "state_root": (3, 29),
+        "body_root": (4, 29),
+    },
+    (Fork.GLOAS, "SignedBeaconBlockHeader"): {
+        "message": (0, 46),
+        "signature": (1, 7),
+    },
+    (Fork.GLOAS, "ProposerSlashing"): {
+        "signed_header_1": (0, 47),
+        "signed_header_2": (1, 47),
+    },
+    (Fork.GLOAS, "PayloadAttestationData"): {
+        "beacon_block_root": (0, 29),
+        "slot": (1, 0),
+        "payload_present": (2, 31),
+        "blob_data_available": (3, 31),
+    },
+    (Fork.GLOAS, "PayloadAttestation"): {
+        "aggregation_bits": (0, 36),
+        "data": (1, 30),
+        "signature": (2, 7),
+    },
+    (Fork.GLOAS, "PayloadAttestationMessage"): {
+        "validator_index": (0, 24),
+        "data": (1, 30),
+        "signature": (2, 7),
+    },
+    (Fork.GLOAS, "ProposerPreferences"): {
+        "dependent_root": (0, 29),
+        "proposal_slot": (1, 0),
+        "validator_index": (2, 24),
+        "fee_recipient": (3, 75),
+        "target_gas_limit": (4, 17),
+    },
+    (Fork.GLOAS, "SignedProposerPreferences"): {
+        "message": (0, 76),
+        "signature": (1, 7),
+    },
+    (Fork.GLOAS, "ExecutionPayloadEnvelope"): {
+        "payload": (0, 170),
+        "execution_requests": (1, 158),
+        "builder_index": (2, 11),
+        "beacon_block_root": (3, 29),
+        "parent_beacon_block_root": (4, 29),
+    },
+    (Fork.GLOAS, "SignedExecutionPayloadEnvelope"): {
+        "message": (0, 175),
+        "signature": (1, 7),
+    },
+}
+
+
 def project_value(fork: Fork, type_id: int, value: Any) -> Any:
     shape = get_type_shape(fork, type_id)
     kind = shape["kind"]
@@ -722,6 +1006,4 @@ def project_value(fork: Fork, type_id: int, value: Any) -> Any:
 
 
 def project_field(fork: Fork, consensus_type: str, name: str, value: Any) -> Any:
-    definition = get_type_definition(fork, consensus_type)
-    fields_by_name = dict(definition.descriptor["fields"])
-    return project_value(fork, fields_by_name[name], value)
+    return project_value(fork, field_types(fork, consensus_type)[name][1], value)

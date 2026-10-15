@@ -212,6 +212,7 @@ def build(spy_root: Path) -> Path:
             "sha256_pair.c",
             "bridge_signed_contents.c",
             "bridge_block_header.c",
+            "bridge_projection.c",
         )
     )
     optimization_args = (
@@ -284,6 +285,17 @@ def build(spy_root: Path) -> Path:
         int32_t spy_ssz_object_kind(spy_raw_ssz_ptr object);
         int32_t spy_ssz_object_schema(spy_raw_ssz_ptr object);
         int32_t spy_ssz_object_node_count(spy_raw_ssz_ptr object);
+        typedef struct {
+            int32_t kind;
+            int32_t data_length;
+            int32_t child_count;
+            int32_t element_width;
+        } spy_projection_node;
+        int32_t spy_ssz_object_projection_size(
+            spy_raw_ssz_ptr object, int32_t field, int32_t *sizes);
+        int32_t spy_ssz_object_projection_copy(
+            spy_raw_ssz_ptr object, int32_t field, spy_projection_node *nodes,
+            int32_t node_count, spy_BytesObject *output);
         int32_t spy_ssz_object_hash_tree_root_path(
             spy_raw_ssz_ptr object, int32_t first, int32_t second,
             int32_t depth, spy_BytesObject *output);

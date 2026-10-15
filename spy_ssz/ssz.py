@@ -23,6 +23,7 @@ from ._native import (
     input_bytes,
 )
 from ._repr import format_container
+from ._projection import project_native_field
 from ._values import Bitfield as Bitfield
 from ._values import _json_compatible, _project_value
 from .preset import Preset
@@ -42,6 +43,7 @@ class SszObject:
         "_json_size_cache",
         "_lock",
         "_obj_cache",
+        "_projection_cache",
         "_ssz_size_cache",
         "_value_key_cache",
     )
@@ -49,6 +51,7 @@ class SszObject:
     _json_size_cache: int | None
     _lock: RLock
     _obj_cache: Any
+    _projection_cache: dict[str, Any] | None
     _ssz_size_cache: int | None
     _value_key_cache: tuple[int, Preset, bytes] | None
     expected_fork: ClassVar[Fork | None] = None
@@ -65,6 +68,7 @@ class SszObject:
         self._handle = None
         self._json_size_cache = None
         self._obj_cache = None
+        self._projection_cache = None
         self._ssz_size_cache = None
         self._value_key_cache = None
         self._handle = handle
@@ -137,6 +141,30 @@ class SszObject:
         return deepcopy(self._decoded_obj())
 
     def __getattr__(self, name: str) -> Any:
+        with self._use_handle() as handle:
+            if self._projection_cache is not None and name in self._projection_cache:
+                return self._projection_cache[name]
+            fork = Fork(_spy.lib.spy_ssz_object_fork(handle))
+            kind = ObjectKind(_spy.lib.spy_ssz_object_kind(handle))
+            definition = get_schema(fork, kind)
+            if definition.consensus_type is not None:
+                try:
+                    result = project_native_field(
+                        handle, fork, definition.consensus_type, name
+                    )
+                except KeyError:
+                    raise AttributeError(name) from None
+                if name in {"aggregation_bits", "committee_bits"}:
+                    result = Bitfield.from_hex(
+                        f"0x{result.hex()}",
+                        bitlist=name == "aggregation_bits"
+                        and kind is ObjectKind.ATTESTATION,
+                    )
+                if self._projection_cache is None:
+                    self._projection_cache = {}
+                self._projection_cache[name] = result
+                return result
+        # API-only containers have no consensus descriptor in the catalog.
         value = self._decoded_obj()
         if isinstance(value, dict) and name in value:
             raw = value[name]
@@ -146,17 +174,6 @@ class SszObject:
                     and self.object_kind is ObjectKind.ATTESTATION
                 )
                 return Bitfield.from_hex(raw, bitlist=is_bitlist)
-            from .projections import project_field
-            from .schema import get_schema
-
-            definition = get_schema(self.fork, self.object_kind)
-            if definition.consensus_type is not None:
-                return project_field(
-                    self.fork,
-                    definition.consensus_type,
-                    name,
-                    raw,
-                )
             return _project_value(raw)
         raise AttributeError(name)
 
@@ -337,6 +354,7 @@ class SszObject:
             if handle is not None:
                 self._handle = None
                 self._obj_cache = None
+                self._projection_cache = None
                 _spy.lib.spy_ssz_object_destroy(handle)
 
     def __enter__(self) -> Self:

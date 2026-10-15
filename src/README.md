@@ -45,12 +45,15 @@ cloning, and most JSON/SSZ sizing and encoding. `bridge.c` owns transfer and
 destruction of native objects, metadata accessors, and CFFI-visible aliases.
 It also implements batch encoding. The independently compiled internal C modules
 `bridge_signed_contents.c` and `bridge_block_header.c` own signed block-contents
-SSZ sizing/encoding and block-header extraction. Signed block-contents encoding
-passes the signed child index explicitly to the SPy encoder without changing
-`root_node`; the public root-based encoder ABI remains available. The Python
+SSZ sizing/encoding and block-header extraction. `bridge_projection.c` sizes and
+copies selected field subtrees into Python-owned preorder metadata and payload
+buffers in two native calls. It exposes no borrowed graph pointers. Signed
+block-contents encoding passes the signed child index explicitly to the SPy
+encoder without changing `root_node`; the public root-based encoder ABI remains
+available. The Python
 ownership layer holds the object's lock throughout each native call. Shared
-handle types, child access, and the internal subtree-hash declaration live in
-`bridge_internal.h`.
+handle types, node-kind declarations, copied projection records, child access,
+and the internal subtree-hash declaration live in `bridge_internal.h`.
 
 Public object and subtree hashing use `merkle.c`, included by `bridge.c`.
 This bounded-stack C Merkleizer uses the object-owned zero-subtree roots from

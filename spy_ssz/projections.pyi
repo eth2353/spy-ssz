@@ -4,6 +4,9 @@ from typing import Any
 
 from ._schema_enums import Fork
 
+_PROJECTION_TYPES: dict[tuple[Fork, int], type[Any]]
+_FIELD_TYPES: dict[tuple[Fork, str], dict[str, tuple[int, int]]]
+
 class Projection:
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...

@@ -22,6 +22,7 @@ Pytest discovers only `tests/`. Downloaded upstream vectors under
 | `ssz.py` | Native ownership, locking, and orchestration of value/codec operations |
 | `_native.py`, `_composition.py` | Native buffers, decode allocations, and typed child-graph composition |
 | `_json_policy.py`, `_values.py` | Beacon API envelope transforms and JSON-backed Python values |
+| `_projection.py`, generated `projections.py` | Copied native field snapshots and schema-derived immutable projection types |
 | `src/` | Parsing, graph construction, hashing, and encoding |
 | `tools/` | Generation, compilation, and artifact verification |
 
@@ -36,6 +37,13 @@ operations acquire locks in object-ID order. Internal allocation sites adopt
 through `_from_owned_handle()`, which bypasses public field constructors and
 destroys failed adoptions exactly once. Never copy a raw handle into a second
 owner; Python copies reconstruct an independent graph from SSZ.
+
+Consensus-backed attribute reads traverse only the selected native field while
+holding the owner lock, then cache detached immutable Python projections. Cached
+reads still require a live owner; returned snapshots survive owner close. Native
+metadata and payload buffers contain copies, never borrowed graph pointers. API-only
+block containers without consensus catalog descriptors retain JSON-backed field
+access until their descriptors are represented in the authoritative schema.
 
 ## Generated sources
 

@@ -1,6 +1,7 @@
 from importlib import import_module
 
 import pytest
+import msgspec
 
 import spy_ssz
 from spy_ssz import Preset, SszObject, get_ssz_type
@@ -11,6 +12,7 @@ from spy_ssz.schema import (
     schema_for,
 )
 from spy_ssz.ssz import Fork, ObjectKind
+from spy_ssz import Bitfield, projections
 
 
 def test_fork_ids_follow_consensus_chronology() -> None:
@@ -102,6 +104,9 @@ def test_every_schema_matches_consensus_codecs(definition, preset) -> None:
         concrete.from_obj(reference.to_obj()) as from_json,
     ):
         for value in (from_ssz, from_json):
+            canonical = msgspec.json.decode(value.to_json())
+            if value.json_output_envelope_key is not None:
+                canonical = canonical[value.json_output_envelope_key]
             assert value.fork is definition.fork
             assert value.object_kind is definition.kind
             assert value.preset is preset
@@ -111,7 +116,20 @@ def test_every_schema_matches_consensus_codecs(definition, preset) -> None:
             # Every projected native field must remain coherent with canonical
             # bytes and roots, even after an attempted Python assignment.
             for name in reference.to_obj():
-                original = repr(getattr(value, name))
+                projected = getattr(value, name)
+                expected = projections.project_field(
+                    definition.fork,
+                    definition.consensus_type,
+                    name,
+                    canonical[name],
+                )
+                if isinstance(projected, Bitfield):
+                    assert bytes.fromhex(projected.to_hex()[2:]) == expected
+                else:
+                    assert projected == expected
+                assert value._obj_cache is None
+                assert getattr(value, name) is projected
+                original = repr(projected)
                 with pytest.raises(AttributeError):
                     setattr(value, name, object())
                 assert repr(getattr(value, name)) == original
