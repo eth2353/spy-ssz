@@ -3,11 +3,11 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import os
-import re
 import shlex
 import shutil
 import subprocess
 import sys
+import sysconfig
 import tempfile
 from pathlib import Path
 
@@ -69,11 +69,15 @@ def stage_spy_sources() -> Path:
 
 
 def resolve_spy_root(value: str | Path | None = None) -> Path:
-    candidates = [Path(value)] if value else []
-    candidates.append(ROOT / ".deps" / "spy")
-    for candidate in candidates:
-        if (candidate / "spy" / "libspy" / "Makefile").is_file():
-            return candidate.resolve()
+    if value is not None:
+        candidate = Path(value).expanduser().resolve()
+        if not (candidate / "spy" / "libspy" / "Makefile").is_file():
+            raise ValueError(f"not a SPy source checkout: {candidate}")
+        return candidate
+
+    local = ROOT / ".deps" / "spy"
+    if (local / "spy" / "libspy" / "Makefile").is_file():
+        return local.resolve()
 
     checkout = Path(tempfile.gettempdir()) / f"spy-ssz-{SPY_REVISION[:12]}"
     if not (checkout / "spy" / "libspy" / "Makefile").is_file():
@@ -122,6 +126,12 @@ def build(spy_root: Path) -> Path:
     env["PATH"] = f"{Path(sys.executable).parent}:{env.get('PATH', '')}"
     env.setdefault("ZIG_GLOBAL_CACHE_DIR", "/tmp/spy-zig-global-cache")
     env.setdefault("ZIG_LOCAL_CACHE_DIR", "/tmp/spy-zig-local-cache")
+    if sys.platform == "darwin":
+        # distutils applies Python's deployment target to the extension. The
+        # separately built libspy must use the same target, not the host OS.
+        deployment_target = sysconfig.get_config_var("MACOSX_DEPLOYMENT_TARGET")
+        if deployment_target:
+            env.setdefault("MACOSX_DEPLOYMENT_TARGET", str(deployment_target))
     sanitize = sanitizer_enabled()
 
     generate_metadata()
@@ -136,7 +146,8 @@ def build(spy_root: Path) -> Path:
     native_build_type = "debug" if sanitize else "release"
     native_make = [
         "make",
-        *(["-B"] if sanitize else []),
+        # make does not track changes to sanitizer or deployment-target flags.
+        *(["-B"] if sanitize or sys.platform == "darwin" else []),
         "-C",
         str(libspy),
         "TARGET=native",
@@ -195,39 +206,15 @@ def build(spy_root: Path) -> Path:
     if not sources:
         raise SystemExit("SPy did not generate C sources")
 
-    # SPy cannot declare an externally implemented function yet. Remove its
-    # generated implementation so all callers resolve to the optimized
-    # fixed-size pair kernel below.
-    kernels_source = BUILD / "src" / "ssz_kernels.c"
-    generated = kernels_source.read_text()
-    signature = "void spy_ssz_kernels$hash_pair_into("
-    if generated.count(signature) != 1:
-        raise RuntimeError("unexpected generated hash_pair_into definition")
-    function_start = generated.index(signature)
-    body_start = generated.index("{", function_start)
-    depth = 0
-    function_end = None
-    for index in range(body_start, len(generated)):
-        if generated[index] == "{":
-            depth += 1
-        elif generated[index] == "}":
-            depth -= 1
-            if depth == 0:
-                function_end = index + 1
-                break
-    if function_end is None:
-        raise RuntimeError("unterminated generated hash_pair_into definition")
-    removed_function = generated[function_start:function_end]
-    generated = generated[:function_start] + generated[function_end:]
-    for literal in set(re.findall(r"\bSPY_g_bytes\d+\b", removed_function)):
-        declaration = f"static spy_BytesObject {literal} ="
-        if generated.count(literal) != 1 or generated.count(declaration) != 1:
-            continue
-        declaration_start = generated.index(declaration)
-        declaration_end = generated.index(";", declaration_start) + 1
-        generated = generated[:declaration_start] + generated[declaration_end:]
-    kernels_source.write_text(generated)
-    sources.append(SOURCE / "sha256_pair.c")
+    sources.extend(
+        SOURCE / name
+        for name in (
+            "sha256_pair.c",
+            "bridge_signed_contents.c",
+            "bridge_block_header.c",
+            "bridge_projection.c",
+        )
+    )
     optimization_args = (
         ["-O1", "-g", *SANITIZER_FLAGS] if sanitize else ["-O3", "-flto"]
     )
@@ -257,6 +244,24 @@ def build(spy_root: Path) -> Path:
         spy_raw_ssz_ptr spy_schema_signing_decode_ssz_owned(
             spy_BytesObject *source, int32_t fork, int32_t kind,
             int32_t schema, int32_t preset);
+        spy_raw_ssz_ptr spy_schema_gloas_signing_decode_json_owned(
+            spy_BytesObject *source, int32_t fork, int32_t kind,
+            int32_t schema, int32_t preset);
+        spy_raw_ssz_ptr spy_schema_gloas_signing_decode_ssz_owned(
+            spy_BytesObject *source, int32_t fork, int32_t kind,
+            int32_t schema, int32_t preset);
+        spy_raw_ssz_ptr spy_schema_gloas_block_decode_json_owned(
+            spy_BytesObject *source, int32_t fork, int32_t kind,
+            int32_t schema, int32_t preset);
+        spy_raw_ssz_ptr spy_schema_gloas_block_decode_ssz_owned(
+            spy_BytesObject *source, int32_t fork, int32_t kind,
+            int32_t schema, int32_t preset);
+        spy_raw_ssz_ptr spy_schema_gloas_payload_envelope_decode_json_owned(
+            spy_BytesObject *source, int32_t fork, int32_t kind,
+            int32_t schema, int32_t preset);
+        spy_raw_ssz_ptr spy_schema_gloas_payload_envelope_decode_ssz_owned(
+            spy_BytesObject *source, int32_t fork, int32_t kind,
+            int32_t schema, int32_t preset);
         spy_raw_ssz_ptr spy_schema_block_containers_decode_json_owned(
             spy_BytesObject *source, int32_t fork, int32_t kind,
             int32_t schema, int32_t preset);
@@ -280,6 +285,17 @@ def build(spy_root: Path) -> Path:
         int32_t spy_ssz_object_kind(spy_raw_ssz_ptr object);
         int32_t spy_ssz_object_schema(spy_raw_ssz_ptr object);
         int32_t spy_ssz_object_node_count(spy_raw_ssz_ptr object);
+        typedef struct {
+            int32_t kind;
+            int32_t data_length;
+            int32_t child_count;
+            int32_t element_width;
+        } spy_projection_node;
+        int32_t spy_ssz_object_projection_size(
+            spy_raw_ssz_ptr object, int32_t field, int32_t *sizes);
+        int32_t spy_ssz_object_projection_copy(
+            spy_raw_ssz_ptr object, int32_t field, spy_projection_node *nodes,
+            int32_t node_count, spy_BytesObject *output);
         int32_t spy_ssz_object_hash_tree_root_path(
             spy_raw_ssz_ptr object, int32_t first, int32_t second,
             int32_t depth, spy_BytesObject *output);
@@ -303,6 +319,20 @@ def build(spy_root: Path) -> Path:
             spy_raw_ssz_ptr object, spy_BytesObject *output);
         int32_t spy_schema_signing_json_size(spy_raw_ssz_ptr object);
         int32_t spy_schema_signing_encode_json(
+            spy_raw_ssz_ptr object, spy_BytesObject *output);
+        int32_t spy_schema_gloas_ssz_size(spy_raw_ssz_ptr object);
+        int32_t spy_schema_gloas_encode_ssz(
+            spy_raw_ssz_ptr object, spy_BytesObject *output);
+        int32_t spy_schema_gloas_json_size(spy_raw_ssz_ptr object);
+        int32_t spy_schema_gloas_encode_json(
+            spy_raw_ssz_ptr object, spy_BytesObject *output);
+        int32_t spy_schema_gloas_payload_envelope_ssz_size(
+            spy_raw_ssz_ptr object);
+        int32_t spy_schema_gloas_payload_envelope_encode_ssz(
+            spy_raw_ssz_ptr object, spy_BytesObject *output);
+        int32_t spy_schema_gloas_payload_envelope_json_size(
+            spy_raw_ssz_ptr object);
+        int32_t spy_schema_gloas_payload_envelope_encode_json(
             spy_raw_ssz_ptr object, spy_BytesObject *output);
         int32_t spy_schema_block_containers_ssz_size(spy_raw_ssz_ptr object);
         int32_t spy_schema_block_containers_encode_ssz(
@@ -330,6 +360,11 @@ def build(spy_root: Path) -> Path:
         include_dirs=[str(SOURCE), str(BUILD / "src"), str(libspy / "include")],
         library_dirs=[str(libspy / "build" / "native" / native_build_type)],
         libraries=["spy", "m", *(["dl"] if sys.platform.startswith("linux") else [])],
+        # Strict C99 hides glibc's POSIX time APIs used by spy/time.h.
+        # Define this for every translation unit, before any system header.
+        define_macros=(
+            [("_POSIX_C_SOURCE", "200809L")] if sys.platform.startswith("linux") else []
+        ),
         extra_compile_args=[
             "-fPIC",
             "-DSPY_GC_NONE",

@@ -73,3 +73,27 @@ def test_bitfield_rejects_invalid_sizes(factory: Any) -> None:
 def test_bitfield_rejects_non_integer_values(factory: Any) -> None:
     with pytest.raises(TypeError, match="bool or int"):
         factory(1, ["true"])
+
+
+@pytest.mark.parametrize(
+    ("data", "length"), [(b"", 1), (b"\x00", 0), (b"\x00", 9), (b"\x80", 7)]
+)
+def test_direct_constructor_rejects_inconsistent_bitfields(data, length) -> None:
+    with pytest.raises(ValueError):
+        Bitfield(data, length)
+
+
+def test_direct_constructor_requires_immutable_bytes() -> None:
+    with pytest.raises(TypeError, match="data must be bytes"):
+        Bitfield(bytearray([1]), 1)
+
+
+@pytest.mark.parametrize("length", [0, 1, 7, 8, 9, 16])
+def test_bitlist_termination_bit_is_excluded_from_counts(length) -> None:
+    original = Bitfield.bitlist(length, [True] * length)
+    decoded = Bitfield.from_hex(original.to_hex(), bitlist=True)
+    assert decoded.count() == length
+    assert decoded.count(False) == 0
+    assert len(decoded) == length
+    assert decoded.to_hex() == original.to_hex()
+    assert repr(decoded) == repr(original)

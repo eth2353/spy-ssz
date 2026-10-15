@@ -6,16 +6,6 @@
 void spy_sha256_pair(const uint8_t *source, uint8_t *output);
 
 enum {
-    SPY_KIND_UINT = 1,
-    SPY_KIND_FIXED_BYTES = 2,
-    SPY_KIND_BYTE_LIST = 3,
-    SPY_KIND_BITLIST = 4,
-    SPY_KIND_CONTAINER = 5,
-    SPY_KIND_LIST = 6,
-    SPY_KIND_PROGRESSIVE_CONTAINER = 7,
-    SPY_KIND_PROGRESSIVE_LIST = 8,
-    SPY_KIND_PROGRESSIVE_BITLIST = 9,
-    SPY_KIND_BASIC_LIST = 10,
     SPY_NODE_ROOT_NOT_CACHED = 0,
     SPY_NODE_ROOT_CACHED = 1,
 };
@@ -282,6 +272,11 @@ static int spy_fast_hash_node(
             );
             spy_mix_length(root, node->data_length / node->active_length, root);
             break;
+        case SPY_KIND_PROGRESSIVE_BASIC_LIST:
+            chunks = (node->data_length + 31) / 32;
+            spy_progressive_bytes(object, data, node->data_length, chunks, root);
+            spy_mix_length(root, node->data_length / node->active_length, root);
+            break;
         case SPY_KIND_PROGRESSIVE_BITLIST: {
             int32_t bytes = (node->data_length + 7) / 8;
             chunks = (node->data_length + 255) / 256;
@@ -323,7 +318,7 @@ static int spy_fast_hash_node(
     return 1;
 }
 
-static int32_t spy_ssz_fast_node_hash_tree_root(
+int32_t spy_ssz_fast_node_hash_tree_root(
     spy_unsafe$raw_ptr__ssz_object$SszObject opaque,
     int32_t node_index,
     spy_BytesObject *output

@@ -159,18 +159,6 @@ def empty_list(obj: raw_ptr[SszObject], limit: i32) -> i32:
     return add_composite_node(obj, KIND_LIST, first, 0, limit, 0, 0)
 
 
-def require_empty_list(
-    document: raw_ptr[SszDocument],
-    start: i32,
-    end: i32,
-    limit: i32,
-    obj: raw_ptr[SszObject],
-) -> i32:
-    if start != end:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-    return empty_list(obj, limit)
-
-
 def checkpoint(
     document: raw_ptr[SszDocument], start: i32, obj: raw_ptr[SszObject]
 ) -> i32:
@@ -192,52 +180,6 @@ def attestation_data(
     return add_composite_node(obj, KIND_CONTAINER, first, 5, 5, 0, 0)
 
 
-def attestation(
-    document: raw_ptr[SszDocument],
-    start: i32,
-    end: i32,
-    obj: raw_ptr[SszObject],
-) -> i32:
-    if not require_range(document, start, end) or end - start < 228:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-    bits = first_variable_offset(document, start, end, 0, 228)
-    first = reserve_edges(obj, 3)
-    set_edge(obj, first, 0, ssz_bitlist(document, bits, end, obj.max_validators_per_committee, obj))
-    set_edge(obj, first, 1, attestation_data(document, start + 4, obj))
-    set_edge(obj, first, 2, ssz_fixed_bytes(document, start + 132, 96, obj))
-    return add_composite_node(obj, KIND_CONTAINER, first, 3, 3, 0, 0)
-
-
-def attestation_list(
-    document: raw_ptr[SszDocument],
-    start: i32,
-    end: i32,
-    obj: raw_ptr[SszObject],
-) -> i32:
-    if start == end:
-        return empty_list(obj, obj.max_attestations)
-    first_offset = read_u32(document, start)
-    if first_offset <= 0 or first_offset % 4 != 0:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-        return empty_list(obj, obj.max_attestations)
-    count = first_offset // 4
-    if count > obj.max_attestations or start + first_offset > end:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-        return empty_list(obj, obj.max_attestations)
-    first = reserve_edges(obj, count)
-    i: i32 = 0
-    while i < count:
-        item_start = start + read_u32(document, start + i * 4)
-        item_end = end
-        if i + 1 < count:
-            item_end = start + read_u32(document, start + (i + 1) * 4)
-        if item_start < start + first_offset or item_end < item_start or item_end > end:
-            obj.status = DECODE_STATUS_MALFORMED_INPUT
-        set_edge(obj, first, i, attestation(document, item_start, item_end, obj))
-        i = i + 1
-    return add_composite_node(obj, KIND_LIST, first, count, obj.max_attestations, 0, 0)
-
-
 def withdrawal(
     document: raw_ptr[SszDocument], start: i32, obj: raw_ptr[SszObject]
 ) -> i32:
@@ -255,20 +197,7 @@ def withdrawal_list(
     end: i32,
     obj: raw_ptr[SszObject],
 ) -> i32:
-    length = end - start
-    if length < 0 or length % 44 != 0:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-        return empty_list(obj, obj.max_withdrawals_per_payload)
-    count = length // 44
-    if count > obj.max_withdrawals_per_payload:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-        return empty_list(obj, obj.max_withdrawals_per_payload)
-    first = reserve_edges(obj, count)
-    i: i32 = 0
-    while i < count:
-        set_edge(obj, first, i, withdrawal(document, start + i * 44, obj))
-        i = i + 1
-    return add_composite_node(obj, KIND_LIST, first, count, obj.max_withdrawals_per_payload, 0, 0)
+    return ssz_fixed_composite_list[withdrawal, KIND_LIST](document, start, end, 44, obj.max_withdrawals_per_payload, obj)
 
 
 def transaction_list(
@@ -379,67 +308,55 @@ def sync_aggregate(
     return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
 
 
-def block_body(
-    document: raw_ptr[SszDocument],
-    start: i32,
-    end: i32,
-    obj: raw_ptr[SszObject],
-) -> i32:
-    if end - start < 392:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-    proposer = first_variable_offset(document, start, end, 200, 392)
-    attester = variable_offset(document, start, end, 204, 392)
-    attestations = variable_offset(document, start, end, 208, 392)
-    deposits = variable_offset(document, start, end, 212, 392)
-    exits = variable_offset(document, start, end, 216, 392)
-    payload = variable_offset(document, start, end, 380, 392)
-    changes = variable_offset(document, start, end, 384, 392)
-    commitments = variable_offset(document, start, end, 388, 392)
-    if attester < proposer or attestations < attester or deposits < attestations:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-    if exits < deposits or payload < exits or changes < payload or commitments < changes:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-    first = reserve_edges(obj, 12)
-    set_edge(obj, first, 0, ssz_fixed_bytes(document, start, 96, obj))
-    set_edge(obj, first, 1, eth1_data(document, start + 96, obj))
-    set_edge(obj, first, 2, ssz_fixed_bytes(document, start + 168, 32, obj))
-    set_edge(obj, first, 3, require_empty_list(document, proposer, attester, obj.max_proposer_slashings, obj))
-    set_edge(obj, first, 4, require_empty_list(document, attester, attestations, obj.max_attester_slashings, obj))
-    set_edge(obj, first, 5, attestation_list(document, attestations, deposits, obj))
-    set_edge(obj, first, 6, require_empty_list(document, deposits, exits, obj.max_deposits, obj))
-    set_edge(obj, first, 7, require_empty_list(document, exits, payload, obj.max_voluntary_exits, obj))
-    set_edge(obj, first, 8, sync_aggregate(document, start + 220, obj))
-    set_edge(obj, first, 9, execution_payload(document, payload, changes, obj))
-    set_edge(obj, first, 10, require_empty_list(document, changes, commitments, obj.max_bls_to_execution_changes, obj))
-    set_edge(obj, first, 11, fixed_bytes_list(document, commitments, end, obj.max_blob_commitments_per_block, 48, obj))
-    return add_composite_node(obj, KIND_CONTAINER, first, 12, 12, 0, 0)
+@blue.generic
+def ssz_fixed_composite_list(decode_item, list_kind):
+    def decode(document: raw_ptr[SszDocument], start: i32, end: i32, item_size: i32, limit: i32, obj: raw_ptr[SszObject]) -> i32:
+        length = end - start
+        if not require_range(document, start, end) or length % item_size != 0:
+            obj.status = DECODE_STATUS_MALFORMED_INPUT
+            length = 0
+        count = length // item_size
+        if list_kind == KIND_LIST and count > limit:
+            obj.status = DECODE_STATUS_MALFORMED_INPUT
+            count = 0
+        first = reserve_edges(obj, count)
+        i: i32 = 0
+        while i < count:
+            set_edge(obj, first, i, decode_item(document, start + i * item_size, obj))
+            i = i + 1
+        return add_composite_node(obj, list_kind, first, count, limit, 0, 0)
+    return decode
 
 
-def beacon_block(
-    document: raw_ptr[SszDocument],
-    start: i32,
-    end: i32,
-    obj: raw_ptr[SszObject],
-) -> i32:
-    if end - start < 84:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-    body = first_variable_offset(document, start, end, 80, 84)
-    first = reserve_edges(obj, 5)
-    set_edge(obj, first, 0, ssz_uint(document, start, 8, obj))
-    set_edge(obj, first, 1, ssz_uint(document, start + 8, 8, obj))
-    set_edge(obj, first, 2, ssz_fixed_bytes(document, start + 16, 32, obj))
-    set_edge(obj, first, 3, ssz_fixed_bytes(document, start + 48, 32, obj))
-    set_edge(obj, first, 4, block_body(document, body, end, obj))
-    return add_composite_node(obj, KIND_CONTAINER, first, 5, 5, 0, 0)
-
-
-def signed_beacon_block(
-    document: raw_ptr[SszDocument], obj: raw_ptr[SszObject]
-) -> i32:
-    if document.length < 100:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-    message = first_variable_offset(document, 0, document.length, 0, 100)
-    first = reserve_edges(obj, 2)
-    set_edge(obj, first, 0, beacon_block(document, message, document.length, obj))
-    set_edge(obj, first, 1, ssz_fixed_bytes(document, 4, 96, obj))
-    return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
+@blue.generic
+def ssz_variable_composite_list(decode_item, list_kind):
+    def decode(document: raw_ptr[SszDocument], start: i32, end: i32, limit: i32, obj: raw_ptr[SszObject]) -> i32:
+        count: i32 = 0
+        length = end - start
+        first_offset: i32 = 0
+        if not require_range(document, start, end):
+            obj.status = DECODE_STATUS_MALFORMED_INPUT
+        elif length != 0:
+            first_offset = read_u32(document, start)
+            if first_offset <= 0 or first_offset % 4 != 0 or first_offset > length:
+                obj.status = DECODE_STATUS_MALFORMED_INPUT
+            else:
+                count = first_offset // 4
+        if list_kind == KIND_LIST and count > limit:
+            obj.status = DECODE_STATUS_MALFORMED_INPUT
+            count = 0
+        first = reserve_edges(obj, count)
+        i: i32 = 0
+        while i < count:
+            item_start = read_u32(document, start + i * 4)
+            item_end = length
+            if i + 1 < count:
+                item_end = read_u32(document, start + (i + 1) * 4)
+            # Validate relative offsets before adding the container's start.
+            if item_start < first_offset or item_end < item_start or item_end > length:
+                obj.status = DECODE_STATUS_MALFORMED_INPUT
+                return add_composite_node(obj, list_kind, first, 0, limit, 0, 0)
+            set_edge(obj, first, i, decode_item(document, start + item_start, start + item_end, obj))
+            i = i + 1
+        return add_composite_node(obj, list_kind, first, count, limit, 0, 0)
+    return decode

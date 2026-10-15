@@ -2,165 +2,37 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Iterator, Mapping
 from contextlib import ExitStack, contextmanager
 from copy import deepcopy
-from enum import IntEnum
 from importlib import import_module
 from threading import RLock
-from typing import Any, Callable, ClassVar, Iterable, Iterator, Self, TypeVar
+from typing import Any, ClassVar, Self
 
 import msgspec
 
 from . import _spy
+from ._codecs import get_codec
+from ._composition import _compose_fields
+from ._json_policy import json_input, json_output
+from ._native import (
+    _MAX_NATIVE_INPUT_LENGTH,
+    _MAX_NATIVE_SIZE,
+    _spy_bytes,
+    decode_owned,
+    input_bytes,
+)
 from ._repr import format_container
+from ._projection import project_native_field
+from ._values import Bitfield as Bitfield
+from ._values import _json_compatible, _project_value
 from .preset import Preset
 from .schema import (
     Fork,
     ObjectKind,
     get_schema,
     module_for_codec,
-    schema_definitions,
 )
-
-
-def _spy_bytes(buffer: bytes | bytearray) -> tuple[Any, Any]:
-    view = _spy.ffi.from_buffer(buffer)
-    value = _spy.ffi.new("spy_BytesObject *")
-    value.length = len(buffer)
-    value.hash = 0
-    value.data.p = _spy.ffi.cast("uint8_t *", view)
-    return value, view
-
-
-def _compose_typed_fields(cls: type[SszObject], fields: dict[str, Any]) -> Any | None:
-    from . import signing
-
-    composer = getattr(signing, "_compose_fields")
-    return composer(cls, fields)
-
-
-Decoder = Callable[[Any], Any]
-Sizer = Callable[[Any], int]
-Encoder = Callable[[Any, Any], int]
-ArraySizer = Callable[[Any, int], int]
-ArrayEncoder = Callable[[Any, int, Any], int]
-CodecKey = tuple[Fork, ObjectKind, Preset]
-Codec = TypeVar("Codec")
-
-
-class _DecodeStatus(IntEnum):
-    UNRECOGNIZED_FIELD = _spy.lib.SPY_SSZ_DECODE_UNRECOGNIZED_FIELD
-    MALFORMED_INPUT = _spy.lib.SPY_SSZ_DECODE_MALFORMED_INPUT
-    VALID = _spy.lib.SPY_SSZ_DECODE_VALID
-
-
-# The largest decoder arena is ``input_length * 3 + 16 KiB`` and all native
-# lengths and offsets are signed 32-bit integers.
-_MAX_NATIVE_SIZE = (1 << 31) - 1
-_MAX_NATIVE_INPUT_LENGTH = (_MAX_NATIVE_SIZE - 16 * 1024) // 3
-_JSON_DECODERS: dict[CodecKey, Decoder] = {}
-_SSZ_DECODERS: dict[CodecKey, Decoder] = {}
-_SSZ_ENCODERS: dict[CodecKey, tuple[Sizer, Encoder]] = {}
-_JSON_ENCODERS: dict[CodecKey, tuple[Sizer, Encoder]] = {}
-_JSON_ARRAY_ENCODERS: dict[CodecKey, tuple[ArraySizer, ArrayEncoder]] = {}
-
-
-def bind_decoder(decoder: Callable[..., Any], *arguments: int) -> Decoder:
-    """Bind integer schema metadata after a compiled decoder's source argument."""
-
-    def bound(source: Any) -> Any:
-        return decoder(source, *arguments)
-
-    return bound
-
-
-def _register(
-    registry: dict[CodecKey, Codec],
-    key: CodecKey,
-    value: Codec,
-    encoding: str,
-) -> None:
-    if key in registry:
-        fork, kind, preset = key
-        raise ValueError(
-            f"{encoding} codec already registered for "
-            f"{fork.name}/{kind.name}/{preset.name}"
-        )
-    registry[key] = value
-
-
-def _lookup_codec(
-    registry: dict[CodecKey, Codec], key: CodecKey, operation: str
-) -> Codec:
-    codec = registry.get(key)
-    if codec is None:
-        fork, _, _ = key
-        _load_builtin_codecs(fork)
-        codec = registry.get(key)
-    if codec is None:
-        fork, kind, preset = key
-        raise NotImplementedError(
-            f"no SPy {operation} for {fork.name}/{kind.name}/{preset.name}"
-        )
-    return codec
-
-
-def register_json_decoder(
-    fork: Fork, kind: ObjectKind, decoder: Decoder, preset: Preset = Preset.MAINNET
-) -> None:
-    key = (fork, kind, preset)
-    _register(_JSON_DECODERS, key, decoder, "JSON")
-
-
-def register_ssz_decoder(
-    fork: Fork, kind: ObjectKind, decoder: Decoder, preset: Preset = Preset.MAINNET
-) -> None:
-    _register(_SSZ_DECODERS, (fork, kind, preset), decoder, "SSZ")
-
-
-def register_ssz_encoder(
-    fork: Fork,
-    kind: ObjectKind,
-    sizer: Sizer,
-    encoder: Encoder,
-    preset: Preset = Preset.MAINNET,
-) -> None:
-    _register(_SSZ_ENCODERS, (fork, kind, preset), (sizer, encoder), "SSZ")
-
-
-def register_json_encoder(
-    fork: Fork,
-    kind: ObjectKind,
-    sizer: Sizer,
-    encoder: Encoder,
-    preset: Preset = Preset.MAINNET,
-) -> None:
-    _register(_JSON_ENCODERS, (fork, kind, preset), (sizer, encoder), "JSON")
-
-
-def register_json_array_encoder(
-    fork: Fork,
-    kind: ObjectKind,
-    sizer: ArraySizer,
-    encoder: ArrayEncoder,
-    preset: Preset = Preset.MAINNET,
-) -> None:
-    _register(
-        _JSON_ARRAY_ENCODERS,
-        (fork, kind, preset),
-        (sizer, encoder),
-        "JSON array",
-    )
-
-
-def _load_builtin_codecs(fork: Fork) -> None:
-    modules = {
-        module_for_codec(value.codec)
-        for value in schema_definitions()
-        if value.fork is fork
-    }
-    for module in modules:
-        import_module(f"{__package__}.{module}")
 
 
 class SszObject:
@@ -171,6 +43,7 @@ class SszObject:
         "_json_size_cache",
         "_lock",
         "_obj_cache",
+        "_projection_cache",
         "_ssz_size_cache",
         "_value_key_cache",
     )
@@ -178,6 +51,7 @@ class SszObject:
     _json_size_cache: int | None
     _lock: RLock
     _obj_cache: Any
+    _projection_cache: dict[str, Any] | None
     _ssz_size_cache: int | None
     _value_key_cache: tuple[int, Preset, bytes] | None
     expected_fork: ClassVar[Fork | None] = None
@@ -185,18 +59,27 @@ class SszObject:
     expected_preset: ClassVar[Preset] = Preset.MAINNET
     json_input_envelope_key: ClassVar[str | None] = "data"
     json_output_envelope_key: ClassVar[str | None] = "data"
+    json_decoder_handles_envelope: ClassVar[bool] = True
+    json_encoder_handles_envelope: ClassVar[bool] = True
+    json_output_metadata: ClassVar[Mapping[str, Any] | None] = None
 
-    def __init__(self, handle: Any = None, **fields: Any):
+    def _initialize_owner(self, handle: Any) -> None:
         self._lock = RLock()
+        self._handle = None
         self._json_size_cache = None
-        self._obj_cache: Any = None
+        self._obj_cache = None
+        self._projection_cache = None
         self._ssz_size_cache = None
         self._value_key_cache = None
+        self._handle = handle
+
+    def __init__(self, handle: Any = None, **fields: Any):
+        SszObject._initialize_owner(self, None)
         if handle is None:
             if not fields:
                 raise TypeError("SPy SSZ containers require field values")
             if any(isinstance(value, SszObject) for value in fields.values()):
-                composed = _compose_typed_fields(type(self), fields)
+                composed = _compose_fields(type(self), fields)
                 if composed is not None:
                     self._handle = composed
                     return
@@ -209,13 +92,37 @@ class SszObject:
             self._handle = handle
 
     @classmethod
+    def _from_owned_handle(cls, handle: Any) -> Self:
+        """Adopt a new allocation without invoking public field constructors."""
+        result = None
+        try:
+            result = object.__new__(cls)
+            SszObject._initialize_owner(result, handle)
+            return result
+        except BaseException:
+            # A partially initialized owner may already have adopted the handle.
+            try:
+                adopted = (
+                    result is not None
+                    and object.__getattribute__(result, "_handle") is handle
+                )
+            except AttributeError:
+                adopted = False
+            if adopted:
+                assert result is not None
+                result.close()
+            else:
+                _spy.lib.spy_ssz_object_destroy(handle)
+            raise
+
+    @classmethod
     def from_obj(cls, value: Any) -> Self:
         if isinstance(value, dict) and any(
             isinstance(item, SszObject) for item in value.values()
         ):
-            composed = _compose_typed_fields(cls, value)
+            composed = _compose_fields(cls, value)
             if composed is not None:
-                return cls(composed)
+                return cls._from_owned_handle(composed)
         value = _json_compatible(value)
         if cls.json_input_envelope_key is not None:
             value = {cls.json_input_envelope_key: value}
@@ -234,6 +141,30 @@ class SszObject:
         return deepcopy(self._decoded_obj())
 
     def __getattr__(self, name: str) -> Any:
+        with self._use_handle() as handle:
+            if self._projection_cache is not None and name in self._projection_cache:
+                return self._projection_cache[name]
+            fork = Fork(_spy.lib.spy_ssz_object_fork(handle))
+            kind = ObjectKind(_spy.lib.spy_ssz_object_kind(handle))
+            definition = get_schema(fork, kind)
+            if definition.consensus_type is not None:
+                try:
+                    result = project_native_field(
+                        handle, fork, definition.consensus_type, name
+                    )
+                except KeyError:
+                    raise AttributeError(name) from None
+                if name in {"aggregation_bits", "committee_bits"}:
+                    result = Bitfield.from_hex(
+                        f"0x{result.hex()}",
+                        bitlist=name == "aggregation_bits"
+                        and kind is ObjectKind.ATTESTATION,
+                    )
+                if self._projection_cache is None:
+                    self._projection_cache = {}
+                self._projection_cache[name] = result
+                return result
+        # API-only containers have no consensus descriptor in the catalog.
         value = self._decoded_obj()
         if isinstance(value, dict) and name in value:
             raw = value[name]
@@ -243,88 +174,37 @@ class SszObject:
                     and self.object_kind is ObjectKind.ATTESTATION
                 )
                 return Bitfield.from_hex(raw, bitlist=is_bitlist)
-            from .projections import project_field
-            from .schema import get_schema
-
-            definition = get_schema(self.fork, self.object_kind)
-            if definition.consensus_type is not None:
-                return project_field(
-                    self.fork,
-                    definition.consensus_type,
-                    name,
-                    raw,
-                )
             return _project_value(raw)
         raise AttributeError(name)
 
     @classmethod
     def from_json(cls, data: bytes | bytearray | memoryview) -> Self:
-        return cls._decode(data, _JSON_DECODERS, "JSON")
+        return cls._decode(data, "JSON")
 
     @classmethod
     def from_ssz(cls, data: bytes | bytearray | memoryview) -> Self:
-        return cls._decode(data, _SSZ_DECODERS, "SSZ")
+        return cls._decode(data, "SSZ")
 
     @classmethod
     def _decode(
         cls,
         data: bytes | bytearray | memoryview,
-        decoders: dict[CodecKey, Decoder],
         encoding: str,
     ) -> Self:
         if cls.expected_fork is None or cls.expected_kind is None:
             raise TypeError("use a registered concrete SPy SSZ class")
-        if len(data) > _MAX_NATIVE_INPUT_LENGTH:
-            raise ValueError(
-                f"{encoding} input exceeds the {_MAX_NATIVE_INPUT_LENGTH}-byte "
-                "implementation limit"
-            )
-        source = bytes(data)
-        source_obj, source_view = _spy_bytes(source)
+        source = input_bytes(data, encoding, _MAX_NATIVE_INPUT_LENGTH)
+        if encoding == "JSON":
+            source = json_input(cls, source)
         key = (cls.expected_fork, cls.expected_kind, cls.expected_preset)
-        decoder = _lookup_codec(decoders, key, f"{encoding} decoder")
-        handle = decoder(source_obj)
-        assert source_view
-        raw_status = (
-            int(_spy.lib.spy_ssz_object_decode_status(handle))
-            if handle.p
-            else int(_DecodeStatus.MALFORMED_INPUT)
-        )
-        if raw_status != _DecodeStatus.VALID:
-            error_start = _spy.lib.spy_ssz_object_error_start(handle)
-            error_end = _spy.lib.spy_ssz_object_error_end(handle)
-            if handle.p:
-                _spy.lib.spy_ssz_object_destroy(handle)
-            try:
-                status = _DecodeStatus(raw_status)
-            except ValueError:
-                raise ValueError(f"unknown native decode status {raw_status}") from None
-            if (
-                encoding == "JSON"
-                and status is _DecodeStatus.UNRECOGNIZED_FIELD
-                and 1 <= error_start <= error_end < len(source)
-            ):
-                field = msgspec.json.decode(source[error_start - 1 : error_end + 1])
-                raise ValueError(
-                    f"unrecognized JSON object field {field!r} "
-                    f"(status={status.name}, "
-                    f"byte_range={error_start}:{error_end + 1})"
-                )
-            detail = f"status={status.name}"
-            if 0 <= error_start <= error_end < len(source):
-                detail += f", byte_range={error_start}:{error_end + 1}"
-            raise ValueError(f"invalid {encoding} object ({detail})")
-        try:
-            result = cls(handle)
-            # A valid SSZ input is canonical, so its length is also the exact
-            # re-encoded size. Avoid traversing the immutable graph just to
-            # rediscover it on the common decode/encode path.
-            if encoding == "SSZ":
-                result._ssz_size_cache = len(source)
-            return result
-        except BaseException:
-            _spy.lib.spy_ssz_object_destroy(handle)
-            raise
+        codec = get_codec(key)
+        decoder = codec.json_decoder if encoding == "JSON" else codec.ssz_decoder
+        handle = decode_owned(source, decoder, encoding)
+        result = cls._from_owned_handle(handle)
+        # Canonical SSZ input already gives the exact immutable output size.
+        if encoding == "SSZ":
+            result._ssz_size_cache = len(source)
+        return result
 
     @property
     def fork(self) -> Fork:
@@ -402,6 +282,15 @@ class SszObject:
     def __hash__(self) -> int:
         return hash(self._value_key())
 
+    def __copy__(self) -> Self:
+        """Copy the value into an independently owned native allocation."""
+        return type(self).from_ssz(self.to_ssz())
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
+        result = self.__copy__()
+        memo[id(self)] = result
+        return result
+
     def _hash_tree_root_path(self, first: int, second: int, depth: int) -> bytes:
         output = bytearray(32)
         output_obj, output_view = _spy_bytes(output)
@@ -418,15 +307,15 @@ class SszObject:
         return bytes(output)
 
     def to_ssz(self) -> bytes:
-        return self._encode(_SSZ_ENCODERS, "SSZ")
+        return self._encode("SSZ")
 
     def to_json(self) -> bytes:
-        """Encode a compact Beacon API ``{\"data\": ...}`` JSON response."""
-        return self._encode(_JSON_ENCODERS, "JSON")
+        """Encode the compact Beacon API JSON representation for this object."""
+        encoded = self._encode("JSON")
+        return json_output(type(self), encoded)
 
     def _encode(
         self,
-        encoders: dict[CodecKey, tuple[Sizer, Encoder]],
         encoding: str,
     ) -> bytes:
         fork = type(self).expected_fork
@@ -434,8 +323,8 @@ class SszObject:
         if fork is None or kind is None:
             raise TypeError("use a registered concrete SPy SSZ class")
         key = (fork, kind, type(self).expected_preset)
-        codec = _lookup_codec(encoders, key, f"{encoding} encoder")
-        sizer, encoder = codec
+        codec = get_codec(key)
+        sizer, encoder = codec.json_encoder if encoding == "JSON" else codec.ssz_encoder
         with self._use_handle() as handle:
             size_cache = "_ssz_size_cache" if encoding == "SSZ" else "_json_size_cache"
             expected = getattr(self, size_cache)
@@ -465,6 +354,7 @@ class SszObject:
             if handle is not None:
                 self._handle = None
                 self._obj_cache = None
+                self._projection_cache = None
                 _spy.lib.spy_ssz_object_destroy(handle)
 
     def __enter__(self) -> Self:
@@ -477,161 +367,6 @@ class SszObject:
 
     def __del__(self) -> None:
         self.close()
-
-
-class Bitfield:
-    """Small immutable SSZ bitvector or bitlist.
-
-    Bitvectors retain their declared length and zero-fill any values omitted by
-    the input iterable. Bitlists retain the iterable's length and include their
-    SSZ termination bit when serialized.
-    """
-
-    __slots__ = ("_bitlist", "_data", "_length")
-
-    def __init__(self, data: bytes, length: int, *, bitlist: bool = False):
-        self._bitlist = bitlist
-        self._data = data
-        self._length = length
-
-    def __repr__(self) -> str:
-        return format_container(
-            type(self).__name__,
-            (("length", self._length), ("data", self._data)),
-        )
-
-    __str__ = __repr__
-
-    @staticmethod
-    def _size(value: int, name: str) -> int:
-        if not isinstance(value, int) or isinstance(value, bool):
-            raise TypeError(f"{name} must be an integer")
-        if value < 0:
-            raise ValueError(f"{name} must be non-negative")
-        return value
-
-    @staticmethod
-    def _bit(value: bool | int) -> bool:
-        if not isinstance(value, (bool, int)):
-            raise TypeError("bitfield values must be bool or int")
-        return bool(value)
-
-    @classmethod
-    def bitvector(cls, length: int, values: Iterable[bool | int] = ()) -> Bitfield:
-        """Construct a zero-filled SSZ bitvector with a declared length."""
-        length = cls._size(length, "bitvector length")
-        data = bytearray((length + 7) // 8)
-        for index, value in enumerate(values):
-            if index >= length:
-                raise ValueError(
-                    f"bitvector has more values than its declared length {length}"
-                )
-            if cls._bit(value):
-                data[index // 8] |= 1 << (index % 8)
-        return cls(bytes(data), length)
-
-    @classmethod
-    def bitlist(cls, limit: int, values: Iterable[bool | int] = ()) -> Bitfield:
-        """Construct an SSZ bitlist and enforce its declared limit."""
-        limit = cls._size(limit, "bitlist limit")
-        bits: list[bool] = []
-        for value in values:
-            if len(bits) >= limit:
-                raise ValueError(f"bitlist exceeds its declared limit {limit}")
-            bits.append(cls._bit(value))
-
-        data = bytearray((len(bits) + 7) // 8)
-        for index, value in enumerate(bits):
-            if value:
-                data[index // 8] |= 1 << (index % 8)
-        return cls(bytes(data), len(bits), bitlist=True)
-
-    @classmethod
-    def from_hex(cls, value: str, *, bitlist: bool) -> Bitfield:
-        data = bytearray.fromhex(value.removeprefix("0x"))
-        length = len(data) * 8
-        if bitlist:
-            if not data or data[-1] == 0:
-                raise ValueError("bitlist is missing its termination bit")
-            marker = data[-1].bit_length() - 1
-            length = (len(data) - 1) * 8 + marker
-            data[-1] &= (1 << marker) - 1
-        return cls(bytes(data), length, bitlist=bitlist)
-
-    def to_hex(self) -> str:
-        """Serialize the bitfield as Beacon API hexadecimal SSZ data."""
-        data = bytearray(self._data)
-        if self._bitlist:
-            encoded_length = (self._length + 1 + 7) // 8
-            if len(data) < encoded_length:
-                data.extend(b"\x00" * (encoded_length - len(data)))
-            data[self._length // 8] |= 1 << (self._length % 8)
-        return f"0x{data.hex()}"
-
-    def to_obj(self) -> str:
-        """Return the Beacon API object representation."""
-        return self.to_hex()
-
-    def __len__(self) -> int:
-        return self._length
-
-    def __getitem__(self, index: int) -> bool:
-        if index < 0:
-            index += self._length
-        if index < 0 or index >= self._length:
-            raise IndexError(index)
-        return bool(self._data[index // 8] & (1 << (index % 8)))
-
-    def __iter__(self) -> Iterator[bool]:
-        for index in range(self._length):
-            yield self[index]
-
-    def count(self, value: bool = True) -> int:
-        ones = sum(byte.bit_count() for byte in self._data)
-        return ones if value else self._length - ones
-
-
-def _project_value(value: Any) -> Any:
-    if isinstance(value, str):
-        if value.startswith("0x"):
-            return bytes.fromhex(value[2:])
-        if value.isdecimal():
-            return int(value)
-    if isinstance(value, dict):
-        return _FrozenView(value)
-    if isinstance(value, list):
-        return tuple(_project_value(item) for item in value)
-    return value
-
-
-class _FrozenView:
-    __slots__ = ("_value",)
-
-    def __init__(self, value: dict[str, Any]):
-        self._value = value
-
-    def __getattr__(self, name: str) -> Any:
-        try:
-            return _project_value(self._value[name])
-        except KeyError:
-            raise AttributeError(name) from None
-
-    def to_obj(self) -> dict[str, Any]:
-        return deepcopy(self._value)
-
-
-def _json_compatible(value: Any) -> Any:
-    if isinstance(value, SszObject):
-        return value.to_obj()
-    if hasattr(value, "to_obj"):
-        return _json_compatible(value.to_obj())
-    if isinstance(value, bytes):
-        return f"0x{value.hex()}"
-    if isinstance(value, dict):
-        return {key: _json_compatible(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_json_compatible(item) for item in value]
-    return value
 
 
 def decode_json(
@@ -671,7 +406,8 @@ def encode_json_array(values: Iterable[SszObject]) -> bytes:
     if concrete_type.json_output_envelope_key is not None:
         raise TypeError("JSON array encoding requires bare-object JSON types")
     key = (fork, kind, preset)
-    batch_codec = _JSON_ARRAY_ENCODERS.get(key)
+    codec = get_codec(key)
+    batch_codec = codec.json_array_encoder
     for item in items:
         if not isinstance(item, SszObject):
             raise TypeError("JSON array values must be concrete SPy SSZ objects")
@@ -709,7 +445,7 @@ def encode_json_array(values: Iterable[SszObject]) -> bytes:
                 raise ValueError("SPy JSON array encoding failed")
             return bytes(output)
 
-        item_sizer, item_encoder = _lookup_codec(_JSON_ENCODERS, key, "JSON encoder")
+        item_sizer, item_encoder = codec.json_encoder
         sizes = [item_sizer(handle) for handle in item_handles]
         if any(size < 0 for size in sizes):
             raise ValueError("SPy JSON array sizing failed")

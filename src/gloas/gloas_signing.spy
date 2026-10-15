@@ -1,0 +1,86 @@
+"""Gloas signing codecs and progressive-tree adaptations."""
+
+from unsafe import raw_ptr
+from json_lowering import JsonDecodeResult
+from ssz_lowering import SszDecodeResult
+from metadata import (
+    OBJECT_AGGREGATE_AND_PROOF,
+    OBJECT_ATTESTATION,
+    OBJECT_ATTESTER_SLASHING,
+    OBJECT_INDEXED_ATTESTATION,
+    OBJECT_SIGNED_AGGREGATE_AND_PROOF,
+)
+from electra_signing import (
+    decode_signing_json,
+    decode_signing_ssz,
+    signing_encode_json,
+    signing_encode_ssz,
+    signing_json_size,
+    signing_ssz_size,
+)
+from ssz_object import (
+    KIND_PROGRESSIVE_BASIC_LIST,
+    KIND_PROGRESSIVE_BITLIST,
+    KIND_PROGRESSIVE_CONTAINER,
+    SszObject,
+    alloc_data,
+)
+
+
+def child(obj: raw_ptr[SszObject], node: i32, index: i32) -> i32:
+    return obj.edges[obj.nodes[node].first_edge + index]
+
+
+def promote_container(obj: raw_ptr[SszObject], node: i32) -> None:
+    count = obj.nodes[node].child_count
+    active = alloc_data(obj, (count + 7) // 8)
+    i: i32 = 0
+    while i < (count + 7) // 8:
+        obj.arena[active + i] = u8(255)
+        i = i + 1
+    if count % 8 != 0:
+        obj.arena[active + (count - 1) // 8] = u8((1 << (count % 8)) - 1)
+    obj.nodes[node].kind = KIND_PROGRESSIVE_CONTAINER
+    obj.nodes[node].active_offset = active
+    obj.nodes[node].active_length = count
+
+
+def promote_attestation(obj: raw_ptr[SszObject], node: i32) -> None:
+    obj.nodes[child(obj, node, 0)].kind = KIND_PROGRESSIVE_BITLIST
+    promote_container(obj, node)
+
+
+def promote_indexed_attestation(obj: raw_ptr[SszObject], node: i32) -> None:
+    obj.nodes[child(obj, node, 0)].kind = KIND_PROGRESSIVE_BASIC_LIST
+    promote_container(obj, node)
+
+
+def promote_signing_tree(obj: raw_ptr[SszObject], kind: i32) -> None:
+    root = obj.root_node
+    if kind == OBJECT_ATTESTATION:
+        promote_attestation(obj, root)
+    elif kind == OBJECT_AGGREGATE_AND_PROOF:
+        promote_attestation(obj, child(obj, root, 1))
+    elif kind == OBJECT_SIGNED_AGGREGATE_AND_PROOF:
+        promote_attestation(obj, child(obj, child(obj, root, 0), 1))
+    elif kind == OBJECT_INDEXED_ATTESTATION:
+        promote_indexed_attestation(obj, root)
+    elif kind == OBJECT_ATTESTER_SLASHING:
+        promote_indexed_attestation(obj, child(obj, root, 0))
+        promote_indexed_attestation(obj, child(obj, root, 1))
+
+
+def decode_gloas_signing_json(
+    source: bytes, fork: i32, kind: i32, schema: i32, preset: i32
+) -> JsonDecodeResult:
+    result = decode_signing_json(source, fork, kind, schema, preset)
+    promote_signing_tree(result.object, kind)
+    return result
+
+
+def decode_gloas_signing_ssz(
+    source: bytes, fork: i32, kind: i32, schema: i32, preset: i32
+) -> SszDecodeResult:
+    result = decode_signing_ssz(source, fork, kind, schema, preset)
+    promote_signing_tree(result.object, kind)
+    return result

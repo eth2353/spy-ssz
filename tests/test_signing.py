@@ -1,3 +1,4 @@
+from dataclasses import replace
 from unittest import mock
 
 import msgspec
@@ -5,45 +6,45 @@ import pytest
 from eth_consensus_specs.electra import mainnet as electra
 from eth_consensus_specs.electra import minimal as electra_minimal
 
+from spy_ssz import Preset, encode_json_array, get_ssz_type
+from spy_ssz._codecs import _CODECS
 from spy_ssz.signing import (
-    AggregateAndProof,
-    Attestation,
-    AttestationMinimal,
-    AttestationData,
-    AttesterSlashing,
-    BeaconBlockHeader,
-    ContributionAndProof,
-    IndexedAttestation,
-    ProposerSlashing,
-    SignedAggregateAndProof,
-    SignedBeaconBlockHeader,
-    SignedContributionAndProof,
-    SingleAttestation,
-    SyncCommitteeContribution,
-    SyncCommitteeMessage,
+    AggregateAndProofElectra,
+    AttestationDataElectra,
+    AttestationElectra,
+    AttestationElectraMinimal,
+    AttesterSlashingElectra,
+    BeaconBlockHeaderElectra,
+    ContributionAndProofElectra,
+    IndexedAttestationElectra,
+    ProposerSlashingElectra,
+    SignedAggregateAndProofElectra,
+    SignedBeaconBlockHeaderElectra,
+    SignedContributionAndProofElectra,
+    SingleAttestationElectra,
+    SyncCommitteeContributionElectra,
+    SyncCommitteeMessageElectra,
 )
-from spy_ssz import encode_json_array
-from spy_ssz import Preset, get_ssz_type
-from spy_ssz.ssz import Fork, ObjectKind, _JSON_ENCODERS, decode_json
+from spy_ssz.ssz import Fork, ObjectKind, decode_json
 
 
 @pytest.mark.parametrize(
     ("reference_type", "spy_type"),
     [
-        (electra.AttestationData, AttestationData),
-        (electra.Attestation, Attestation),
-        (electra.AggregateAndProof, AggregateAndProof),
-        (electra.SyncCommitteeContribution, SyncCommitteeContribution),
-        (electra.ContributionAndProof, ContributionAndProof),
-        (electra.SingleAttestation, SingleAttestation),
-        (electra.SyncCommitteeMessage, SyncCommitteeMessage),
-        (electra.SignedAggregateAndProof, SignedAggregateAndProof),
-        (electra.SignedContributionAndProof, SignedContributionAndProof),
-        (electra.IndexedAttestation, IndexedAttestation),
-        (electra.AttesterSlashing, AttesterSlashing),
-        (electra.BeaconBlockHeader, BeaconBlockHeader),
-        (electra.SignedBeaconBlockHeader, SignedBeaconBlockHeader),
-        (electra.ProposerSlashing, ProposerSlashing),
+        (electra.AttestationData, AttestationDataElectra),
+        (electra.Attestation, AttestationElectra),
+        (electra.AggregateAndProof, AggregateAndProofElectra),
+        (electra.SyncCommitteeContribution, SyncCommitteeContributionElectra),
+        (electra.ContributionAndProof, ContributionAndProofElectra),
+        (electra.SingleAttestation, SingleAttestationElectra),
+        (electra.SyncCommitteeMessage, SyncCommitteeMessageElectra),
+        (electra.SignedAggregateAndProof, SignedAggregateAndProofElectra),
+        (electra.SignedContributionAndProof, SignedContributionAndProofElectra),
+        (electra.IndexedAttestation, IndexedAttestationElectra),
+        (electra.AttesterSlashing, AttesterSlashingElectra),
+        (electra.BeaconBlockHeader, BeaconBlockHeaderElectra),
+        (electra.SignedBeaconBlockHeader, SignedBeaconBlockHeaderElectra),
+        (electra.ProposerSlashing, ProposerSlashingElectra),
     ],
 )
 def test_signing_types_match_consensus_ssz(reference_type, spy_type) -> None:
@@ -125,7 +126,9 @@ def test_fulu_typed_composition_preserves_fulu_identity() -> None:
             assert aggregate.fork is Fork.FULU
             assert aggregate.schema_id == 605
 
-    with Attestation.from_obj(electra.Attestation().to_obj()) as electra_attestation:
+    with AttestationElectra.from_obj(
+        electra.Attestation().to_obj()
+    ) as electra_attestation:
         with pytest.raises(TypeError, match="nested SSZ object fork"):
             aggregate_type(
                 aggregator_index=1,
@@ -136,7 +139,7 @@ def test_fulu_typed_composition_preserves_fulu_identity() -> None:
 
 def test_constructor_and_bitfield_projection() -> None:
     reference = electra.Attestation()
-    with Attestation(**reference.to_obj()) as value:
+    with AttestationElectra(**reference.to_obj()) as value:
         assert len(value.aggregation_bits) == 0
         assert sum(value.aggregation_bits) == 0
         assert len(value.committee_bits) == 64
@@ -147,20 +150,20 @@ def test_constructor_and_bitfield_projection() -> None:
 def test_typed_children_are_composed_without_json_roundtrip() -> None:
     signature = bytes(range(96))
     attestation_reference = electra.Attestation()
-    attestation = Attestation.from_obj(attestation_reference.to_obj())
+    attestation = AttestationElectra.from_obj(attestation_reference.to_obj())
     with (
         mock.patch.object(
-            Attestation,
+            AttestationElectra,
             "to_obj",
             side_effect=AssertionError("typed composition must stay native"),
         ),
         mock.patch.object(
-            Attestation,
+            AttestationElectra,
             "to_json",
             side_effect=AssertionError("typed composition must stay native"),
         ),
     ):
-        aggregate = AggregateAndProof(
+        aggregate = AggregateAndProofElectra(
             aggregator_index=12,
             aggregate=attestation,
             selection_proof=signature,
@@ -174,11 +177,11 @@ def test_typed_children_are_composed_without_json_roundtrip() -> None:
     assert aggregate.to_ssz() == aggregate_reference.encode_bytes()
 
     with mock.patch.object(
-        AggregateAndProof,
+        AggregateAndProofElectra,
         "to_json",
         side_effect=AssertionError("typed composition must stay native"),
     ):
-        signed_aggregate = SignedAggregateAndProof.from_obj(
+        signed_aggregate = SignedAggregateAndProofElectra.from_obj(
             {"message": aggregate, "signature": signature}
         )
     aggregate.close()
@@ -192,13 +195,15 @@ def test_typed_children_are_composed_without_json_roundtrip() -> None:
     signed_aggregate.close()
 
     contribution_reference = electra.SyncCommitteeContribution()
-    contribution = SyncCommitteeContribution.from_obj(contribution_reference.to_obj())
+    contribution = SyncCommitteeContributionElectra.from_obj(
+        contribution_reference.to_obj()
+    )
     with mock.patch.object(
-        SyncCommitteeContribution,
+        SyncCommitteeContributionElectra,
         "to_json",
         side_effect=AssertionError("typed composition must stay native"),
     ):
-        proof = ContributionAndProof(
+        proof = ContributionAndProofElectra(
             aggregator_index="34",
             contribution=contribution,
             selection_proof=signature,
@@ -211,11 +216,11 @@ def test_typed_children_are_composed_without_json_roundtrip() -> None:
     )
     assert proof.to_ssz() == proof_reference.encode_bytes()
     with mock.patch.object(
-        ContributionAndProof,
+        ContributionAndProofElectra,
         "to_json",
         side_effect=AssertionError("typed composition must stay native"),
     ):
-        signed_proof = SignedContributionAndProof(
+        signed_proof = SignedContributionAndProofElectra(
             message=proof,
             signature=signature,
         )
@@ -230,13 +235,13 @@ def test_typed_children_are_composed_without_json_roundtrip() -> None:
     signed_proof.close()
 
     data_reference = electra.AttestationData(slot=56)
-    data = AttestationData.from_obj(data_reference.to_obj())
+    data = AttestationDataElectra.from_obj(data_reference.to_obj())
     with mock.patch.object(
-        AttestationData,
+        AttestationDataElectra,
         "to_json",
         side_effect=AssertionError("typed composition must stay native"),
     ):
-        single = SingleAttestation(
+        single = SingleAttestationElectra(
             committee_index=78,
             attester_index=90,
             data=data,
@@ -263,18 +268,18 @@ def test_populated_variable_slashing_types_match_consensus_ssz() -> None:
         attestation_2=second,
     )
 
-    with AttesterSlashing.from_obj(reference.to_obj()) as from_json:
+    with AttesterSlashingElectra.from_obj(reference.to_obj()) as from_json:
         assert from_json.hash_tree_root() == reference.hash_tree_root()
         assert from_json.to_ssz() == reference.encode_bytes()
         assert from_json.attestation_1.attesting_indices == (1, 2, 3)
-    with AttesterSlashing.from_ssz(reference.encode_bytes()) as from_ssz:
+    with AttesterSlashingElectra.from_ssz(reference.encode_bytes()) as from_ssz:
         assert from_ssz.hash_tree_root() == reference.hash_tree_root()
         assert from_ssz.attestation_2.attesting_indices == (4, 5)
 
 
 def test_json_decoder_rejects_missing_fields_without_unsafe_token_access() -> None:
     with pytest.raises(ValueError, match="invalid JSON object"):
-        AttestationData.from_json(b"{}")
+        AttestationDataElectra.from_json(b"{}")
 
 
 def test_json_decoder_reports_status_for_wrong_fixed_byte_length() -> None:
@@ -284,21 +289,21 @@ def test_json_decoder_reports_status_for_wrong_fixed_byte_length() -> None:
     with pytest.raises(
         ValueError, match=r"invalid JSON object \(status=MALFORMED_INPUT"
     ):
-        AttestationData.from_obj(value)
+        AttestationDataElectra.from_obj(value)
 
 
 @pytest.mark.parametrize(
     ("reference_type", "spy_type"),
     [
-        (electra.AttestationData, AttestationData),
-        (electra.SyncCommitteeContribution, SyncCommitteeContribution),
-        (electra.ContributionAndProof, ContributionAndProof),
-        (electra.SingleAttestation, SingleAttestation),
-        (electra.SyncCommitteeMessage, SyncCommitteeMessage),
-        (electra.SignedContributionAndProof, SignedContributionAndProof),
-        (electra.BeaconBlockHeader, BeaconBlockHeader),
-        (electra.SignedBeaconBlockHeader, SignedBeaconBlockHeader),
-        (electra.ProposerSlashing, ProposerSlashing),
+        (electra.AttestationData, AttestationDataElectra),
+        (electra.SyncCommitteeContribution, SyncCommitteeContributionElectra),
+        (electra.ContributionAndProof, ContributionAndProofElectra),
+        (electra.SingleAttestation, SingleAttestationElectra),
+        (electra.SyncCommitteeMessage, SyncCommitteeMessageElectra),
+        (electra.SignedContributionAndProof, SignedContributionAndProofElectra),
+        (electra.BeaconBlockHeader, BeaconBlockHeaderElectra),
+        (electra.SignedBeaconBlockHeader, SignedBeaconBlockHeaderElectra),
+        (electra.ProposerSlashing, ProposerSlashingElectra),
     ],
 )
 def test_fixed_size_ssz_decoder_rejects_trailing_data(reference_type, spy_type) -> None:
@@ -311,7 +316,7 @@ def test_ssz_decoder_rejects_noncanonical_first_variable_offset() -> None:
     raw[8:12] = (109).to_bytes(4, "little")
     raw[108:108] = b"x"
     with pytest.raises(ValueError, match="invalid SSZ object"):
-        AggregateAndProof.from_ssz(raw)
+        AggregateAndProofElectra.from_ssz(raw)
 
 
 def test_ssz_decoder_rejects_bitlist_over_encoded_length_limit() -> None:
@@ -324,7 +329,7 @@ def test_ssz_decoder_rejects_bitlist_over_encoded_length_limit() -> None:
     raw[bitlist_start:] = bytes(max_encoded_length) + b"\x01"
 
     with pytest.raises(ValueError, match="invalid SSZ object"):
-        Attestation.from_ssz(raw)
+        AttestationElectra.from_ssz(raw)
 
 
 @pytest.mark.parametrize("invalid", ["0x10", "0x80", "0xff"])
@@ -335,7 +340,7 @@ def test_minimal_attestation_json_rejects_bitvector_padding(invalid: str) -> Non
     with pytest.raises(
         ValueError, match=r"invalid JSON object \(status=MALFORMED_INPUT"
     ):
-        AttestationMinimal.from_obj(value)
+        AttestationElectraMinimal.from_obj(value)
 
 
 @pytest.mark.parametrize("invalid", [0x10, 0x80, 0xFF])
@@ -344,15 +349,15 @@ def test_minimal_attestation_ssz_rejects_bitvector_padding(invalid: int) -> None
     raw[228] = invalid
 
     with pytest.raises(ValueError, match="invalid SSZ object"):
-        AttestationMinimal.from_ssz(raw)
+        AttestationElectraMinimal.from_ssz(raw)
 
 
 def test_minimal_attestation_accepts_full_bitvector_value() -> None:
     reference = electra_minimal.Attestation(committee_bits=[True] * 4)
 
     with (
-        AttestationMinimal.from_obj(reference.to_obj()) as from_json,
-        AttestationMinimal.from_ssz(reference.encode_bytes()) as from_ssz,
+        AttestationElectraMinimal.from_obj(reference.to_obj()) as from_json,
+        AttestationElectraMinimal.from_ssz(reference.encode_bytes()) as from_ssz,
     ):
         assert from_json.to_ssz() == reference.encode_bytes()
         assert from_ssz.hash_tree_root() == reference.hash_tree_root()
@@ -370,11 +375,11 @@ def test_generic_signing_decode_preserves_bare_json_shape() -> None:
 @pytest.mark.parametrize(
     ("spy_type", "reference_factory"),
     [
-        (Attestation, electra.Attestation),
-        (AggregateAndProof, electra.AggregateAndProof),
-        (SyncCommitteeMessage, electra.SyncCommitteeMessage),
-        (SyncCommitteeContribution, electra.SyncCommitteeContribution),
-        (SignedAggregateAndProof, electra.SignedAggregateAndProof),
+        (AttestationElectra, electra.Attestation),
+        (AggregateAndProofElectra, electra.AggregateAndProof),
+        (SyncCommitteeMessageElectra, electra.SyncCommitteeMessage),
+        (SyncCommitteeContributionElectra, electra.SyncCommitteeContribution),
+        (SignedAggregateAndProofElectra, electra.SignedAggregateAndProof),
     ],
 )
 def test_native_json_array_encoding_uses_one_output_buffer(
@@ -387,7 +392,7 @@ def test_native_json_array_encoding_uses_one_output_buffer(
             spy_type.expected_kind,
             spy_type.expected_preset,
         )
-        individual_codec = _JSON_ENCODERS[key]
+        individual_codec = _CODECS[key]
         with (
             mock.patch.object(
                 spy_type,
@@ -395,21 +400,26 @@ def test_native_json_array_encoding_uses_one_output_buffer(
                 side_effect=AssertionError("batch encoding must stay native"),
             ),
             mock.patch.dict(
-                _JSON_ENCODERS,
+                _CODECS,
                 {
-                    key: (
-                        mock.Mock(
-                            side_effect=AssertionError("batch sizing must be fused")
-                        ),
-                        mock.Mock(
-                            side_effect=AssertionError("batch encoding must be fused")
+                    key: replace(
+                        individual_codec,
+                        json_encoder=(
+                            mock.Mock(
+                                side_effect=AssertionError("batch sizing must be fused")
+                            ),
+                            mock.Mock(
+                                side_effect=AssertionError(
+                                    "batch encoding must be fused"
+                                )
+                            ),
                         ),
                     )
                 },
             ),
         ):
             encoded = encode_json_array(values)
-        assert _JSON_ENCODERS[key] == individual_codec
+        assert _CODECS[key] == individual_codec
         assert msgspec.json.decode(encoded) == [value.to_obj() for value in values]
     finally:
         for value in values:
@@ -419,8 +429,8 @@ def test_native_json_array_encoding_uses_one_output_buffer(
 def test_native_json_array_encoding_validates_inputs() -> None:
     assert encode_json_array([]) == b"[]"
     with (
-        AttestationData.from_obj(electra.AttestationData().to_obj()) as data,
-        SyncCommitteeMessage.from_obj(
+        AttestationDataElectra.from_obj(electra.AttestationData().to_obj()) as data,
+        SyncCommitteeMessageElectra.from_obj(
             electra.SyncCommitteeMessage().to_obj()
         ) as message,
     ):

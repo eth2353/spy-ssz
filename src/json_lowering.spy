@@ -252,22 +252,6 @@ def json_bitlist(
     return add_bitlist_node(obj, offset, bit_length, limit)
 
 
-def empty_list(obj: raw_ptr[SszObject], limit: i32) -> i32:
-    first = reserve_edges(obj, 0)
-    return add_composite_node(obj, KIND_LIST, first, 0, limit, 0, 0)
-
-
-def require_empty_list(
-    document: raw_ptr[JsonDocument],
-    token_index: i32,
-    obj: raw_ptr[SszObject],
-    limit: i32,
-) -> i32:
-    if array_length(document, token_index) != 0:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-    return empty_list(obj, limit)
-
-
 def checkpoint(
     document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
 ) -> i32:
@@ -289,28 +273,6 @@ def attestation_data(
     return add_composite_node(obj, KIND_CONTAINER, first, 5, 5, 0, 0)
 
 
-def attestation(
-    document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
-) -> i32:
-    first = reserve_edges(obj, 3)
-    set_edge(obj, first, 0, json_bitlist(document, object_get(document, value, b"aggregation_bits"), obj, obj.max_validators_per_committee))
-    set_edge(obj, first, 1, attestation_data(document, object_get(document, value, b"data"), obj))
-    set_edge(obj, first, 2, json_fixed_bytes(document, object_get(document, value, b"signature"), obj, 96))
-    return add_composite_node(obj, KIND_CONTAINER, first, 3, 3, 0, 0)
-
-
-def attestation_list(
-    document: raw_ptr[JsonDocument], values: i32, obj: raw_ptr[SszObject]
-) -> i32:
-    count = array_length(document, values)
-    first = reserve_edges(obj, count)
-    i: i32 = 0
-    while i < count:
-        set_edge(obj, first, i, attestation(document, array_get(document, values, i), obj))
-        i = i + 1
-    return add_composite_node(obj, KIND_LIST, first, count, obj.max_attestations, 0, 0)
-
-
 def withdrawal(
     document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
 ) -> i32:
@@ -325,15 +287,7 @@ def withdrawal(
 def withdrawal_list(
     document: raw_ptr[JsonDocument], values: i32, obj: raw_ptr[SszObject]
 ) -> i32:
-    count = array_length(document, values)
-    if count > obj.max_withdrawals_per_payload:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-    first = reserve_edges(obj, count)
-    i: i32 = 0
-    while i < count:
-        set_edge(obj, first, i, withdrawal(document, array_get(document, values, i), obj))
-        i = i + 1
-    return add_composite_node(obj, KIND_LIST, first, count, obj.max_withdrawals_per_payload, 0, 0)
+    return json_composite_list[withdrawal, KIND_LIST](document, values, obj.max_withdrawals_per_payload, obj)
 
 
 def transaction_list(
@@ -407,41 +361,18 @@ def sync_aggregate(
     return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
 
 
-def block_body(
-    document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
-) -> i32:
-    first = reserve_edges(obj, 12)
-    set_edge(obj, first, 0, json_fixed_bytes(document, object_get(document, value, b"randao_reveal"), obj, 96))
-    set_edge(obj, first, 1, eth1_data(document, object_get(document, value, b"eth1_data"), obj))
-    set_edge(obj, first, 2, json_fixed_bytes(document, object_get(document, value, b"graffiti"), obj, 32))
-    set_edge(obj, first, 3, require_empty_list(document, object_get(document, value, b"proposer_slashings"), obj, obj.max_proposer_slashings))
-    set_edge(obj, first, 4, require_empty_list(document, object_get(document, value, b"attester_slashings"), obj, obj.max_attester_slashings))
-    set_edge(obj, first, 5, attestation_list(document, object_get(document, value, b"attestations"), obj))
-    set_edge(obj, first, 6, require_empty_list(document, object_get(document, value, b"deposits"), obj, obj.max_deposits))
-    set_edge(obj, first, 7, require_empty_list(document, object_get(document, value, b"voluntary_exits"), obj, obj.max_voluntary_exits))
-    set_edge(obj, first, 8, sync_aggregate(document, object_get(document, value, b"sync_aggregate"), obj))
-    set_edge(obj, first, 9, execution_payload(document, object_get(document, value, b"execution_payload"), obj))
-    set_edge(obj, first, 10, require_empty_list(document, object_get(document, value, b"bls_to_execution_changes"), obj, obj.max_bls_to_execution_changes))
-    set_edge(obj, first, 11, fixed_bytes_list(document, object_get(document, value, b"blob_kzg_commitments"), obj, obj.max_blob_commitments_per_block, 48))
-    return add_composite_node(obj, KIND_CONTAINER, first, 12, 12, 0, 0)
-
-
-def beacon_block(
-    document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
-) -> i32:
-    first = reserve_edges(obj, 5)
-    set_edge(obj, first, 0, json_uint64(document, object_get(document, value, b"slot"), obj))
-    set_edge(obj, first, 1, json_uint64(document, object_get(document, value, b"proposer_index"), obj))
-    set_edge(obj, first, 2, json_fixed_bytes(document, object_get(document, value, b"parent_root"), obj, 32))
-    set_edge(obj, first, 3, json_fixed_bytes(document, object_get(document, value, b"state_root"), obj, 32))
-    set_edge(obj, first, 4, block_body(document, object_get(document, value, b"body"), obj))
-    return add_composite_node(obj, KIND_CONTAINER, first, 5, 5, 0, 0)
-
-
-def signed_beacon_block(
-    document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
-) -> i32:
-    first = reserve_edges(obj, 2)
-    set_edge(obj, first, 0, beacon_block(document, object_get(document, value, b"message"), obj))
-    set_edge(obj, first, 1, json_fixed_bytes(document, object_get(document, value, b"signature"), obj, 96))
-    return add_composite_node(obj, KIND_CONTAINER, first, 2, 2, 0, 0)
+@blue.generic
+def json_composite_list(decode_item, list_kind):
+    def decode(document: raw_ptr[JsonDocument], values: i32, limit: i32, obj: raw_ptr[SszObject]) -> i32:
+        count = array_length(document, values)
+        if list_kind == KIND_LIST and count > limit:
+            obj.status = DECODE_STATUS_MALFORMED_INPUT
+            document.status = DECODE_STATUS_MALFORMED_INPUT
+            count = 0
+        first = reserve_edges(obj, count)
+        i: i32 = 0
+        while i < count:
+            set_edge(obj, first, i, decode_item(document, array_get(document, values, i), obj))
+            i = i + 1
+        return add_composite_node(obj, list_kind, first, count, limit, 0, 0)
+    return decode

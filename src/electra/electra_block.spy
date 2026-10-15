@@ -13,6 +13,7 @@ from json_parser import (
 )
 from metadata import OBJECT_SIGNED_BEACON_BLOCK
 from json_lowering import (
+    json_composite_list,
     JsonDecodeResult,
     attestation_data,
     eth1_data,
@@ -131,15 +132,7 @@ def proposer_slashing(
 def proposer_slashing_list(
     document: raw_ptr[JsonDocument], values: i32, obj: raw_ptr[SszObject]
 ) -> i32:
-    count = array_length(document, values)
-    if count > obj.max_proposer_slashings:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-    first = reserve_edges(obj, count)
-    i: i32 = 0
-    while i < count:
-        set_edge(obj, first, i, proposer_slashing(document, array_get(document, values, i), obj))
-        i = i + 1
-    return add_composite_node(obj, KIND_LIST, first, count, obj.max_proposer_slashings, 0, 0)
+    return json_composite_list[proposer_slashing, KIND_LIST](document, values, obj.max_proposer_slashings, obj)
 
 
 def attesting_indices(
@@ -186,15 +179,7 @@ def attester_slashing(
 def attester_slashing_list(
     document: raw_ptr[JsonDocument], values: i32, obj: raw_ptr[SszObject]
 ) -> i32:
-    count = array_length(document, values)
-    if count > obj.max_attester_slashings_electra:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-    first = reserve_edges(obj, count)
-    i: i32 = 0
-    while i < count:
-        set_edge(obj, first, i, attester_slashing(document, array_get(document, values, i), obj))
-        i = i + 1
-    return add_composite_node(obj, KIND_LIST, first, count, obj.max_attester_slashings_electra, 0, 0)
+    return json_composite_list[attester_slashing, KIND_LIST](document, values, obj.max_attester_slashings_electra, obj)
 
 
 def attestation(
@@ -212,15 +197,7 @@ def attestation(
 def attestation_list(
     document: raw_ptr[JsonDocument], values: i32, obj: raw_ptr[SszObject]
 ) -> i32:
-    count = array_length(document, values)
-    if count > obj.max_attestations_electra:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-    first = reserve_edges(obj, count)
-    i: i32 = 0
-    while i < count:
-        set_edge(obj, first, i, attestation(document, array_get(document, values, i), obj))
-        i = i + 1
-    return add_composite_node(obj, KIND_LIST, first, count, obj.max_attestations_electra, 0, 0)
+    return json_composite_list[attestation, KIND_LIST](document, values, obj.max_attestations_electra, obj)
 
 
 def deposit_data(
@@ -256,15 +233,7 @@ def deposit(
 def deposit_list(
     document: raw_ptr[JsonDocument], values: i32, obj: raw_ptr[SszObject]
 ) -> i32:
-    count = array_length(document, values)
-    if count > obj.max_deposits:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-    first = reserve_edges(obj, count)
-    i: i32 = 0
-    while i < count:
-        set_edge(obj, first, i, deposit(document, array_get(document, values, i), obj))
-        i = i + 1
-    return add_composite_node(obj, KIND_LIST, first, count, obj.max_deposits, 0, 0)
+    return json_composite_list[deposit, KIND_LIST](document, values, obj.max_deposits, obj)
 
 
 def signed_voluntary_exit(
@@ -284,15 +253,7 @@ def signed_voluntary_exit(
 def voluntary_exit_list(
     document: raw_ptr[JsonDocument], values: i32, obj: raw_ptr[SszObject]
 ) -> i32:
-    count = array_length(document, values)
-    if count > obj.max_voluntary_exits:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-    first = reserve_edges(obj, count)
-    i: i32 = 0
-    while i < count:
-        set_edge(obj, first, i, signed_voluntary_exit(document, array_get(document, values, i), obj))
-        i = i + 1
-    return add_composite_node(obj, KIND_LIST, first, count, obj.max_voluntary_exits, 0, 0)
+    return json_composite_list[signed_voluntary_exit, KIND_LIST](document, values, obj.max_voluntary_exits, obj)
 
 
 def signed_bls_change(
@@ -313,15 +274,7 @@ def signed_bls_change(
 def bls_change_list(
     document: raw_ptr[JsonDocument], values: i32, obj: raw_ptr[SszObject]
 ) -> i32:
-    count = array_length(document, values)
-    if count > obj.max_bls_to_execution_changes:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
-    first = reserve_edges(obj, count)
-    i: i32 = 0
-    while i < count:
-        set_edge(obj, first, i, signed_bls_change(document, array_get(document, values, i), obj))
-        i = i + 1
-    return add_composite_node(obj, KIND_LIST, first, count, obj.max_bls_to_execution_changes, 0, 0)
+    return json_composite_list[signed_bls_change, KIND_LIST](document, values, obj.max_bls_to_execution_changes, obj)
 
 
 def deposit_request(
@@ -359,35 +312,9 @@ def consolidation_request(
 def execution_requests(
     document: raw_ptr[JsonDocument], value: i32, obj: raw_ptr[SszObject]
 ) -> i32:
-    deposits = object_get(document, value, b"deposits")
-    deposit_count = array_length(document, deposits)
-    deposit_first = reserve_edges(obj, deposit_count)
-    i: i32 = 0
-    while i < deposit_count:
-        set_edge(obj, deposit_first, i, deposit_request(document, array_get(document, deposits, i), obj))
-        i = i + 1
-    deposit_node = add_composite_node(obj, KIND_LIST, deposit_first, deposit_count, obj.max_deposit_requests_per_payload, 0, 0)
-
-    withdrawals = object_get(document, value, b"withdrawals")
-    withdrawal_count = array_length(document, withdrawals)
-    withdrawal_first = reserve_edges(obj, withdrawal_count)
-    i = 0
-    while i < withdrawal_count:
-        set_edge(obj, withdrawal_first, i, withdrawal_request(document, array_get(document, withdrawals, i), obj))
-        i = i + 1
-    withdrawal_node = add_composite_node(obj, KIND_LIST, withdrawal_first, withdrawal_count, obj.max_withdrawal_requests_per_payload, 0, 0)
-
-    consolidations = object_get(document, value, b"consolidations")
-    consolidation_count = array_length(document, consolidations)
-    consolidation_first = reserve_edges(obj, consolidation_count)
-    i = 0
-    while i < consolidation_count:
-        set_edge(obj, consolidation_first, i, consolidation_request(document, array_get(document, consolidations, i), obj))
-        i = i + 1
-    consolidation_node = add_composite_node(obj, KIND_LIST, consolidation_first, consolidation_count, obj.max_consolidation_requests_per_payload, 0, 0)
-
-    if deposit_count > obj.max_deposit_requests_per_payload or withdrawal_count > obj.max_withdrawal_requests_per_payload or consolidation_count > obj.max_consolidation_requests_per_payload:
-        obj.status = DECODE_STATUS_MALFORMED_INPUT
+    deposit_node = json_composite_list[deposit_request, KIND_LIST](document, object_get(document, value, b"deposits"), obj.max_deposit_requests_per_payload, obj)
+    withdrawal_node = json_composite_list[withdrawal_request, KIND_LIST](document, object_get(document, value, b"withdrawals"), obj.max_withdrawal_requests_per_payload, obj)
+    consolidation_node = json_composite_list[consolidation_request, KIND_LIST](document, object_get(document, value, b"consolidations"), obj.max_consolidation_requests_per_payload, obj)
     first = reserve_edges(obj, 3)
     set_edge(obj, first, 0, deposit_node)
     set_edge(obj, first, 1, withdrawal_node)

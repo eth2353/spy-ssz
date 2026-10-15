@@ -3,8 +3,11 @@ import pytest
 from eth_consensus_specs.electra import mainnet as electra
 from eth_consensus_specs.fulu import mainnet as fulu
 
-from spy_ssz.electra import ElectraSignedBeaconBlock, ElectraSignedBeaconBlockMinimal
-from spy_ssz.fulu import FuluSignedBeaconBlock
+from spy_ssz.electra import (
+    SignedBeaconBlockElectra,
+    SignedBeaconBlockElectraMinimal,
+)
+from spy_ssz.fulu import SignedBeaconBlockFulu
 from spy_ssz.schema import get_schema
 from spy_ssz.ssz import Fork
 from spy_ssz.ssz import ObjectKind
@@ -50,7 +53,7 @@ def test_electra_json_and_ssz_cover_every_block_operation_family() -> None:
     raw_json = msgspec.json.encode({"data": reference.to_obj()})
     raw_ssz = reference.encode_bytes()
 
-    with ElectraSignedBeaconBlock.from_json(raw_json) as decoded:
+    with SignedBeaconBlockElectra.from_json(raw_json) as decoded:
         assert decoded.fork is Fork.ELECTRA
         assert (
             decoded.schema_id
@@ -58,19 +61,17 @@ def test_electra_json_and_ssz_cover_every_block_operation_family() -> None:
         )
         assert decoded.hash_tree_root() == expected
         assert decoded.to_ssz() == raw_ssz
-        encoded_json = decoded.to_json()
-        roundtrip = electra.SignedBeaconBlock.from_obj(
-            msgspec.json.decode(encoded_json)["data"]
-        )
+        encoded = msgspec.json.decode(decoded.to_json())
+        assert set(encoded) == {"message", "signature"}
+        roundtrip = electra.SignedBeaconBlock.from_obj(encoded)
         assert roundtrip.hash_tree_root() == expected
-    with ElectraSignedBeaconBlock.from_ssz(raw_ssz) as decoded:
+    with SignedBeaconBlockElectra.from_ssz(raw_ssz) as decoded:
         assert decoded.fork is Fork.ELECTRA
         assert decoded.hash_tree_root() == expected
         assert decoded.to_ssz() == raw_ssz
-        encoded_json = decoded.to_json()
-        roundtrip = electra.SignedBeaconBlock.from_obj(
-            msgspec.json.decode(encoded_json)["data"]
-        )
+        encoded = msgspec.json.decode(decoded.to_json())
+        assert set(encoded) == {"message", "signature"}
+        roundtrip = electra.SignedBeaconBlock.from_obj(encoded)
         assert roundtrip.hash_tree_root() == expected
 
 
@@ -81,7 +82,7 @@ def test_json_composite_list_decodes_more_than_nine_items() -> None:
         for index in range(16)
     ]
 
-    with ElectraSignedBeaconBlock.from_obj(reference) as decoded:
+    with SignedBeaconBlockElectra.from_obj(reference) as decoded:
         assert decoded.hash_tree_root() == reference.hash_tree_root()
         assert decoded.to_ssz() == reference.encode_bytes()
 
@@ -93,7 +94,7 @@ def test_fulu_reuses_the_electra_block_codec_with_fulu_metadata() -> None:
     raw_json = msgspec.json.encode({"data": reference.to_obj()})
     raw_ssz = reference.encode_bytes()
 
-    with FuluSignedBeaconBlock.from_json(raw_json) as decoded:
+    with SignedBeaconBlockFulu.from_json(raw_json) as decoded:
         assert decoded.fork is Fork.FULU
         assert (
             decoded.schema_id
@@ -101,17 +102,17 @@ def test_fulu_reuses_the_electra_block_codec_with_fulu_metadata() -> None:
         )
         assert decoded.hash_tree_root() == expected
         assert decoded.to_ssz() == raw_ssz
-        roundtrip = fulu.SignedBeaconBlock.from_obj(
-            msgspec.json.decode(decoded.to_json())["data"]
-        )
+        encoded = msgspec.json.decode(decoded.to_json())
+        assert set(encoded) == {"message", "signature"}
+        roundtrip = fulu.SignedBeaconBlock.from_obj(encoded)
         assert roundtrip.hash_tree_root() == expected
-    with FuluSignedBeaconBlock.from_ssz(raw_ssz) as decoded:
+    with SignedBeaconBlockFulu.from_ssz(raw_ssz) as decoded:
         assert decoded.fork is Fork.FULU
         assert decoded.hash_tree_root() == expected
         assert decoded.to_ssz() == raw_ssz
-        roundtrip = fulu.SignedBeaconBlock.from_obj(
-            msgspec.json.decode(decoded.to_json())["data"]
-        )
+        encoded = msgspec.json.decode(decoded.to_json())
+        assert set(encoded) == {"message", "signature"}
+        roundtrip = fulu.SignedBeaconBlock.from_obj(encoded)
         assert roundtrip.hash_tree_root() == expected
 
 
@@ -122,15 +123,16 @@ def test_minimal_preset_changes_fixed_vector_sizes_and_roundtrips() -> None:
         attestation["committee_bits"] = "0x01"
     raw_json = msgspec.json.encode({"data": value})
 
-    with ElectraSignedBeaconBlockMinimal.from_json(raw_json) as from_json:
+    with SignedBeaconBlockElectraMinimal.from_json(raw_json) as from_json:
         assert from_json.preset is Preset.MINIMAL
         raw_ssz = from_json.to_ssz()
         expected_root = from_json.hash_tree_root()
-    with ElectraSignedBeaconBlockMinimal.from_ssz(raw_ssz) as from_ssz:
+    with SignedBeaconBlockElectraMinimal.from_ssz(raw_ssz) as from_ssz:
         assert from_ssz.preset is Preset.MINIMAL
         assert from_ssz.hash_tree_root() == expected_root
         assert from_ssz.to_ssz() == raw_ssz
-        encoded = msgspec.json.decode(from_ssz.to_json())["data"]
+        encoded = msgspec.json.decode(from_ssz.to_json())
+        assert set(encoded) == {"message", "signature"}
         body = encoded["message"]["body"]
         assert body["sync_aggregate"]["sync_committee_bits"] == "0x00000000"
         assert body["attestations"][0]["committee_bits"] == "0x01"
@@ -141,7 +143,7 @@ def test_block_json_rejects_uint64_overflow() -> None:
     value["message"]["slot"] = str(2**64)
 
     with pytest.raises(ValueError, match="invalid JSON object"):
-        ElectraSignedBeaconBlock.from_obj(value)
+        SignedBeaconBlockElectra.from_obj(value)
 
 
 def test_block_json_rejects_duplicate_keys() -> None:
@@ -151,7 +153,7 @@ def test_block_json_rejects_duplicate_keys() -> None:
     raw_json = raw_json.replace(field, field + b',"slot":0', 1)
 
     with pytest.raises(ValueError, match="invalid JSON object"):
-        ElectraSignedBeaconBlock.from_json(raw_json)
+        SignedBeaconBlockElectra.from_json(raw_json)
 
 
 def test_block_json_rejects_unrecognized_nested_field() -> None:
@@ -159,7 +161,7 @@ def test_block_json_rejects_unrecognized_nested_field() -> None:
     value["message"]["unknown"] = True
 
     with pytest.raises(ValueError, match="unrecognized JSON object field 'unknown'"):
-        ElectraSignedBeaconBlock.from_obj(value)
+        SignedBeaconBlockElectra.from_obj(value)
 
 
 def test_block_json_accepts_arbitrary_response_metadata() -> None:
@@ -173,13 +175,13 @@ def test_block_json_accepts_arbitrary_response_metadata() -> None:
         }
     )
 
-    with ElectraSignedBeaconBlock.from_json(raw_json) as decoded:
+    with SignedBeaconBlockElectra.from_json(raw_json) as decoded:
         assert decoded.message.slot == 0
 
 
 @pytest.mark.parametrize(
     "block_type",
-    [ElectraSignedBeaconBlock, FuluSignedBeaconBlock],
+    [SignedBeaconBlockElectra, SignedBeaconBlockFulu],
 )
 def test_block_json_requires_data(block_type) -> None:
     raw_json = msgspec.json.encode({"metadata": {"anything": True}})
@@ -192,7 +194,7 @@ def test_block_json_accepts_remerkleable_little_endian_uint256_hex() -> None:
     reference = populated_electra_block()
     reference.message.body.execution_payload.base_fee_per_gas = 0x010203
 
-    with ElectraSignedBeaconBlock.from_obj(reference) as decoded:
+    with SignedBeaconBlockElectra.from_obj(reference) as decoded:
         assert (
             decoded.to_obj()["message"]["body"]["execution_payload"]["base_fee_per_gas"]
             == "66051"
@@ -207,7 +209,7 @@ def test_block_json_rejects_invalid_uint256(invalid: str) -> None:
     value["message"]["body"]["execution_payload"]["base_fee_per_gas"] = invalid
 
     with pytest.raises(ValueError, match="invalid JSON object"):
-        ElectraSignedBeaconBlock.from_obj(value)
+        SignedBeaconBlockElectra.from_obj(value)
 
 
 def test_block_json_rejects_list_longer_than_its_ssz_limit() -> None:
@@ -215,4 +217,4 @@ def test_block_json_rejects_list_longer_than_its_ssz_limit() -> None:
     value["message"]["body"]["blob_kzg_commitments"] = ["0x" + "00" * 48] * 4097
 
     with pytest.raises(ValueError, match="invalid JSON object"):
-        ElectraSignedBeaconBlock.from_obj(value)
+        SignedBeaconBlockElectra.from_obj(value)

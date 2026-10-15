@@ -1,6 +1,7 @@
 from importlib import import_module
 
 import pytest
+import msgspec
 
 import spy_ssz
 from spy_ssz import Preset, SszObject, get_ssz_type
@@ -11,6 +12,7 @@ from spy_ssz.schema import (
     schema_for,
 )
 from spy_ssz.ssz import Fork, ObjectKind
+from spy_ssz import Bitfield, projections
 
 
 def test_fork_ids_follow_consensus_chronology() -> None:
@@ -22,8 +24,9 @@ def test_fork_ids_follow_consensus_chronology() -> None:
         Fork.DENEB,
         Fork.ELECTRA,
         Fork.FULU,
+        Fork.GLOAS,
     ]
-    assert [fork.value for fork in Fork] == list(range(7))
+    assert [fork.value for fork in Fork] == list(range(8))
 
 
 def test_single_schema_codec_lookup_rejects_multiplexed_codecs() -> None:
@@ -32,13 +35,28 @@ def test_single_schema_codec_lookup_rejects_multiplexed_codecs() -> None:
         schema_for("signing")
 
 
-def test_only_electra_and_fulu_schemas_are_registered() -> None:
+def test_only_supported_fork_schemas_are_registered() -> None:
     assert {schema.fork for schema in schema_definitions()} == {
         Fork.ELECTRA,
         Fork.FULU,
+        Fork.GLOAS,
     }
     with pytest.raises(KeyError):
         get_schema(Fork.DENEB, ObjectKind.SIGNED_BEACON_BLOCK)
+
+
+def test_public_schema_types_use_fork_suffixes() -> None:
+    for definition in schema_definitions():
+        assert definition.python_type.endswith(definition.fork.name.title())
+
+
+def test_signed_schema_types_emit_bare_json_objects() -> None:
+    for definition in schema_definitions():
+        if not definition.kind.name.startswith("SIGNED_"):
+            continue
+        module = import_module(f"spy_ssz.{module_for_codec(definition.codec)}")
+        ssz_type = getattr(module, definition.python_type)
+        assert ssz_type.json_output_envelope_key is None
 
 
 def test_public_type_resolver_is_complete_and_coherent() -> None:
@@ -51,6 +69,74 @@ def test_public_type_resolver_is_complete_and_coherent() -> None:
             assert resolved is expected
             assert resolved is getattr(spy_ssz, expected.__name__)
             assert issubclass(resolved, SszObject)
+            assert resolved.__module__ == module.__name__
+            assert resolved.expected_fork is definition.fork
+            assert resolved.expected_kind is definition.kind
+            assert resolved.expected_preset is preset
+
+
+def test_public_native_types_do_not_gain_instance_dictionaries() -> None:
+    for definition in schema_definitions():
+        module = import_module(f"spy_ssz.{module_for_codec(definition.codec)}")
+        names = [definition.python_type]
+        names.extend(
+            f"{definition.python_type}{preset.title()}" for preset in definition.presets
+        )
+        for name in names:
+            assert getattr(module, name).__dictoffset__ == 0, name
+
+
+@pytest.mark.parametrize(
+    "definition",
+    [value for value in schema_definitions() if value.consensus_type is not None],
+    ids=lambda value: value.name,
+)
+@pytest.mark.parametrize("preset", [Preset.MAINNET, Preset.MINIMAL])
+def test_every_schema_matches_consensus_codecs(definition, preset) -> None:
+    reference_module = import_module(
+        f"eth_consensus_specs.{definition.fork.name.lower()}.{preset.name.lower()}"
+    )
+    reference = getattr(reference_module, definition.consensus_type)()
+    concrete = get_ssz_type(definition.fork, definition.kind, preset)
+    encoded = reference.encode_bytes()
+    with (
+        concrete.from_ssz(encoded) as from_ssz,
+        concrete.from_obj(reference.to_obj()) as from_json,
+    ):
+        for value in (from_ssz, from_json):
+            canonical = msgspec.json.decode(value.to_json())
+            if value.json_output_envelope_key is not None:
+                canonical = canonical[value.json_output_envelope_key]
+            assert value.fork is definition.fork
+            assert value.object_kind is definition.kind
+            assert value.preset is preset
+            assert value.schema_id == definition.schema_id
+            assert value.to_ssz() == encoded
+            assert value.hash_tree_root() == reference.hash_tree_root()
+            # Every projected native field must remain coherent with canonical
+            # bytes and roots, even after an attempted Python assignment.
+            for name in reference.to_obj():
+                projected = getattr(value, name)
+                expected = projections.project_field(
+                    definition.fork,
+                    definition.consensus_type,
+                    name,
+                    canonical[name],
+                )
+                if isinstance(projected, Bitfield):
+                    assert bytes.fromhex(projected.to_hex()[2:]) == expected
+                else:
+                    assert projected == expected
+                assert value._obj_cache is None
+                assert getattr(value, name) is projected
+                original = repr(projected)
+                with pytest.raises(AttributeError):
+                    setattr(value, name, object())
+                assert repr(getattr(value, name)) == original
+            assert value.to_ssz() == encoded
+            assert value.hash_tree_root() == reference.hash_tree_root()
+        with concrete.from_obj(from_ssz.to_obj()) as roundtrip:
+            assert roundtrip.to_ssz() == encoded
 
 
 def test_public_type_resolver_rejects_unsupported_combination() -> None:
@@ -75,3 +161,18 @@ def test_fulu_resolver_returns_first_class_fulu_types() -> None:
             assert fulu_type.expected_fork is Fork.FULU
             assert fulu_type.expected_kind is kind
             assert get_schema(Fork.FULU, kind).schema_id == 600 + kind.value
+
+
+def test_gloas_resolver_returns_first_class_gloas_types() -> None:
+    gloas_definitions = [
+        definition
+        for definition in schema_definitions()
+        if definition.fork is Fork.GLOAS
+    ]
+    assert len(gloas_definitions) == 23
+    for definition in gloas_definitions:
+        for preset in Preset:
+            gloas_type = get_ssz_type(Fork.GLOAS, definition.kind, preset)
+            assert gloas_type.expected_fork is Fork.GLOAS
+            assert gloas_type.expected_kind is definition.kind
+            assert definition.schema_id == 700 + definition.kind.value

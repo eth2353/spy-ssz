@@ -1,26 +1,69 @@
+from copy import copy, deepcopy
+from dataclasses import replace
 from threading import Event, Thread
 from unittest import mock
 
 import pytest
 from eth_consensus_specs.electra import mainnet as electra
 
+from spy_ssz._codecs import _CODECS
 from spy_ssz.preset import Preset
 from spy_ssz.schema import Fork, ObjectKind
 from spy_ssz.signing import (
-    AttestationData,
-    AttestationDataMinimal,
-    SyncCommitteeContribution,
+    AttestationDataElectra,
+    AttestationDataElectraMinimal,
+    SyncCommitteeContributionElectra,
 )
-from spy_ssz.ssz import _JSON_ENCODERS, _SSZ_ENCODERS
+
+
+@pytest.mark.parametrize("preset", list(Preset))
+def test_native_field_assignment_cannot_shadow_encoded_value(preset) -> None:
+    from spy_ssz import get_ssz_type
+
+    reference = electra.AttestationData(slot=123)
+    concrete = get_ssz_type(Fork.ELECTRA, ObjectKind.ATTESTATION_DATA, preset)
+    with concrete.from_ssz(reference.encode_bytes()) as value:
+        with pytest.raises(AttributeError):
+            value.slot = 456
+        assert value.slot == 123
+        assert value.to_obj()["slot"] == "123"
+        assert value.to_ssz() == reference.encode_bytes()
+        assert value.hash_tree_root() == reference.hash_tree_root()
+
+
+@pytest.mark.parametrize("copier", [copy, deepcopy])
+def test_copies_own_native_memory_independently(copier) -> None:
+    reference = electra.AttestationData(slot=123)
+    with AttestationDataElectra.from_ssz(reference.encode_bytes()) as original:
+        original.to_obj()  # Include populated Python caches in the copy case.
+        clone = copier(original)
+        assert clone is not original
+        assert clone == original
+    with clone:
+        assert clone.slot == 123
+        assert clone.to_ssz() == reference.encode_bytes()
+        assert clone.hash_tree_root() == reference.hash_tree_root()
+
+
+def test_deepcopy_preserves_repeated_references() -> None:
+    with AttestationDataElectra.from_ssz(
+        electra.AttestationData().encode_bytes()
+    ) as value:
+        first, second = deepcopy([value, value])
+        try:
+            assert first is second
+            assert first is not value
+        finally:
+            first.close()
 
 
 def test_ssz_objects_have_schema_and_preset_scoped_value_semantics() -> None:
     reference = electra.AttestationData()
     with (
-        AttestationData.from_ssz(reference.encode_bytes()) as first,
-        AttestationData.from_obj(reference.to_obj()) as second,
-        AttestationDataMinimal.from_ssz(reference.encode_bytes()) as minimal,
-        SyncCommitteeContribution.from_obj(
+        AttestationDataElectra.from_ssz(reference.encode_bytes()) as first,
+        AttestationDataElectra.from_obj(reference.to_obj()) as second,
+        AttestationDataElectraMinimal.from_ssz(reference.encode_bytes()) as minimal,
+        SyncCommitteeContributionElectra.from_obj(
             electra.SyncCommitteeContribution().to_obj()
         ) as different_schema,
     ):
@@ -34,7 +77,7 @@ def test_ssz_objects_have_schema_and_preset_scoped_value_semantics() -> None:
 
 def test_to_obj_returns_a_detached_value() -> None:
     reference = electra.AttestationData(slot=123)
-    with AttestationData.from_obj(reference.to_obj()) as value:
+    with AttestationDataElectra.from_obj(reference.to_obj()) as value:
         expected = value.to_obj()
         detached = value.to_obj()
         detached["slot"] = "999"
@@ -50,9 +93,9 @@ def test_immutable_objects_cache_exact_encoding_sizes() -> None:
     encoded_ssz = reference.encode_bytes()
     key = (Fork.ELECTRA, ObjectKind.ATTESTATION_DATA, Preset.MAINNET)
 
-    with AttestationData.from_ssz(encoded_ssz) as value:
-        ssz_sizer, ssz_encoder = _SSZ_ENCODERS[key]
-        json_sizer, json_encoder = _JSON_ENCODERS[key]
+    with AttestationDataElectra.from_ssz(encoded_ssz) as value:
+        ssz_sizer, ssz_encoder = _CODECS[key].ssz_encoder
+        json_sizer, json_encoder = _CODECS[key].json_encoder
         ssz_size_calls = 0
         json_size_calls = 0
 
@@ -66,9 +109,15 @@ def test_immutable_objects_cache_exact_encoding_sizes() -> None:
             json_size_calls += 1
             return json_sizer(handle)
 
-        with (
-            mock.patch.dict(_SSZ_ENCODERS, {key: (counted_ssz_size, ssz_encoder)}),
-            mock.patch.dict(_JSON_ENCODERS, {key: (counted_json_size, json_encoder)}),
+        with mock.patch.dict(
+            _CODECS,
+            {
+                key: replace(
+                    _CODECS[key],
+                    ssz_encoder=(counted_ssz_size, ssz_encoder),
+                    json_encoder=(counted_json_size, json_encoder),
+                )
+            },
         ):
             assert value.to_ssz() == encoded_ssz
             assert value.to_ssz() == encoded_ssz
@@ -80,10 +129,10 @@ def test_immutable_objects_cache_exact_encoding_sizes() -> None:
 
 def test_close_waits_for_in_flight_native_operation() -> None:
     reference = electra.AttestationData(slot=123)
-    value = AttestationData.from_obj(reference.to_obj())
+    value = AttestationDataElectra.from_obj(reference.to_obj())
     expected_json = value.to_json()
     key = (Fork.ELECTRA, ObjectKind.ATTESTATION_DATA, Preset.MAINNET)
-    sizer, encoder = _JSON_ENCODERS[key]
+    sizer, encoder = _CODECS[key].json_encoder
     encoding_started = Event()
     release_encoding = Event()
     close_started = Event()
@@ -108,7 +157,9 @@ def test_close_waits_for_in_flight_native_operation() -> None:
         value.close()
         closed.set()
 
-    with mock.patch.dict(_JSON_ENCODERS, {key: (sizer, blocking_encoder)}):
+    with mock.patch.dict(
+        _CODECS, {key: replace(_CODECS[key], json_encoder=(sizer, blocking_encoder))}
+    ):
         encode_thread = Thread(target=encode)
         close_thread = Thread(target=close)
         encode_thread.start()

@@ -2,13 +2,14 @@
 
 `ssz_object.spy` owns a fork-independent typed SSZ graph. Each object records
 its fork, object kind, schema id, root node, node/edge arrays, decoded-byte
-arena, Merkle workspace, and cached root. Composite nodes point to ordered
-child edges; scalar nodes point into the arena.
+arena, 128-byte decimal-writer scratch buffer, and cached root. Composite nodes
+point to ordered child edges; scalar nodes point into the arena.
 
 `json_parser.spy` and `ssz_reader.spy` are temporary input infrastructure used
-only while a schema lowerer runs. The C ownership wrapper destroys their source
-copy before the opaque SSZ object reaches Python. JSON and SSZ therefore create
-the same retained graph layout.
+only while a schema lowerer runs. Their documents borrow the Python-owned input
+for the synchronous native call. The C ownership wrapper destroys those
+temporary documents before the opaque SSZ object reaches Python. JSON and SSZ
+therefore create the same retained graph layout.
 
 Fulu's unchanged wire schemas use the Electra lowerers with the logical fork
 and schema ID supplied as decoder parameters. Shared JSON and SSZ lowering
@@ -18,7 +19,7 @@ contains the shared runtime and build infrastructure. Schema IDs come from
 `spy_ssz/presets/<preset>/*.yaml` files. The build regenerates `metadata.spy`
 and `preset_config.spy` from those authoritative inputs. New block,
 attestation, or fork schemas reuse the same node constructors and generic
-hasher.
+graph representation and C Merkleizer.
 
 `electra/electra_block.spy` and `electra/electra_block_ssz.spy` are shared by
 Electra and Fulu signed blocks. Parameterized SPy entry points receive the fork
@@ -26,11 +27,40 @@ and schema IDs before values cross the C bridge. They cover every block
 operation family and execution-request list. `electra/electra_block_encode.spy`
 provides their shared JSON and SSZ output path.
 
+Repeated list loops are compile-time specializations: `writer.spy` supplies
+JSON, fixed-item SSZ, and variable-item SSZ sequence writers; the lowering
+modules supply composite-list readers. Each specialization calls its item
+codec directly. Bounded lists retain preset limits, while progressive lists
+retain their distinct node kind. Variable-item readers check relative offsets
+before converting them to positions in the input. Keep schema field layouts
+explicit, and add shared helpers only for patterns used in more than two places.
+
 The pinned SPy compiler does not yet support packages, so module basenames are
 globally unique even inside fork directories. The extension build flattens
 those source modules into a temporary build input; the repository layout
 remains the source of truth and no compatibility modules are maintained.
 
-`bridge.c` is deliberately small and contains only ownership transfer, object
-destruction, metadata accessors, and CFFI-visible function aliases. Codec and
-hashing logic stays in SPy.
+SPy implements parsing, schema lowering, graph construction, signing by graph
+cloning, and most JSON/SSZ sizing and encoding. `bridge.c` owns transfer and
+destruction of native objects, metadata accessors, and CFFI-visible aliases.
+It also implements batch encoding. The independently compiled internal C modules
+`bridge_signed_contents.c` and `bridge_block_header.c` own signed block-contents
+SSZ sizing/encoding and block-header extraction. `bridge_projection.c` sizes and
+copies selected field subtrees into Python-owned preorder metadata and payload
+buffers in two native calls. It exposes no borrowed graph pointers. Signed
+block-contents encoding passes the signed child index explicitly to the SPy
+encoder without changing `root_node`; the public root-based encoder ABI remains
+available. The Python
+ownership layer holds the object's lock throughout each native call. Shared
+handle types, node-kind declarations, copied projection records, child access,
+and the internal subtree-hash declaration live in `bridge_internal.h`.
+
+Public object and subtree hashing use `merkle.c`, included by `bridge.c`.
+This bounded-stack C Merkleizer uses the object-owned zero-subtree roots from
+`ssz_kernels.spy`, owns lazy node-root caches, and uses the fixed
+64-byte SHA-256 pair kernel in `sha256_pair.c`. The zero-subtree table, retained
+root buffer, and node caches belong to the object and are freed by the bridge
+destructor. Writer scratch is exclusively for decimal output and is not a
+hashing workspace.
+There is no second SPy object-hashing implementation or generated hash-kernel
+replacement step in the build.

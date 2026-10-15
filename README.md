@@ -4,8 +4,8 @@
 Beacon API JSON and canonical SSZ directly into [SPy](https://github.com/spylang/spy)-owned C object graphs, so
 hashing and encoding do not traverse ordinary Python objects.
 
-This is currently a proof of concept focused on the operations needed by
-validator clients. It is not yet a complete replacement for
+The library focuses on the operations needed by validator clients.
+It is not a complete replacement for
 `eth-remerkleable`; see [Current scope](#current-scope).
 
 ## Install
@@ -30,15 +30,16 @@ pinned [SPy](https://github.com/spylang/spy) revision in a temporary directory.
 
 Import the class for the fork, object, and preset you are decoding. The
 mainnet Electra signed-block class accepts the standard Beacon API
-`{"data": ...}` JSON envelope:
+`{"data": ...}` JSON response envelope. Its JSON output is the direct signed
+object expected by block-publishing endpoints:
 
 ```python
-from spy_ssz import ElectraSignedBeaconBlock
+from spy_ssz import SignedBeaconBlockElectra
 
-with ElectraSignedBeaconBlock.from_json(response.content) as block:
+with SignedBeaconBlockElectra.from_json(response.content) as block:
     root: bytes = block.hash_tree_root()
     canonical_ssz: bytes = block.to_ssz()
-    beacon_api_json: bytes = block.to_json()
+    publish_json: bytes = block.to_json()
 
     print(block.message.slot)
     print(root.hex())
@@ -47,15 +48,18 @@ with ElectraSignedBeaconBlock.from_json(response.content) as block:
 Decode canonical SSZ into the same object type:
 
 ```python
-from spy_ssz import ElectraSignedBeaconBlock
+from spy_ssz import SignedBeaconBlockElectra
 
-with ElectraSignedBeaconBlock.from_ssz(ssz_bytes) as block:
+with SignedBeaconBlockElectra.from_ssz(ssz_bytes) as block:
     assert block.to_ssz() == ssz_bytes
     print(block.hash_tree_root().hex())
 ```
 
 Objects own compiled memory. Prefer a context manager as shown above, or call
 `close()` explicitly. Accessing a closed object raises `RuntimeError`.
+`copy.copy()` and `copy.deepcopy()` create independent owners by round-tripping
+canonical SSZ; closing one copy does not invalidate another. Native operations
+and `close()` on the same object are serialized by its ownership lock.
 
 ## Bitfields
 
@@ -76,6 +80,8 @@ assert aggregation_bits.to_hex() == "0x0d"
 Bitvectors are zero-filled to their declared length. Bitlists use the number of
 provided values as their length, enforce the declared limit, and include the
 SSZ termination bit in `to_hex()` and `to_obj()`.
+Direct `Bitfield(data, length)` construction requires immutable bytes of the
+exact packed length, with unused padding bits set to zero.
 
 ## Presets
 
@@ -83,14 +89,14 @@ Mainnet is the default. Minimal and Gnosis use explicit class suffixes:
 
 ```python
 from spy_ssz import (
-    ElectraSignedBeaconBlock,
-    ElectraSignedBeaconBlockGnosis,
-    ElectraSignedBeaconBlockMinimal,
+    SignedBeaconBlockElectra,
+    SignedBeaconBlockElectraGnosis,
+    SignedBeaconBlockElectraMinimal,
 )
 
-mainnet_block = ElectraSignedBeaconBlock.from_ssz(mainnet_ssz)
-minimal_block = ElectraSignedBeaconBlockMinimal.from_ssz(minimal_ssz)
-gnosis_block = ElectraSignedBeaconBlockGnosis.from_ssz(gnosis_ssz)
+mainnet_block = SignedBeaconBlockElectra.from_ssz(mainnet_ssz)
+minimal_block = SignedBeaconBlockElectraMinimal.from_ssz(minimal_ssz)
+gnosis_block = SignedBeaconBlockElectraGnosis.from_ssz(gnosis_ssz)
 ```
 
 The canonical YAML files under `spy_ssz/presets/<preset>/` are the source of
@@ -149,9 +155,9 @@ Electra signing objects accept bare JSON objects rather than a Beacon API
 projection, and tree hashing:
 
 ```python
-from spy_ssz import AttestationData
+from spy_ssz import AttestationDataElectra
 
-with AttestationData.from_obj(
+with AttestationDataElectra.from_obj(
     {
         "slot": "123",
         "index": "0",
@@ -164,7 +170,7 @@ with AttestationData.from_obj(
     root = data.hash_tree_root()
 ```
 
-Available signing classes are:
+Available signing object families are:
 
 - `AttestationData`
 - `Attestation`
@@ -181,20 +187,23 @@ Available signing classes are:
 - `SignedBeaconBlockHeader`
 - `ProposerSlashing`
 
-Each also has `Minimal` and `Gnosis` variants, such as
-`AttestationMinimal` and `AttestationGnosis`.
+Class names include a fork suffix (`Electra`, `Fulu`, or `Gloas`) and an
+optional preset suffix (`Mainnet`, `Minimal`, or `Gnosis`). For example,
+`AttestationElectra`, `AttestationFuluMinimal`, and `AttestationGloasGnosis`.
 
 Compatible typed children can be passed directly to the common composition
 containers. The child graph is cloned natively, so this does not encode or
 decode JSON and the resulting parent owns its memory independently:
 
 ```python
-aggregate_and_proof = AggregateAndProof(
+from spy_ssz import AggregateAndProofElectra, SignedAggregateAndProofElectra
+
+aggregate_and_proof = AggregateAndProofElectra(
     aggregator_index=validator_index,
     aggregate=attestation,
     selection_proof=selection_proof,
 )
-signed = SignedAggregateAndProof(
+signed = SignedAggregateAndProofElectra(
     message=aggregate_and_proof,
     signature=signature,
 )
@@ -221,9 +230,9 @@ individual `to_json()` byte strings are not allocated.
 Electra block-container types provide helpers used during block proposal:
 
 ```python
-from spy_ssz import ElectraBeaconBlockContentsMainnet
+from spy_ssz import BeaconBlockContentsElectraMainnet
 
-with ElectraBeaconBlockContentsMainnet.from_json(response.content) as contents:
+with BeaconBlockContentsElectraMainnet.from_json(response.content) as contents:
     header = contents.header_dict()
     block_root = contents.block_hash_tree_root()
 
@@ -235,8 +244,8 @@ with ElectraBeaconBlockContentsMainnet.from_json(response.content) as contents:
         signed.close()
 ```
 
-The corresponding blinded types are `ElectraBlindedBeaconBlockMainnet` and
-`ElectraSignedBlindedBeaconBlockMainnet`. Minimal and Gnosis variants use the
+The corresponding blinded types are `BlindedBeaconBlockElectraMainnet` and
+`SignedBlindedBeaconBlockElectraMainnet`. Minimal and Gnosis variants use the
 same suffix convention.
 
 ## API summary
@@ -262,11 +271,13 @@ All concrete objects inherit from `SszObject` and expose:
 | Fulu signing objects | yes | yes | yes | yes |
 | Electra block contents and blinded blocks | yes | yes | yes | yes |
 | Fulu block contents and blinded blocks | yes | yes | yes | yes |
+| Gloas beacon blocks and signing objects | yes | yes | yes | yes |
+| Gloas execution payload envelopes | yes | yes | yes | yes |
 
 Fulu types reuse the unchanged Electra wire layouts with Fulu class identity,
 schema IDs, and object metadata.
 The generated type catalog covers every named mainnet SSZ type in
-`eth-consensus-specs` 1.7.0a12 for Electra and Fulu, but most cataloged types
+`eth-consensus-specs` 1.7.0a12 for Electra, Fulu, and Gloas, but most cataloged types
 do not yet have executable codecs.
 
 Generalized-index views and mutation APIs are also not implemented yet.
@@ -275,6 +286,8 @@ JSON and SSZ inputs are limited to 715,822,421 bytes. This keeps the largest
 native arena-capacity calculation within the signed 32-bit positions and
 offsets used by the compiled decoder. Larger inputs are rejected at the Python
 boundary before native decoding.
+Decoders accept `bytes`, `bytearray`, and `memoryview`; limits count bytes,
+including for memoryviews with elements wider than one byte.
 
 JSON decoding rejects duplicate and unrecognized object fields. Standard
 endpoint-specific Beacon API response metadata is recognized alongside the
@@ -288,16 +301,28 @@ required `data` field; metadata from a different endpoint is rejected.
   copied from the consensus specification repositories.
 - `tools/generate_spy_metadata.py` derives Python, SPy, and C constants from
   those definitions during builds.
-- `src/ssz_object.spy` owns typed nodes, SSZ hashing, and the root cache.
+- `src/ssz_object.spy` owns the typed graph and object storage; `src/merkle.c`
+  implements SSZ hashing and populates the object's root and node caches.
 - `src/json_parser.spy` and `src/ssz_reader.spy` decode JSON and SSZ input.
 - `src/writer.spy` provides JSON and SSZ output primitives.
-- `src/schema_*.spy` implements concrete fork/object codecs.
+- `src/electra/` and `src/gloas/` implement concrete fork/object codecs;
+  Fulu reuses Electra's wire layouts.
 - `src/bridge.c` is the ownership and CFFI boundary.
-- `spy_ssz/ssz.py` owns Python lifetimes and codec dispatch.
+- `spy_ssz/_codecs.py` builds immutable native codec descriptors from schema
+  metadata, independently of public type imports.
+- `spy_ssz/_variants.py` exports preset classes for the four type modules.
+- `spy_ssz/ssz.py` owns Python lifetimes and orchestrates codec/value operations.
+- `spy_ssz/_native.py` handles native buffers and decode allocations;
+  `_composition.py` composes typed signing graphs.
+- `spy_ssz/_json_policy.py` applies Beacon API transport envelopes; `_values.py`
+  handles JSON-backed Python projections and value conversion.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for dependency boundaries, generated
+sources, and release checks.
 
 Fork identifiers follow consensus chronology: Phase0 is `0`, Altair is `1`,
-Bellatrix is `2`, Capella is `3`, Deneb is `4`, Electra is `5`, and Fulu is
-`6`.
+Bellatrix is `2`, Capella is `3`, Deneb is `4`, Electra is `5`, Fulu is `6`,
+and Gloas is `7`.
 
 ## Development and benchmarks
 
@@ -308,8 +333,8 @@ uvx pre-commit run --all-files
 uv run python -m pytest -q
 ```
 
-Check the implemented Electra and Fulu codecs against extracted
-`consensus-specs` SSZ static vectors:
+Check the implemented codecs against extracted `consensus-specs` SSZ static
+vectors:
 
 ```bash
 uv run --with python-snappy python tools/check_consensus_vectors.py \
@@ -318,13 +343,13 @@ uv run --with python-snappy python tools/check_consensus_vectors.py \
 
 The path may be the extraction root containing `tests/minimal` and
 `tests/mainnet`, or the `tests` directory itself. Use `--preset minimal` or
-`--preset mainnet` to check only one preset, and `--fork electra` or
-`--fork fulu` to narrow the automatically discovered implemented forks. The
-runner verifies SSZ decode, canonical re-encoding, and hash-tree roots for
-every vector matching an implemented codec. Upstream consensus-spec tests only
-publish static vectors for the `minimal` and `mainnet` presets, so the
-supported `gnosis` codec variants are covered by the regular test suite rather
-than this runner.
+`--preset mainnet` to check only one preset, and `--fork electra`, `--fork
+fulu`, or `--fork gloas` to narrow the automatically discovered implemented
+forks. The runner verifies SSZ decode, canonical re-encoding, and hash-tree
+roots for every vector matching an implemented codec. Upstream consensus-spec
+tests only publish static vectors for the `minimal` and `mainnet` presets, so
+the supported `gnosis` codec variants are covered by the regular test suite
+rather than this runner.
 
 The upstream archives are hundreds of megabytes, so this check is intended for
 scheduled or release CI rather than the per-commit pre-commit suite.
@@ -337,8 +362,18 @@ uv run python -m benchmarks.benchmark_corpus \
 ```
 
 Use `--csv timings.csv` for per-block results, `--limit` for a quick sample,
-`--fork electra` or `--fork fulu` when a standalone file's fork cannot be
-inferred, or `--no-spy` to measure only the consensus-spec codecs.
+`--fork electra`, `--fork fulu`, or `--fork gloas` when a standalone file's fork
+cannot be inferred, or `--no-spy` to measure only the consensus-spec codecs.
+Use an explicit fork for testnets: slot-based inference uses mainnet's schedule.
+Incomplete runs exit with a failure status after reporting skipped blocks.
+
+For comparisons between installed native builds, use
+`benchmarks/benchmark_native.py` with each environment's Python in isolated
+mode (`-I`). It reads paired JSON/SSZ block manifests, checks file hashes and
+round trips before timing, and records every block's decode, encode, fresh
+hash, and cached hash timings. See the
+[native cleanup comparison](benchmarks/results/native-cleanup-2026-10-13.md)
+for the corpus format, commands, and results.
 
 ### Performance
 

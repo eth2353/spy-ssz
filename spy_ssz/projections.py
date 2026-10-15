@@ -5,7 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, fields
 from typing import Any
 
-from .consensus_types import get_type_definition, get_type_shape
+from .consensus_types import get_type_shape
+from ._projection import field_types
 from ._repr import format_container
 from ._schema_enums import Fork
 
@@ -58,18 +59,24 @@ def _hex_bytes(value: Any) -> bytes:
 
 
 @dataclass(frozen=True, slots=True, repr=False)
-class AggregateAndProof(Projection):
+class AggregateAndProofElectra(Projection):
     aggregator_index: int
-    aggregate: Attestation
+    aggregate: AttestationElectra
     selection_proof: bytes
 
 
 @dataclass(frozen=True, slots=True, repr=False)
-class Attestation(Projection):
-    aggregation_bits: bytes
-    data: AttestationData
-    signature: bytes
-    committee_bits: bytes
+class AggregateAndProofFulu(Projection):
+    aggregator_index: int
+    aggregate: AttestationFulu
+    selection_proof: bytes
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class AggregateAndProofGloas(Projection):
+    aggregator_index: int
+    aggregate: AttestationGloas
+    selection_proof: bytes
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -82,9 +89,45 @@ class AttestationData(Projection):
 
 
 @dataclass(frozen=True, slots=True, repr=False)
-class AttesterSlashing(Projection):
-    attestation_1: IndexedAttestation
-    attestation_2: IndexedAttestation
+class AttestationElectra(Projection):
+    aggregation_bits: bytes
+    data: AttestationData
+    signature: bytes
+    committee_bits: bytes
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class AttestationFulu(Projection):
+    aggregation_bits: bytes
+    data: AttestationData
+    signature: bytes
+    committee_bits: bytes
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class AttestationGloas(Projection):
+    aggregation_bits: bytes
+    data: AttestationData
+    signature: bytes
+    committee_bits: bytes
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class AttesterSlashingElectra(Projection):
+    attestation_1: IndexedAttestationElectra
+    attestation_2: IndexedAttestationElectra
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class AttesterSlashingFulu(Projection):
+    attestation_1: IndexedAttestationFulu
+    attestation_2: IndexedAttestationFulu
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class AttesterSlashingGloas(Projection):
+    attestation_1: IndexedAttestationGloas
+    attestation_2: IndexedAttestationGloas
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -95,29 +138,81 @@ class BLSToExecutionChange(Projection):
 
 
 @dataclass(frozen=True, slots=True, repr=False)
-class BeaconBlock(Projection):
-    slot: int
-    proposer_index: int
-    parent_root: bytes
-    state_root: bytes
-    body: BeaconBlockBody
-
-
-@dataclass(frozen=True, slots=True, repr=False)
-class BeaconBlockBody(Projection):
+class BeaconBlockBodyElectra(Projection):
     randao_reveal: bytes
     eth1_data: Eth1Data
     graffiti: bytes
     proposer_slashings: tuple[ProposerSlashing, ...]
-    attester_slashings: tuple[AttesterSlashing, ...]
-    attestations: tuple[Attestation, ...]
+    attester_slashings: tuple[AttesterSlashingElectra, ...]
+    attestations: tuple[AttestationElectra, ...]
     deposits: tuple[Deposit, ...]
     voluntary_exits: tuple[SignedVoluntaryExit, ...]
     sync_aggregate: SyncAggregate
-    execution_payload: ExecutionPayload
+    execution_payload: ExecutionPayloadElectra
     bls_to_execution_changes: tuple[SignedBLSToExecutionChange, ...]
     blob_kzg_commitments: tuple[bytes, ...]
-    execution_requests: ExecutionRequests
+    execution_requests: ExecutionRequestsElectra
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class BeaconBlockBodyFulu(Projection):
+    randao_reveal: bytes
+    eth1_data: Eth1Data
+    graffiti: bytes
+    proposer_slashings: tuple[ProposerSlashing, ...]
+    attester_slashings: tuple[AttesterSlashingFulu, ...]
+    attestations: tuple[AttestationFulu, ...]
+    deposits: tuple[Deposit, ...]
+    voluntary_exits: tuple[SignedVoluntaryExit, ...]
+    sync_aggregate: SyncAggregate
+    execution_payload: ExecutionPayloadFulu
+    bls_to_execution_changes: tuple[SignedBLSToExecutionChange, ...]
+    blob_kzg_commitments: tuple[bytes, ...]
+    execution_requests: ExecutionRequestsFulu
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class BeaconBlockBodyGloas(Projection):
+    randao_reveal: bytes
+    eth1_data: Eth1Data
+    graffiti: bytes
+    proposer_slashings: tuple[ProposerSlashing, ...]
+    attester_slashings: tuple[AttesterSlashingGloas, ...]
+    attestations: tuple[AttestationGloas, ...]
+    deposits: tuple[Deposit, ...]
+    voluntary_exits: tuple[SignedVoluntaryExit, ...]
+    sync_aggregate: SyncAggregate
+    bls_to_execution_changes: tuple[SignedBLSToExecutionChange, ...]
+    signed_execution_payload_bid: SignedExecutionPayloadBid
+    payload_attestations: tuple[PayloadAttestation, ...]
+    parent_execution_requests: ExecutionRequestsGloas
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class BeaconBlockElectra(Projection):
+    slot: int
+    proposer_index: int
+    parent_root: bytes
+    state_root: bytes
+    body: BeaconBlockBodyElectra
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class BeaconBlockFulu(Projection):
+    slot: int
+    proposer_index: int
+    parent_root: bytes
+    state_root: bytes
+    body: BeaconBlockBodyFulu
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class BeaconBlockGloas(Projection):
+    slot: int
+    proposer_index: int
+    parent_root: bytes
+    state_root: bytes
+    body: BeaconBlockBodyGloas
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -127,6 +222,20 @@ class BeaconBlockHeader(Projection):
     parent_root: bytes
     state_root: bytes
     body_root: bytes
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class BuilderDepositRequest(Projection):
+    pubkey: bytes
+    withdrawal_credentials: bytes
+    amount: int
+    signature: bytes
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class BuilderExitRequest(Projection):
+    source_address: bytes
+    pubkey: bytes
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -180,7 +289,23 @@ class Eth1Data(Projection):
 
 
 @dataclass(frozen=True, slots=True, repr=False)
-class ExecutionPayload(Projection):
+class ExecutionPayloadBid(Projection):
+    parent_block_hash: bytes
+    parent_block_root: bytes
+    block_hash: bytes
+    prev_randao: bytes
+    fee_recipient: bytes
+    gas_limit: int
+    builder_index: int
+    slot: int
+    value: int
+    execution_payment: int
+    blob_kzg_commitments: tuple[bytes, ...]
+    execution_requests_root: bytes
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class ExecutionPayloadElectra(Projection):
     parent_hash: bytes
     fee_recipient: bytes
     state_root: bytes
@@ -201,17 +326,131 @@ class ExecutionPayload(Projection):
 
 
 @dataclass(frozen=True, slots=True, repr=False)
-class ExecutionRequests(Projection):
+class ExecutionPayloadEnvelope(Projection):
+    payload: ExecutionPayloadGloas
+    execution_requests: ExecutionRequestsGloas
+    builder_index: int
+    beacon_block_root: bytes
+    parent_beacon_block_root: bytes
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class ExecutionPayloadFulu(Projection):
+    parent_hash: bytes
+    fee_recipient: bytes
+    state_root: bytes
+    receipts_root: bytes
+    logs_bloom: bytes
+    prev_randao: bytes
+    block_number: int
+    gas_limit: int
+    gas_used: int
+    timestamp: int
+    extra_data: bytes
+    base_fee_per_gas: int
+    block_hash: bytes
+    transactions: tuple[bytes, ...]
+    withdrawals: tuple[Withdrawal, ...]
+    blob_gas_used: int
+    excess_blob_gas: int
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class ExecutionPayloadGloas(Projection):
+    parent_hash: bytes
+    fee_recipient: bytes
+    state_root: bytes
+    receipts_root: bytes
+    logs_bloom: bytes
+    prev_randao: bytes
+    block_number: int
+    gas_limit: int
+    gas_used: int
+    timestamp: int
+    extra_data: bytes
+    base_fee_per_gas: int
+    block_hash: bytes
+    transactions: tuple[bytes, ...]
+    withdrawals: tuple[Withdrawal, ...]
+    blob_gas_used: int
+    excess_blob_gas: int
+    block_access_list: bytes
+    slot_number: int
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class ExecutionRequestsElectra(Projection):
     deposits: tuple[DepositRequest, ...]
     withdrawals: tuple[WithdrawalRequest, ...]
     consolidations: tuple[ConsolidationRequest, ...]
 
 
 @dataclass(frozen=True, slots=True, repr=False)
-class IndexedAttestation(Projection):
+class ExecutionRequestsFulu(Projection):
+    deposits: tuple[DepositRequest, ...]
+    withdrawals: tuple[WithdrawalRequest, ...]
+    consolidations: tuple[ConsolidationRequest, ...]
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class ExecutionRequestsGloas(Projection):
+    deposits: tuple[DepositRequest, ...]
+    withdrawals: tuple[WithdrawalRequest, ...]
+    consolidations: tuple[ConsolidationRequest, ...]
+    builder_deposits: tuple[BuilderDepositRequest, ...]
+    builder_exits: tuple[BuilderExitRequest, ...]
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class IndexedAttestationElectra(Projection):
     attesting_indices: tuple[int, ...]
     data: AttestationData
     signature: bytes
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class IndexedAttestationFulu(Projection):
+    attesting_indices: tuple[int, ...]
+    data: AttestationData
+    signature: bytes
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class IndexedAttestationGloas(Projection):
+    attesting_indices: tuple[int, ...]
+    data: AttestationData
+    signature: bytes
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class PayloadAttestation(Projection):
+    aggregation_bits: bytes
+    data: PayloadAttestationData
+    signature: bytes
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class PayloadAttestationData(Projection):
+    beacon_block_root: bytes
+    slot: int
+    payload_present: bool
+    blob_data_available: bool
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class PayloadAttestationMessage(Projection):
+    validator_index: int
+    data: PayloadAttestationData
+    signature: bytes
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class ProposerPreferences(Projection):
+    dependent_root: bytes
+    proposal_slot: int
+    validator_index: int
+    fee_recipient: bytes
+    target_gas_limit: int
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -221,8 +460,20 @@ class ProposerSlashing(Projection):
 
 
 @dataclass(frozen=True, slots=True, repr=False)
-class SignedAggregateAndProof(Projection):
-    message: AggregateAndProof
+class SignedAggregateAndProofElectra(Projection):
+    message: AggregateAndProofElectra
+    signature: bytes
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class SignedAggregateAndProofFulu(Projection):
+    message: AggregateAndProofFulu
+    signature: bytes
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class SignedAggregateAndProofGloas(Projection):
+    message: AggregateAndProofGloas
     signature: bytes
 
 
@@ -233,8 +484,20 @@ class SignedBLSToExecutionChange(Projection):
 
 
 @dataclass(frozen=True, slots=True, repr=False)
-class SignedBeaconBlock(Projection):
-    message: BeaconBlock
+class SignedBeaconBlockElectra(Projection):
+    message: BeaconBlockElectra
+    signature: bytes
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class SignedBeaconBlockFulu(Projection):
+    message: BeaconBlockFulu
+    signature: bytes
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class SignedBeaconBlockGloas(Projection):
+    message: BeaconBlockGloas
     signature: bytes
 
 
@@ -247,6 +510,24 @@ class SignedBeaconBlockHeader(Projection):
 @dataclass(frozen=True, slots=True, repr=False)
 class SignedContributionAndProof(Projection):
     message: ContributionAndProof
+    signature: bytes
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class SignedExecutionPayloadBid(Projection):
+    message: ExecutionPayloadBid
+    signature: bytes
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class SignedExecutionPayloadEnvelope(Projection):
+    message: ExecutionPayloadEnvelope
+    signature: bytes
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class SignedProposerPreferences(Projection):
+    message: ProposerPreferences
     signature: bytes
 
 
@@ -331,16 +612,16 @@ _PROJECTION_TYPES = {
     (Fork.ELECTRA, 65): BLSToExecutionChange,
     (Fork.ELECTRA, 66): SignedBLSToExecutionChange,
     (Fork.ELECTRA, 72): Withdrawal,
-    (Fork.ELECTRA, 73): ExecutionPayload,
-    (Fork.ELECTRA, 110): Attestation,
-    (Fork.ELECTRA, 112): AggregateAndProof,
-    (Fork.ELECTRA, 113): SignedAggregateAndProof,
-    (Fork.ELECTRA, 115): IndexedAttestation,
-    (Fork.ELECTRA, 116): AttesterSlashing,
-    (Fork.ELECTRA, 120): ExecutionRequests,
-    (Fork.ELECTRA, 121): BeaconBlockBody,
-    (Fork.ELECTRA, 129): BeaconBlock,
-    (Fork.ELECTRA, 130): SignedBeaconBlock,
+    (Fork.ELECTRA, 73): ExecutionPayloadElectra,
+    (Fork.ELECTRA, 110): AttestationElectra,
+    (Fork.ELECTRA, 112): AggregateAndProofElectra,
+    (Fork.ELECTRA, 113): SignedAggregateAndProofElectra,
+    (Fork.ELECTRA, 115): IndexedAttestationElectra,
+    (Fork.ELECTRA, 116): AttesterSlashingElectra,
+    (Fork.ELECTRA, 120): ExecutionRequestsElectra,
+    (Fork.ELECTRA, 121): BeaconBlockBodyElectra,
+    (Fork.ELECTRA, 129): BeaconBlockElectra,
+    (Fork.ELECTRA, 130): SignedBeaconBlockElectra,
     (Fork.FULU, 12): SyncAggregate,
     (Fork.FULU, 25): VoluntaryExit,
     (Fork.FULU, 26): SignedVoluntaryExit,
@@ -363,16 +644,342 @@ _PROJECTION_TYPES = {
     (Fork.FULU, 69): BLSToExecutionChange,
     (Fork.FULU, 70): SignedBLSToExecutionChange,
     (Fork.FULU, 76): Withdrawal,
-    (Fork.FULU, 77): ExecutionPayload,
-    (Fork.FULU, 115): Attestation,
-    (Fork.FULU, 117): AggregateAndProof,
-    (Fork.FULU, 118): SignedAggregateAndProof,
-    (Fork.FULU, 120): IndexedAttestation,
-    (Fork.FULU, 121): AttesterSlashing,
-    (Fork.FULU, 125): ExecutionRequests,
-    (Fork.FULU, 126): BeaconBlockBody,
-    (Fork.FULU, 134): BeaconBlock,
-    (Fork.FULU, 135): SignedBeaconBlock,
+    (Fork.FULU, 77): ExecutionPayloadFulu,
+    (Fork.FULU, 115): AttestationFulu,
+    (Fork.FULU, 117): AggregateAndProofFulu,
+    (Fork.FULU, 118): SignedAggregateAndProofFulu,
+    (Fork.FULU, 120): IndexedAttestationFulu,
+    (Fork.FULU, 121): AttesterSlashingFulu,
+    (Fork.FULU, 125): ExecutionRequestsFulu,
+    (Fork.FULU, 126): BeaconBlockBodyFulu,
+    (Fork.FULU, 134): BeaconBlockFulu,
+    (Fork.FULU, 135): SignedBeaconBlockFulu,
+    (Fork.GLOAS, 14): SyncAggregate,
+    (Fork.GLOAS, 27): VoluntaryExit,
+    (Fork.GLOAS, 28): SignedVoluntaryExit,
+    (Fork.GLOAS, 30): PayloadAttestationData,
+    (Fork.GLOAS, 34): PayloadAttestationMessage,
+    (Fork.GLOAS, 35): PayloadAttestation,
+    (Fork.GLOAS, 39): SyncCommitteeContribution,
+    (Fork.GLOAS, 41): ContributionAndProof,
+    (Fork.GLOAS, 42): SignedContributionAndProof,
+    (Fork.GLOAS, 43): SyncCommitteeMessage,
+    (Fork.GLOAS, 46): BeaconBlockHeader,
+    (Fork.GLOAS, 47): SignedBeaconBlockHeader,
+    (Fork.GLOAS, 48): ProposerSlashing,
+    (Fork.GLOAS, 49): Eth1Data,
+    (Fork.GLOAS, 50): Checkpoint,
+    (Fork.GLOAS, 51): AttestationData,
+    (Fork.GLOAS, 52): SingleAttestation,
+    (Fork.GLOAS, 56): BuilderDepositRequest,
+    (Fork.GLOAS, 58): DepositRequest,
+    (Fork.GLOAS, 62): DepositData,
+    (Fork.GLOAS, 63): Deposit,
+    (Fork.GLOAS, 76): ProposerPreferences,
+    (Fork.GLOAS, 77): SignedProposerPreferences,
+    (Fork.GLOAS, 78): BuilderExitRequest,
+    (Fork.GLOAS, 83): ConsolidationRequest,
+    (Fork.GLOAS, 84): WithdrawalRequest,
+    (Fork.GLOAS, 85): BLSToExecutionChange,
+    (Fork.GLOAS, 86): SignedBLSToExecutionChange,
+    (Fork.GLOAS, 89): Withdrawal,
+    (Fork.GLOAS, 99): ExecutionPayloadBid,
+    (Fork.GLOAS, 126): SignedExecutionPayloadBid,
+    (Fork.GLOAS, 130): AttestationGloas,
+    (Fork.GLOAS, 132): AggregateAndProofGloas,
+    (Fork.GLOAS, 133): SignedAggregateAndProofGloas,
+    (Fork.GLOAS, 135): IndexedAttestationGloas,
+    (Fork.GLOAS, 136): AttesterSlashingGloas,
+    (Fork.GLOAS, 158): ExecutionRequestsGloas,
+    (Fork.GLOAS, 159): BeaconBlockBodyGloas,
+    (Fork.GLOAS, 167): BeaconBlockGloas,
+    (Fork.GLOAS, 168): SignedBeaconBlockGloas,
+    (Fork.GLOAS, 170): ExecutionPayloadGloas,
+    (Fork.GLOAS, 175): ExecutionPayloadEnvelope,
+    (Fork.GLOAS, 176): SignedExecutionPayloadEnvelope,
+}
+
+
+_FIELD_TYPES = {
+    (Fork.ELECTRA, "SignedBeaconBlock"): {
+        "message": (0, 129),
+        "signature": (1, 7),
+    },
+    (Fork.ELECTRA, "Attestation"): {
+        "aggregation_bits": (0, 109),
+        "data": (1, 38),
+        "signature": (2, 7),
+        "committee_bits": (3, 111),
+    },
+    (Fork.ELECTRA, "AttestationData"): {
+        "slot": (0, 0),
+        "index": (1, 18),
+        "beacon_block_root": (2, 24),
+        "source": (3, 37),
+        "target": (4, 37),
+    },
+    (Fork.ELECTRA, "AggregateAndProof"): {
+        "aggregator_index": (0, 19),
+        "aggregate": (1, 110),
+        "selection_proof": (2, 7),
+    },
+    (Fork.ELECTRA, "SyncCommitteeContribution"): {
+        "slot": (0, 0),
+        "beacon_block_root": (1, 24),
+        "subcommittee_index": (2, 15),
+        "aggregation_bits": (3, 27),
+        "signature": (4, 7),
+    },
+    (Fork.ELECTRA, "ContributionAndProof"): {
+        "aggregator_index": (0, 19),
+        "contribution": (1, 26),
+        "selection_proof": (2, 7),
+    },
+    (Fork.ELECTRA, "SingleAttestation"): {
+        "committee_index": (0, 18),
+        "attester_index": (1, 19),
+        "data": (2, 38),
+        "signature": (3, 7),
+    },
+    (Fork.ELECTRA, "SyncCommitteeMessage"): {
+        "slot": (0, 0),
+        "beacon_block_root": (1, 24),
+        "validator_index": (2, 19),
+        "signature": (3, 7),
+    },
+    (Fork.ELECTRA, "SignedAggregateAndProof"): {
+        "message": (0, 112),
+        "signature": (1, 7),
+    },
+    (Fork.ELECTRA, "SignedContributionAndProof"): {
+        "message": (0, 28),
+        "signature": (1, 7),
+    },
+    (Fork.ELECTRA, "IndexedAttestation"): {
+        "attesting_indices": (0, 114),
+        "data": (1, 38),
+        "signature": (2, 7),
+    },
+    (Fork.ELECTRA, "AttesterSlashing"): {
+        "attestation_1": (0, 115),
+        "attestation_2": (1, 115),
+    },
+    (Fork.ELECTRA, "BeaconBlockHeader"): {
+        "slot": (0, 0),
+        "proposer_index": (1, 19),
+        "parent_root": (2, 24),
+        "state_root": (3, 24),
+        "body_root": (4, 24),
+    },
+    (Fork.ELECTRA, "SignedBeaconBlockHeader"): {
+        "message": (0, 33),
+        "signature": (1, 7),
+    },
+    (Fork.ELECTRA, "ProposerSlashing"): {
+        "signed_header_1": (0, 34),
+        "signed_header_2": (1, 34),
+    },
+    (Fork.FULU, "SignedBeaconBlock"): {
+        "message": (0, 134),
+        "signature": (1, 7),
+    },
+    (Fork.FULU, "Attestation"): {
+        "aggregation_bits": (0, 114),
+        "data": (1, 42),
+        "signature": (2, 7),
+        "committee_bits": (3, 116),
+    },
+    (Fork.FULU, "AttestationData"): {
+        "slot": (0, 0),
+        "index": (1, 21),
+        "beacon_block_root": (2, 27),
+        "source": (3, 41),
+        "target": (4, 41),
+    },
+    (Fork.FULU, "AggregateAndProof"): {
+        "aggregator_index": (0, 22),
+        "aggregate": (1, 115),
+        "selection_proof": (2, 7),
+    },
+    (Fork.FULU, "SyncCommitteeContribution"): {
+        "slot": (0, 0),
+        "beacon_block_root": (1, 27),
+        "subcommittee_index": (2, 15),
+        "aggregation_bits": (3, 31),
+        "signature": (4, 7),
+    },
+    (Fork.FULU, "ContributionAndProof"): {
+        "aggregator_index": (0, 22),
+        "contribution": (1, 30),
+        "selection_proof": (2, 7),
+    },
+    (Fork.FULU, "SingleAttestation"): {
+        "committee_index": (0, 21),
+        "attester_index": (1, 22),
+        "data": (2, 42),
+        "signature": (3, 7),
+    },
+    (Fork.FULU, "SyncCommitteeMessage"): {
+        "slot": (0, 0),
+        "beacon_block_root": (1, 27),
+        "validator_index": (2, 22),
+        "signature": (3, 7),
+    },
+    (Fork.FULU, "SignedAggregateAndProof"): {
+        "message": (0, 117),
+        "signature": (1, 7),
+    },
+    (Fork.FULU, "SignedContributionAndProof"): {
+        "message": (0, 32),
+        "signature": (1, 7),
+    },
+    (Fork.FULU, "IndexedAttestation"): {
+        "attesting_indices": (0, 119),
+        "data": (1, 42),
+        "signature": (2, 7),
+    },
+    (Fork.FULU, "AttesterSlashing"): {
+        "attestation_1": (0, 120),
+        "attestation_2": (1, 120),
+    },
+    (Fork.FULU, "BeaconBlockHeader"): {
+        "slot": (0, 0),
+        "proposer_index": (1, 22),
+        "parent_root": (2, 27),
+        "state_root": (3, 27),
+        "body_root": (4, 27),
+    },
+    (Fork.FULU, "SignedBeaconBlockHeader"): {
+        "message": (0, 37),
+        "signature": (1, 7),
+    },
+    (Fork.FULU, "ProposerSlashing"): {
+        "signed_header_1": (0, 38),
+        "signed_header_2": (1, 38),
+    },
+    (Fork.GLOAS, "SignedBeaconBlock"): {
+        "message": (0, 167),
+        "signature": (1, 7),
+    },
+    (Fork.GLOAS, "BeaconBlock"): {
+        "slot": (0, 0),
+        "proposer_index": (1, 24),
+        "parent_root": (2, 29),
+        "state_root": (3, 29),
+        "body": (4, 159),
+    },
+    (Fork.GLOAS, "Attestation"): {
+        "aggregation_bits": (0, 129),
+        "data": (1, 51),
+        "signature": (2, 7),
+        "committee_bits": (3, 131),
+    },
+    (Fork.GLOAS, "AttestationData"): {
+        "slot": (0, 0),
+        "index": (1, 23),
+        "beacon_block_root": (2, 29),
+        "source": (3, 50),
+        "target": (4, 50),
+    },
+    (Fork.GLOAS, "AggregateAndProof"): {
+        "aggregator_index": (0, 24),
+        "aggregate": (1, 130),
+        "selection_proof": (2, 7),
+    },
+    (Fork.GLOAS, "SyncCommitteeContribution"): {
+        "slot": (0, 0),
+        "beacon_block_root": (1, 29),
+        "subcommittee_index": (2, 17),
+        "aggregation_bits": (3, 40),
+        "signature": (4, 7),
+    },
+    (Fork.GLOAS, "ContributionAndProof"): {
+        "aggregator_index": (0, 24),
+        "contribution": (1, 39),
+        "selection_proof": (2, 7),
+    },
+    (Fork.GLOAS, "SingleAttestation"): {
+        "committee_index": (0, 23),
+        "attester_index": (1, 24),
+        "data": (2, 51),
+        "signature": (3, 7),
+    },
+    (Fork.GLOAS, "SyncCommitteeMessage"): {
+        "slot": (0, 0),
+        "beacon_block_root": (1, 29),
+        "validator_index": (2, 24),
+        "signature": (3, 7),
+    },
+    (Fork.GLOAS, "SignedAggregateAndProof"): {
+        "message": (0, 132),
+        "signature": (1, 7),
+    },
+    (Fork.GLOAS, "SignedContributionAndProof"): {
+        "message": (0, 41),
+        "signature": (1, 7),
+    },
+    (Fork.GLOAS, "IndexedAttestation"): {
+        "attesting_indices": (0, 134),
+        "data": (1, 51),
+        "signature": (2, 7),
+    },
+    (Fork.GLOAS, "AttesterSlashing"): {
+        "attestation_1": (0, 135),
+        "attestation_2": (1, 135),
+    },
+    (Fork.GLOAS, "BeaconBlockHeader"): {
+        "slot": (0, 0),
+        "proposer_index": (1, 24),
+        "parent_root": (2, 29),
+        "state_root": (3, 29),
+        "body_root": (4, 29),
+    },
+    (Fork.GLOAS, "SignedBeaconBlockHeader"): {
+        "message": (0, 46),
+        "signature": (1, 7),
+    },
+    (Fork.GLOAS, "ProposerSlashing"): {
+        "signed_header_1": (0, 47),
+        "signed_header_2": (1, 47),
+    },
+    (Fork.GLOAS, "PayloadAttestationData"): {
+        "beacon_block_root": (0, 29),
+        "slot": (1, 0),
+        "payload_present": (2, 31),
+        "blob_data_available": (3, 31),
+    },
+    (Fork.GLOAS, "PayloadAttestation"): {
+        "aggregation_bits": (0, 36),
+        "data": (1, 30),
+        "signature": (2, 7),
+    },
+    (Fork.GLOAS, "PayloadAttestationMessage"): {
+        "validator_index": (0, 24),
+        "data": (1, 30),
+        "signature": (2, 7),
+    },
+    (Fork.GLOAS, "ProposerPreferences"): {
+        "dependent_root": (0, 29),
+        "proposal_slot": (1, 0),
+        "validator_index": (2, 24),
+        "fee_recipient": (3, 75),
+        "target_gas_limit": (4, 17),
+    },
+    (Fork.GLOAS, "SignedProposerPreferences"): {
+        "message": (0, 76),
+        "signature": (1, 7),
+    },
+    (Fork.GLOAS, "ExecutionPayloadEnvelope"): {
+        "payload": (0, 170),
+        "execution_requests": (1, 158),
+        "builder_index": (2, 11),
+        "beacon_block_root": (3, 29),
+        "parent_beacon_block_root": (4, 29),
+    },
+    (Fork.GLOAS, "SignedExecutionPayloadEnvelope"): {
+        "message": (0, 175),
+        "signature": (1, 7),
+    },
 }
 
 
@@ -399,6 +1006,4 @@ def project_value(fork: Fork, type_id: int, value: Any) -> Any:
 
 
 def project_field(fork: Fork, consensus_type: str, name: str, value: Any) -> Any:
-    definition = get_type_definition(fork, consensus_type)
-    fields_by_name = dict(definition.descriptor["fields"])
-    return project_value(fork, fields_by_name[name], value)
+    return project_value(fork, field_types(fork, consensus_type)[name][1], value)

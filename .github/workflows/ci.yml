@@ -35,7 +35,7 @@ jobs:
           - arch: amd64
             runner: ubuntu-latest
           - arch: arm64
-            runner: ubuntu-latest
+            runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
 
     steps:
@@ -51,11 +51,21 @@ jobs:
       - name: Install project
         run: uv sync --locked --dev
 
+      - name: Verify committed generated sources
+        run: git diff --exit-code -- spy_ssz src
+
       - name: Run tests
         run: uv run python -m pytest -q
 
-      - name: Build wheel
-        run: uv build --wheel
+      - name: Build source distribution and wheel
+        run: uv build
+
+      - name: Check installed wheel in isolation
+        shell: bash
+        run: |
+          uv venv "$RUNNER_TEMP/spy-ssz-wheel"
+          uv pip install --python "$RUNNER_TEMP/spy-ssz-wheel/bin/python" dist/*.whl
+          "$RUNNER_TEMP/spy-ssz-wheel/bin/python" -I tools/check_installed_package.py
 
   sanitize:
     name: ASan and UBSan

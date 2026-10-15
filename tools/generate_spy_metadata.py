@@ -23,6 +23,7 @@ PACKAGE_STUB = ROOT / "spy_ssz" / "__init__.pyi"
 TYPE_STUBS = {
     "electra": ROOT / "spy_ssz" / "electra" / "__init__.pyi",
     "fulu": ROOT / "spy_ssz" / "fulu" / "__init__.pyi",
+    "gloas": ROOT / "spy_ssz" / "gloas" / "__init__.pyi",
     "signing": ROOT / "spy_ssz" / "signing.pyi",
 }
 CONSENSUS_TYPES = ROOT / "spy_ssz" / "consensus_types.json"
@@ -138,7 +139,7 @@ def _projection_model(
                 key = (fork, type_id)
                 reachable[key] = shape
                 names[key] = reverse_names.get(
-                    type_id, f"{fork.title()}Type{type_id}Projection"
+                    type_id, f"Type{type_id}Projection{fork.title()}"
                 )
 
     grouped: dict[str, list[tuple[str, int]]] = {}
@@ -153,7 +154,7 @@ def _projection_model(
         if len(fingerprints) == 1:
             class_names.update((key, name) for key in keys)
         else:
-            class_names.update((key, f"{key[0].title()}{name}") for key in keys)
+            class_names.update((key, f"{name}{key[0].title()}") for key in keys)
     return class_names, reachable
 
 
@@ -242,7 +243,8 @@ def render_projections(
         "from dataclasses import dataclass, fields",
         "from typing import Any",
         "",
-        "from .consensus_types import get_type_definition, get_type_shape",
+        "from .consensus_types import get_type_shape",
+        "from ._projection import field_types",
         "from ._repr import format_container",
         "from ._schema_enums import Fork",
         "",
@@ -267,6 +269,9 @@ def render_projections(
         "from typing import Any",
         "",
         "from ._schema_enums import Fork",
+        "",
+        "_PROJECTION_TYPES: dict[tuple[Fork, int], type[Any]]",
+        "_FIELD_TYPES: dict[tuple[Fork, str], dict[str, tuple[int, int]]]",
         "",
         "class Projection:",
         "    def __repr__(self) -> str: ...",
@@ -323,6 +328,18 @@ def render_projections(
     runtime.extend(["", "", "_PROJECTION_TYPES = {"])
     for (fork, type_id), name in sorted(class_names.items()):
         runtime.append(f"    (Fork.{fork.upper()}, {type_id}): {name},")
+    runtime.extend(["}", "", "", "_FIELD_TYPES = {"])
+    for schema in schemas:
+        consensus_type = schema.get("consensus_type")
+        if consensus_type is None:
+            continue
+        fork = schema["fork"].lower()
+        fork_data = catalog["forks"][fork]
+        shape = fork_data["types"][fork_data["names"][consensus_type]]
+        runtime.append(f"    (Fork.{fork.upper()}, {json.dumps(consensus_type)}): {{")
+        for index, (name, type_id) in enumerate(shape["fields"]):
+            runtime.append(f"        {json.dumps(name)}: ({index}, {type_id}),")
+        runtime.append("    },")
     runtime.extend(
         [
             "}",
@@ -351,9 +368,7 @@ def render_projections(
             "",
             "",
             "def project_field(fork: Fork, consensus_type: str, name: str, value: Any) -> Any:",
-            "    definition = get_type_definition(fork, consensus_type)",
-            '    fields_by_name = dict(definition.descriptor["fields"])',
-            "    return project_value(fork, fields_by_name[name], value)",
+            "    return project_value(fork, field_types(fork, consensus_type)[name][1], value)",
         ]
     )
     return "\n".join(runtime).rstrip() + "\n", "\n".join(stub).rstrip() + "\n"
@@ -632,6 +647,53 @@ def _render_fulu_stub(
     return regular.rstrip() + "\n\n" + container_classes
 
 
+def _render_gloas_stub(
+    schemas: list[dict[str, Any]],
+    catalog: dict[str, Any],
+    class_names: dict[tuple[str, int], str],
+) -> str:
+    rendered = _render_dynamic_stub(schemas, catalog, class_names, import_prefix="..")
+    rendered = rendered.replace(
+        "class BeaconBlockGloas(SszObject):",
+        "class BeaconBlockGloas(SszObject):\n"
+        "    def header_dict(self) -> dict[str, str]: ...\n"
+        "    def block_hash_tree_root(self) -> str: ...\n"
+        "    def sign(self, signature: str | bytes) -> SignedBeaconBlockGloas: ...\n"
+        "    @classmethod\n"
+        "    def signed_type(cls) -> type[SignedBeaconBlockGloas]: ...",
+    )
+    for preset in ("Minimal", "Gnosis"):
+        rendered = rendered.replace(
+            f"class BeaconBlockGloas{preset}(BeaconBlockGloas): ...",
+            f"class BeaconBlockGloas{preset}(BeaconBlockGloas):\n"
+            f"    def sign(self, signature: str | bytes) -> SignedBeaconBlockGloas{preset}: ...\n"
+            "    @classmethod\n"
+            f"    def signed_type(cls) -> type[SignedBeaconBlockGloas{preset}]: ..."
+            + ("\n" if preset == "Minimal" else ""),
+        )
+    rendered = rendered.replace(
+        "class ExecutionPayloadEnvelopeGloas(SszObject):",
+        "class ExecutionPayloadEnvelopeGloas(SszObject):\n"
+        "    def sign(self, signature: str | bytes) -> SignedExecutionPayloadEnvelopeGloas: ...",
+    )
+    for preset in ("Minimal", "Gnosis"):
+        separator = "\n" if preset == "Minimal" else ""
+        rendered = rendered.replace(
+            f"class ExecutionPayloadEnvelopeGloas{preset}(ExecutionPayloadEnvelopeGloas): ...",
+            f"class ExecutionPayloadEnvelopeGloas{preset}(ExecutionPayloadEnvelopeGloas):\n"
+            "    def sign(\n"
+            "        self, signature: str | bytes\n"
+            f"    ) -> SignedExecutionPayloadEnvelopeGloas{preset}: ...{separator}",
+        )
+        rendered = rendered.replace(
+            f"class SignedExecutionPayloadEnvelopeGloas{preset}(SignedExecutionPayloadEnvelopeGloas): ...",
+            f"class SignedExecutionPayloadEnvelopeGloas{preset}(\n"
+            "    SignedExecutionPayloadEnvelopeGloas\n"
+            "): ...",
+        )
+    return rendered
+
+
 def render_type_stubs() -> dict[Path, str]:
     source = _load(SCHEMAS)
     schemas = source["schemas"]
@@ -648,6 +710,9 @@ def render_type_stubs() -> dict[Path, str]:
             by_module["electra"], catalog, class_names
         ),
         TYPE_STUBS["fulu"]: _render_fulu_stub(by_module["fulu"], catalog, class_names),
+        TYPE_STUBS["gloas"]: _render_gloas_stub(
+            by_module["gloas"], catalog, class_names
+        ),
         TYPE_STUBS["signing"]: _render_dynamic_stub(
             by_module["signing"], catalog, class_names
         ),
@@ -713,12 +778,14 @@ def generate(*, check: bool = False) -> None:
         for path, value in outputs.items()
         if not path.exists() or path.read_text() != value
     ]
-    if check and stale:
-        raise SystemExit(
-            "generated SPy metadata is stale: " + ", ".join(map(str, stale))
-        )
-    for path, value in outputs.items():
-        path.write_text(value)
+    if check:
+        if stale:
+            raise SystemExit(
+                "generated SPy metadata is stale: " + ", ".join(map(str, stale))
+            )
+        return
+    for path in stale:
+        path.write_text(outputs[path])
 
 
 def main() -> None:

@@ -19,6 +19,7 @@ from eth_consensus_specs.capella import mainnet as capella
 from eth_consensus_specs.deneb import mainnet as deneb
 from eth_consensus_specs.electra import mainnet as electra
 from eth_consensus_specs.fulu import mainnet as fulu
+from eth_consensus_specs.gloas import mainnet as gloas
 from eth_consensus_specs.phase0 import mainnet as phase0
 
 
@@ -31,6 +32,7 @@ SPECS = {
     "deneb": deneb,
     "electra": electra,
     "fulu": fulu,
+    "gloas": gloas,
 }
 FORK_SLOT_STARTS = (
     (411_392 * 32, "fulu"),
@@ -105,7 +107,7 @@ def source_key(root: Path, path: Path) -> str:
 def discover(root: Path, limit: int | None) -> list[Sources]:
     grouped: dict[str, Sources] = {}
     for path in sorted(root.rglob("*")):
-        if not path.is_file():
+        if not path.is_file() or path.name == "manifest.json":
             continue
         relative = path.relative_to(root)
         if any(part.startswith(".") for part in relative.parts):
@@ -296,19 +298,15 @@ def benchmark_case(
     )
     results.add(
         case,
-        "hash_tree_root",
+        "hash_tree_root_cached",
         len(case.ssz_bytes),
         elapsed_ns(case.value.hash_tree_root, warmup, rounds),
     )
 
-    if spy and case.fork in {"electra", "fulu"}:
-        try:
-            if case.fork == "electra":
-                from spy_ssz.electra import ElectraSignedBeaconBlock as SpyBlock
-            else:
-                from spy_ssz.fulu import FuluSignedBeaconBlock as SpyBlock
-        except (ImportError, AttributeError):
-            return
+    if spy and case.fork in {"electra", "fulu", "gloas"}:
+        from spy_ssz import Fork, ObjectKind, get_ssz_type
+
+        SpyBlock = get_ssz_type(Fork[case.fork.upper()], ObjectKind.SIGNED_BEACON_BLOCK)
 
         def spy_json_decode() -> None:
             block = SpyBlock.from_json(case.json_bytes)
@@ -331,46 +329,46 @@ def benchmark_case(
                 len(case.ssz_bytes),
                 elapsed_ns(spy_ssz_decode, warmup, rounds),
             )
-            if case.fork in {"electra", "fulu"}:
-                spy_block = SpyBlock.from_ssz(case.ssz_bytes)
+            spy_block = SpyBlock.from_ssz(case.ssz_bytes)
+            try:
+                spy_json_length = len(spy_block.to_json())
+                spy_ssz_length = len(spy_block.to_ssz())
+                results.add(
+                    case,
+                    "spy_json_encode",
+                    spy_json_length,
+                    elapsed_ns(spy_block.to_json, warmup, rounds),
+                )
+                results.add(
+                    case,
+                    "spy_ssz_encode",
+                    spy_ssz_length,
+                    elapsed_ns(spy_block.to_ssz, warmup, rounds),
+                )
+                root_blocks = [
+                    SpyBlock.from_ssz(case.ssz_bytes) for _ in range(warmup + rounds)
+                ]
+                root_blocks_iterator = iter(root_blocks)
                 try:
-                    spy_json_length = len(spy_block.to_json())
-                    spy_ssz_length = len(spy_block.to_ssz())
                     results.add(
                         case,
-                        "spy_json_encode",
-                        spy_json_length,
-                        elapsed_ns(spy_block.to_json, warmup, rounds),
-                    )
-                    results.add(
-                        case,
-                        "spy_ssz_encode",
+                        "spy_hash_tree_root",
                         spy_ssz_length,
-                        elapsed_ns(spy_block.to_ssz, warmup, rounds),
+                        elapsed_ns(
+                            lambda: next(root_blocks_iterator).hash_tree_root(),
+                            warmup,
+                            rounds,
+                        ),
                     )
-                    root_blocks = [
-                        SpyBlock.from_ssz(case.ssz_bytes)
-                        for _ in range(warmup + rounds)
-                    ]
-                    root_blocks_iterator = iter(root_blocks)
-                    try:
-                        results.add(
-                            case,
-                            "spy_hash_tree_root",
-                            spy_ssz_length,
-                            elapsed_ns(
-                                lambda: next(root_blocks_iterator).hash_tree_root(),
-                                warmup,
-                                rounds,
-                            ),
-                        )
-                    finally:
-                        for root_block in root_blocks:
-                            root_block.close()
                 finally:
-                    spy_block.close()
+                    for root_block in root_blocks:
+                        root_block.close()
+            finally:
+                spy_block.close()
         except (ValueError, NotImplementedError) as exc:
-            print(f"SPy metrics unavailable for {case.key}: {exc}", file=sys.stderr)
+            raise RuntimeError(
+                f"SPy metrics unavailable for {case.key}: {exc}"
+            ) from exc
 
 
 def percentile(values: list[float], fraction: float) -> float:
@@ -492,6 +490,7 @@ def main() -> None:
             print(f"  {key}: {reason}", file=sys.stderr)
         if len(skipped) > 20:
             print(f"  ... and {len(skipped) - 20} more", file=sys.stderr)
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
