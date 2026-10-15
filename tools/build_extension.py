@@ -360,6 +360,11 @@ def build(spy_root: Path) -> Path:
         include_dirs=[str(SOURCE), str(BUILD / "src"), str(libspy / "include")],
         library_dirs=[str(libspy / "build" / "native" / native_build_type)],
         libraries=["spy", "m", *(["dl"] if sys.platform.startswith("linux") else [])],
+        # Strict C99 hides glibc's POSIX time APIs used by spy/time.h.
+        # Define this for every translation unit, before any system header.
+        define_macros=(
+            [("_POSIX_C_SOURCE", "200809L")] if sys.platform.startswith("linux") else []
+        ),
         extra_compile_args=[
             "-fPIC",
             "-DSPY_GC_NONE",
