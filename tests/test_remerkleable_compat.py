@@ -7,6 +7,7 @@ conversion, SSZ encoding/decoding, tree hashing, equality, and read-only bitfiel
 access.  Upstream revision: 97d970e107214b59d146dffa7d837e7144b457e6.
 """
 
+from array import array
 from collections.abc import Callable
 from random import Random
 from typing import Any
@@ -74,9 +75,7 @@ def test_decode_limit_counts_bytes_in_typed_memoryviews(monkeypatch, method) -> 
 )
 @pytest.mark.parametrize("value", [10, [0, 1], "{}", None])
 def test_decode_rejects_non_buffer_inputs(method, value) -> None:
-    with pytest.raises(
-        TypeError, match="input must be bytes, bytearray, or memoryview"
-    ):
+    with pytest.raises(TypeError, match="input must support the buffer protocol"):
         method(value)
 
 
@@ -88,13 +87,44 @@ def test_json_limit_is_checked_before_unwrapping_envelopes(monkeypatch) -> None:
         PayloadAttestationDataGloas.from_json(b'{"data":{},"version":"gloas"}')
 
 
-@pytest.mark.parametrize("buffer_type", [bytearray, memoryview])
-def test_decode_owns_its_input_after_buffer_mutation(buffer_type) -> None:
+@pytest.mark.parametrize("encoding", ["json", "ssz"])
+@pytest.mark.parametrize("buffer_type", [bytearray, memoryview, msgspec.Raw])
+def test_decode_owns_its_input_after_buffer_mutation(buffer_type, encoding) -> None:
     expected = electra.AttestationData(slot=123).encode_bytes()
-    source = bytearray(expected)
-    with AttestationDataElectra.from_ssz(buffer_type(source)) as value:
+    with AttestationDataElectra.from_ssz(expected) as value:
+        source = bytearray(getattr(value, f"to_{encoding}")())
+    with getattr(AttestationDataElectra, f"from_{encoding}")(
+        buffer_type(source)
+    ) as value:
         source[:] = bytes(len(source))
         assert value.to_ssz() == expected
+
+
+@pytest.mark.parametrize("encoding", ["json", "ssz"])
+def test_decode_accepts_msgspec_raw(encoding) -> None:
+    expected = electra.AttestationData(slot=123).encode_bytes()
+    with AttestationDataElectra.from_ssz(expected) as value:
+        payload = getattr(value, f"to_{encoding}")()
+    # JSON Raw fields returned by msgspec are passed directly by API clients.
+    raw = (
+        msgspec.json.decode(b'{"data":' + payload + b"}", type=dict[str, msgspec.Raw])[
+            "data"
+        ]
+        if encoding == "json"
+        else msgspec.Raw(payload)
+    )
+    with getattr(AttestationDataElectra, f"from_{encoding}")(raw) as value:
+        assert value.to_ssz() == expected
+
+
+@pytest.mark.parametrize(
+    "method", [AttestationDataElectra.from_json, AttestationDataElectra.from_ssz]
+)
+@pytest.mark.parametrize("data", [msgspec.Raw(bytes(16)), array("I", [0] * 4)])
+def test_decode_limit_counts_buffer_bytes(monkeypatch, method, data) -> None:
+    monkeypatch.setattr("spy_ssz.ssz._MAX_NATIVE_INPUT_LENGTH", 10)
+    with pytest.raises(ValueError, match="input exceeds the 10-byte"):
+        method(data)
 
 
 def _root(byte: int) -> bytes:

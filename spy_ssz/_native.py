@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Buffer
 from enum import IntEnum
 from typing import Any
 
@@ -32,24 +33,25 @@ _MAX_NATIVE_SIZE = (1 << 31) - 1
 _MAX_NATIVE_INPUT_LENGTH = (_MAX_NATIVE_SIZE - 16 * 1024) // 3
 
 
-def input_bytes(
-    data: bytes | bytearray | memoryview, encoding: str, limit: int
-) -> bytes:
-    # len(memoryview) counts elements, which need not be single bytes.
+def input_bytes(data: Buffer, encoding: str, limit: int) -> bytes:
     # Validate before copying or parsing a Python-managed JSON envelope.
     if type(data) is bytes:
-        length = len(data)
-    elif isinstance(data, memoryview):
-        length = data.nbytes
-    elif isinstance(data, (bytes, bytearray)):
-        length = len(data)
-    else:
-        raise TypeError(f"{encoding} input must be bytes, bytearray, or memoryview")
-    if length > limit:
-        raise ValueError(
-            f"{encoding} input exceeds the {limit}-byte implementation limit"
-        )
-    return data if type(data) is bytes else bytes(data)
+        if len(data) > limit:
+            raise ValueError(
+                f"{encoding} input exceeds the {limit}-byte implementation limit"
+            )
+        return data
+    try:
+        view = memoryview(data)
+    except TypeError:
+        raise TypeError(f"{encoding} input must support the buffer protocol") from None
+    with view:
+        # nbytes counts bytes even for typed or multidimensional buffers.
+        if view.nbytes > limit:
+            raise ValueError(
+                f"{encoding} input exceeds the {limit}-byte implementation limit"
+            )
+        return view.tobytes()
 
 
 def decode_owned(source: bytes, decoder: Decoder, encoding: str) -> Any:

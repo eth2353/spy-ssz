@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Buffer, Iterable, Iterator, Mapping
 from contextlib import ExitStack, contextmanager
 from copy import deepcopy
 from importlib import import_module
@@ -178,17 +178,17 @@ class SszObject:
         raise AttributeError(name)
 
     @classmethod
-    def from_json(cls, data: bytes | bytearray | memoryview) -> Self:
+    def from_json(cls, data: Buffer) -> Self:
         return cls._decode(data, "JSON")
 
     @classmethod
-    def from_ssz(cls, data: bytes | bytearray | memoryview) -> Self:
+    def from_ssz(cls, data: Buffer) -> Self:
         return cls._decode(data, "SSZ")
 
     @classmethod
     def _decode(
         cls,
-        data: bytes | bytearray | memoryview,
+        data: Buffer,
         encoding: str,
     ) -> Self:
         if cls.expected_fork is None or cls.expected_kind is None:
@@ -370,7 +370,7 @@ class SszObject:
 
 
 def decode_json(
-    data: bytes | bytearray | memoryview,
+    data: Buffer,
     fork: Fork,
     kind: ObjectKind,
     preset: Preset = Preset.MAINNET,
@@ -379,7 +379,7 @@ def decode_json(
 
 
 def decode_ssz(
-    data: bytes | bytearray | memoryview,
+    data: Buffer,
     fork: Fork,
     kind: ObjectKind,
     preset: Preset = Preset.MAINNET,
